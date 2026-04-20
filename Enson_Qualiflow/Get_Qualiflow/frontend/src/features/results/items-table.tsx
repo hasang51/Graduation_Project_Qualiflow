@@ -1,0 +1,238 @@
+import {
+  type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type SortingState,
+} from '@tanstack/react-table'
+import { ChevronDown, ChevronUp, Search } from 'lucide-react'
+import { Fragment, useMemo, useState } from 'react'
+import { Badge } from '../../components/ui/badge'
+import { Card } from '../../components/ui/card'
+import { Input } from '../../components/ui/input'
+import { formatNullable, formatNumber, MISSING_VALUE } from '../../lib/format'
+import type { ExtractedItem } from '../../types/qualiflow'
+
+interface ItemsTableProps {
+  items: ExtractedItem[]
+}
+
+interface RowShape {
+  index: number
+  heatNo: string | null
+  itemId: string | null
+  grade: string | null
+  weightOrLength: string | null
+  yieldMpa: number | null
+  tensileMpa: number | null
+  elongation: number | null
+  isCompliant: boolean | null
+  deviations: string[]
+}
+
+function complianceText(value: boolean | null): { text: string; tone: 'success' | 'danger' | 'warning' } {
+  if (value === true) return { text: 'Compliant', tone: 'success' }
+  if (value === false) return { text: 'Non-compliant', tone: 'danger' }
+  return { text: 'Not validated', tone: 'warning' }
+}
+
+export function ItemsTable({ items }: ItemsTableProps) {
+  const [sorting, setSorting] = useState<SortingState>([])
+  const [globalFilter, setGlobalFilter] = useState('')
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
+
+  const rows = useMemo<RowShape[]>(
+    () =>
+      items.map((item, index) => ({
+        index,
+        heatNo: item.heat_number,
+        itemId: item.item_id,
+        grade: item.grade,
+        weightOrLength: item.weight_or_length,
+        yieldMpa: item.mechanical_properties?.yield_strength_mpa ?? null,
+        tensileMpa: item.mechanical_properties?.tensile_strength_mpa ?? null,
+        elongation: item.mechanical_properties?.elongation_percentage ?? null,
+        isCompliant: item.validation?.is_compliant ?? null,
+        deviations: item.validation?.deviations ?? [],
+      })),
+    [items],
+  )
+
+  const columns = useMemo<ColumnDef<RowShape>[]>(
+    () => [
+      {
+        accessorKey: 'heatNo',
+        header: 'Heat No.',
+        cell: ({ row }) => formatNullable(row.original.heatNo),
+      },
+      {
+        accessorKey: 'itemId',
+        header: 'Item ID (Pipe/Coil)',
+        cell: ({ row }) => formatNullable(row.original.itemId),
+      },
+      {
+        accessorKey: 'grade',
+        header: 'Grade',
+        cell: ({ row }) => formatNullable(row.original.grade),
+      },
+      {
+        accessorKey: 'weightOrLength',
+        header: 'Weight/Length',
+        cell: ({ row }) => formatNullable(row.original.weightOrLength),
+      },
+      {
+        accessorKey: 'yieldMpa',
+        header: 'Yield',
+        cell: ({ row }) => formatNumber(row.original.yieldMpa),
+      },
+      {
+        accessorKey: 'tensileMpa',
+        header: 'Tensile',
+        cell: ({ row }) => formatNumber(row.original.tensileMpa),
+      },
+      {
+        id: 'compliance',
+        header: 'Row Status',
+        cell: ({ row }) => {
+          const state = complianceText(row.original.isCompliant)
+          return <Badge text={state.text} tone={state.tone} />
+        },
+      },
+      {
+        id: 'details',
+        enableSorting: false,
+        header: '',
+        cell: ({ row }) => {
+          const key = String(row.original.index)
+          const expanded = expandedRows[key] ?? false
+          return (
+            <button
+              type="button"
+              className="rounded border border-slate-700 px-2 py-1 text-xs text-slate-200 hover:bg-slate-800"
+              onClick={() =>
+                setExpandedRows((current) => ({
+                  ...current,
+                  [key]: !expanded,
+                }))
+              }
+            >
+              {expanded ? 'Hide' : 'Details'}
+            </button>
+          )
+        },
+      },
+    ],
+    [expandedRows],
+  )
+
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const table = useReactTable({
+    data: rows,
+    columns,
+    state: { sorting, globalFilter },
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: 'includesString',
+  })
+
+  if (items.length === 0) {
+    return (
+      <Card>
+        <p className="text-sm text-slate-300">No line items were detected in this document.</p>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="space-y-4 p-0">
+      <div className="flex items-center justify-between gap-4 border-b border-slate-800 p-4">
+        <div className="relative w-full max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <Input
+            value={globalFilter}
+            onChange={(event) => setGlobalFilter(event.target.value)}
+            placeholder="Search heat no, item id, grade..."
+            className="pl-9"
+          />
+        </div>
+        <p className="text-xs text-slate-400">{table.getRowModel().rows.length} rows</p>
+      </div>
+
+      <div className="max-h-[520px] overflow-auto">
+        <table className="min-w-full border-collapse text-sm">
+          <thead className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <tr key={headerGroup.id} className="border-b border-slate-800">
+                {headerGroup.headers.map((header) => (
+                  <th key={header.id} className="px-4 py-3 text-left font-semibold text-slate-300">
+                    {header.isPlaceholder ? null : (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 disabled:pointer-events-none disabled:opacity-100"
+                        disabled={!header.column.getCanSort()}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {{
+                          asc: <ChevronUp className="h-3.5 w-3.5" />,
+                          desc: <ChevronDown className="h-3.5 w-3.5" />,
+                        }[header.column.getIsSorted() as string] ?? null}
+                      </button>
+                    )}
+                  </th>
+                ))}
+              </tr>
+            ))}
+          </thead>
+          <tbody>
+            {table.getRowModel().rows.map((row) => {
+              const key = String(row.original.index)
+              const expanded = expandedRows[key] ?? false
+
+              return (
+                <Fragment key={row.id}>
+                  <tr key={row.id} className="border-b border-slate-900/80 hover:bg-slate-900/70">
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-4 py-3 text-slate-200">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                  {expanded && (
+                    <tr className="border-b border-slate-900/80 bg-slate-950/70">
+                      <td colSpan={columns.length} className="px-4 py-3">
+                        <div className="space-y-2 text-sm">
+                          <p className="text-slate-300">
+                            <span className="mr-2 text-slate-500">Elongation:</span>
+                            {formatNumber(row.original.elongation)}
+                          </p>
+                          <div className="text-slate-300">
+                            <span className="mr-2 text-slate-500">Validation deviations:</span>
+                            {row.original.deviations.length > 0 ? (
+                              <ul className="mt-2 list-disc space-y-1 pl-5">
+                                {row.original.deviations.map((deviation, idx) => (
+                                  <li key={`${key}-${idx}`}>{deviation}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <span>{MISSING_VALUE}</span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  )
+}
