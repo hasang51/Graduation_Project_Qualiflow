@@ -77,6 +77,8 @@ CANONICAL_FIELDS: dict[str, CanonicalFieldDefinition] = {
             "CAST NUMBER",
             "MELT NO",
             "MELT NUMBER",
+            "SCHMELZE NO",
+            "SCHMELZE NUMBER",
             "DOKUM NO",
             "DOKUM NUMARASI",
             "DÖKÜM NO",

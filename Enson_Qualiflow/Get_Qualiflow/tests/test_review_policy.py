@@ -73,7 +73,7 @@ class ReviewPolicyTests(unittest.TestCase):
         decision = apply_review_policy(extraction, profile=_clean_profile())
         self.assertIn("no_items_extracted", decision.structured_reasons)
         self.assertIn("row_count_inconsistent", decision.structured_reasons)
-        self.assertTrue(decision.needs_review)
+        self.assertTrue(decision.review_required)
 
     def test_missing_critical_numeric_all_rows_emits_token(self):
         items = [
@@ -163,7 +163,7 @@ class ReviewPolicyTests(unittest.TestCase):
             review_confidence_threshold=0.75,
         )
         self.assertIn("confidence_below_threshold", decision.structured_reasons)
-        self.assertTrue(decision.needs_review)
+        self.assertTrue(decision.review_required)
 
     def test_unknown_grade_emits_unresolved_grade_token(self):
         item = ExtractedItem(
@@ -179,7 +179,7 @@ class ReviewPolicyTests(unittest.TestCase):
             validation=ValidationResult(
                 is_compliant=None,
                 deviations=["Unknown grade 'MYSTERY-GRADE' - manual review required."],
-                outcome="UNKNOWN_GRADE",
+                outcome="NEEDS_REVIEW",
             ),
             needs_review=True,
             row_confidence=0.6,
@@ -213,6 +213,29 @@ class ReviewPolicyTests(unittest.TestCase):
         decision = apply_review_policy(extraction, profile=_clean_profile())
         self.assertIn("unresolved_spec", decision.structured_reasons)
         self.assertNotIn("validation_conflict:row_non_compliant", decision.structured_reasons)
+
+    def test_unsupported_spec_family_is_explicitly_reported(self):
+        item = ExtractedItem(
+            item_id="1",
+            heat_number="H1",
+            grade="304",
+            weight_or_length="100 kg",
+            mechanical_properties=MechanicalProperties(
+                yield_strength_mpa=220.0,
+                tensile_strength_mpa=520.0,
+                elongation_percentage=45.0,
+            ),
+            validation=ValidationResult(
+                is_compliant=None,
+                deviations=["Grade family '304' is recognised but not covered by deterministic rules."],
+                outcome="UNSUPPORTED_SPEC_FAMILY",
+            ),
+            needs_review=True,
+            row_confidence=0.8,
+        )
+        extraction = _make_extraction(items=[item], confidence_score=0.8, needs_review=True)
+        decision = apply_review_policy(extraction, profile=_clean_profile())
+        self.assertIn("unsupported_spec_family", decision.structured_reasons)
 
     def test_numeric_uncertain_is_promoted_to_structured_token(self):
         item = ExtractedItem(
@@ -264,7 +287,7 @@ class ReviewPolicyTests(unittest.TestCase):
         self.assertIn("prior custom reason", extraction.review_reasons)
         # No structured tokens are expected for a fully-clean record, so
         # needs_review should reflect only the pre-existing reason.
-        self.assertTrue(decision.needs_review)
+        self.assertTrue(decision.review_required)
 
 
 if __name__ == "__main__":

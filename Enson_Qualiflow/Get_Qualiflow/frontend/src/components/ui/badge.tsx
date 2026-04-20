@@ -15,6 +15,7 @@ const toneMap: Record<NonNullable<BadgeProps['tone']>, string> = {
   compliant: 'bg-emerald-950/40 text-emerald-300 border-emerald-700/60',
   'non-compliant': 'bg-rose-950/40 text-rose-300 border-rose-700/60',
   'not-validated': 'bg-amber-950/40 text-amber-300 border-amber-700/60',
+  'needs-review': 'bg-sky-950/50 text-sky-300 border-sky-700/60',
 }
 
 export function Badge({ text, tone = 'neutral' }: BadgeProps) {

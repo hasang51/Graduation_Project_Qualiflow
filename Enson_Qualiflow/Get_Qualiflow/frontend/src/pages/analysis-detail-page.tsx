@@ -5,6 +5,7 @@ import { Badge } from '../components/ui/badge'
 import { Button } from '../components/ui/button'
 import { Card } from '../components/ui/card'
 import { ItemsTable } from '../features/results/items-table'
+import { ExplanationPanel } from '../features/results/explanation-panel'
 import { SecondaryPanels } from '../features/results/secondary-panels'
 import { SummaryCards } from '../features/results/summary-cards'
 import { formatConfidence } from '../lib/format'
@@ -69,6 +70,7 @@ export function AnalysisDetailPage() {
       {data.extraction ? (
         <>
           <SummaryCards data={data.extraction} />
+          <ExplanationPanel data={data.extraction} />
           <ItemsTable items={data.extraction.items} />
           <SecondaryPanels data={data.extraction} />
         </>

@@ -84,16 +84,17 @@ async def extract_document(
         preprocessing_meta["profile"] = profile.to_dict()
         preprocessing_meta["route_decision"] = route_decision.to_dict()
         logger.info(
-            "Profiled %s as quality_class=%s route=%s",
+            "Profiled %s as quality_class=%s selected_route=%s runtime_route=%s",
             request_filename,
             profile.quality_class,
-            route_decision.route,
+            route_decision.selected_route,
+            route_decision.runtime_route,
         )
 
         processed_pages, pre_meta = preprocess_pdf(
             str(stored_pdf),
             artifact_dir=artifact_dir,
-            route=route_decision.route,
+            route=route_decision.runtime_route,
         )
         preprocessing_meta.update(pre_meta)
         logger.info(
@@ -101,7 +102,7 @@ async def extract_document(
             request_filename,
             len(processed_pages),
             any(page.table_crop_available for page in processed_pages),
-            route_decision.route,
+            route_decision.runtime_route,
         )
         if not processed_pages:
             raise HTTPException(status_code=422, detail="PDF produced zero page images.")
@@ -111,7 +112,12 @@ async def extract_document(
             if run and run.document:
                 run.document.page_count = len(processed_pages)
 
-        extraction = run_multi_stage_extraction(processed_pages, preprocessing_meta, profile=profile)
+        extraction = run_multi_stage_extraction(
+            processed_pages,
+            preprocessing_meta,
+            profile=profile,
+            route_decision=route_decision,
+        )
         logger.info(
             "Extraction complete: filename=%s page_count=%s document_type=%s total_items_detected=%s items_array_length=%s raw_model_confidence=%s confidence_score=%s status=%s",
             request_filename,

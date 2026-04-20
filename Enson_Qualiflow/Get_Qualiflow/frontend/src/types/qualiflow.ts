@@ -5,18 +5,18 @@ export interface MechanicalProperties {
 }
 
 export type ValidationOutcome =
-  | 'RESOLVED_COMPLIANT'
-  | 'RESOLVED_NON_COMPLIANT'
+  | 'COMPLIANT'
+  | 'NON_COMPLIANT'
   | 'UNRESOLVED_SPEC'
-  | 'UNKNOWN_GRADE'
-  | 'AMBIGUOUS_GRADE'
-  | 'NOT_APPLICABLE'
-  | 'EXTRACTION_UNCERTAIN'
+  | 'UNSUPPORTED_SPEC_FAMILY'
+  | 'NOT_VALIDATED'
+  | 'NEEDS_REVIEW'
 
 export interface ValidationResult {
   is_compliant: boolean | null
   deviations: string[]
   outcome?: ValidationOutcome | null
+  rule_evidence?: Record<string, unknown>[]
 }
 
 export interface GradeResolutionPayload {
@@ -54,8 +54,11 @@ export interface ExtractionResponse {
   confidence_score: number
   ai_analysis_remarks: string | null
   is_compliant: boolean | null
+  outcome?: ValidationOutcome | null
   needs_review?: boolean
   review_reasons?: string[]
+  confidence_breakdown?: Record<string, number> | null
+  explanation?: Record<string, unknown> | null
 }
 
 export interface HealthResponse {
@@ -68,7 +71,7 @@ export interface HealthResponse {
   supported_documents: string[]
 }
 
-export type ComplianceState = 'compliant' | 'non-compliant' | 'not-validated'
+export type ComplianceState = 'compliant' | 'non-compliant' | 'not-validated' | 'needs-review'
 
 export interface TokenResponse {
   access_token: string

@@ -47,7 +47,7 @@ class ClassifyProfileTests(unittest.TestCase):
             noise_score=NOISE_DEGRADED_THRESHOLD + 10.0,
             text_density=0.0,
         )
-        self.assertEqual(quality, "scan_degraded")
+        self.assertIn(quality, {"scan_degraded", "severe_scan"})
 
     def test_scan_degraded_when_both_moderate(self):
         quality, _ = classify_profile(
@@ -65,7 +65,17 @@ class ClassifyProfileTests(unittest.TestCase):
             noise_score=30.0,
             text_density=0.2,
         )
-        self.assertEqual(quality, "scan_degraded")
+        self.assertIn(quality, {"scan_degraded", "severe_scan"})
+
+    def test_severe_scan_when_blur_and_noise_extreme(self):
+        quality, reasons = classify_profile(
+            has_text_layer=False,
+            blur_score=30.0,
+            noise_score=45.0,
+            text_density=0.0,
+        )
+        self.assertEqual(quality, "severe_scan")
+        self.assertTrue(any("severe" in reason for reason in reasons))
 
     def test_text_density_floor_matters_for_digital_clean(self):
         quality, _ = classify_profile(

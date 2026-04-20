@@ -27,6 +27,7 @@ class ValidationResult(BaseModel):
     is_compliant: Optional[bool] = Field(default=True)
     deviations: List[str] = Field(default_factory=list)
     outcome: Optional[str] = Field(default=None)
+    rule_evidence: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class ExtractedItem(BaseModel):
@@ -53,6 +54,9 @@ class UniversalDocumentExtraction(BaseModel):
     raw_model_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     ai_analysis_remarks: Optional[str] = Field(default=None)
     is_compliant: Optional[bool] = Field(default=None)
+    outcome: Optional[str] = Field(default=None)
     status: Optional[str] = Field(default=None)
     needs_review: bool = Field(default=False)
     review_reasons: List[str] = Field(default_factory=list)
+    confidence_breakdown: Optional[Dict[str, float]] = Field(default=None)
+    explanation: Optional[Dict[str, Any]] = Field(default=None)

@@ -1,18 +1,11 @@
-"""Single-path extraction router.
+"""Explainable 4-path extraction router.
 
-Given a :class:`app.services.document_profiler.DocumentProfile`, picks exactly
-one runtime route. The route is an input to the page-level preprocessing stage
-(via :func:`app.services.preprocessing_strategy.variants_for_route`), which
-selects a single variant stack — no parallel backends, no arbitrary fan-out.
+The router emits an explicit decision table result:
 
-Route semantics:
-- ``native_multimodal`` — PDF has a usable text layer and reasonable image
-  quality. We still rasterise (the multimodal model sees images), but skip the
-  heavier denoise/sharpen variants.
-- ``rendered_multimodal`` — plain scanned document, acceptable quality. Use
-  contrast / full_gray plus an optional sharpened fallback.
-- ``preprocessed_multimodal`` — degraded scan. Use the full denoise + adaptive
-  binary + sharpen + (if present) table_crop stack.
+- Path A: digital PDF -> native multimodal
+- Path B: clean scan -> rendered multimodal
+- Path C: degraded scan -> preprocessed multimodal
+- Path D: severe scan -> conservative preprocessed route with review-first bias
 """
 
 from __future__ import annotations
@@ -22,50 +15,93 @@ from typing import Literal
 
 from app.services.document_profiler import DocumentProfile, QualityClass
 
-Route = Literal["native_multimodal", "rendered_multimodal", "preprocessed_multimodal"]
+Route = Literal[
+    "path_a_digital_pdf",
+    "path_b_clean_scan",
+    "path_c_degraded_scan",
+    "path_d_severe_scan",
+]
+RuntimeRoute = Literal["native_multimodal", "rendered_multimodal", "preprocessed_multimodal"]
 
 ROUTE_FOR_QUALITY_CLASS: dict[QualityClass, Route] = {
-    "digital_clean": "native_multimodal",
-    "scan_clean": "rendered_multimodal",
-    "scan_degraded": "preprocessed_multimodal",
+    "digital_clean": "path_a_digital_pdf",
+    "scan_clean": "path_b_clean_scan",
+    "scan_degraded": "path_c_degraded_scan",
+    "severe_scan": "path_d_severe_scan",
+}
+
+RUNTIME_ROUTE_FOR_ROUTE: dict[Route, RuntimeRoute] = {
+    "path_a_digital_pdf": "native_multimodal",
+    "path_b_clean_scan": "rendered_multimodal",
+    "path_c_degraded_scan": "preprocessed_multimodal",
+    "path_d_severe_scan": "preprocessed_multimodal",
 }
 
 VALID_ROUTES: tuple[Route, ...] = (
-    "native_multimodal",
-    "rendered_multimodal",
-    "preprocessed_multimodal",
+    "path_a_digital_pdf",
+    "path_b_clean_scan",
+    "path_c_degraded_scan",
+    "path_d_severe_scan",
 )
 
 
 @dataclass(frozen=True)
 class RouteDecision:
-    route: Route
+    selected_route: Route
+    runtime_route: RuntimeRoute
     quality_class: QualityClass
-    reasons: list[str]
+    reason_codes: list[str]
+    triggering_features: dict[str, float | bool | int]
+    expected_strategy: str
+    review_first_bias: bool
 
     def to_dict(self) -> dict[str, object]:
         return {
-            "route": self.route,
+            "selected_route": self.selected_route,
+            "runtime_route": self.runtime_route,
+            "route": self.runtime_route,
             "quality_class": self.quality_class,
-            "reasons": list(self.reasons),
+            "reason_codes": list(self.reason_codes),
+            "reasons": list(self.reason_codes),
+            "triggering_features": dict(self.triggering_features),
+            "expected_strategy": self.expected_strategy,
+            "review_first_bias": self.review_first_bias,
         }
 
 
 def choose_route(profile: DocumentProfile) -> RouteDecision:
     """Return the single route that should handle this document."""
 
-    route = ROUTE_FOR_QUALITY_CLASS.get(profile.quality_class, "rendered_multimodal")
-    reasons = [f"quality_class={profile.quality_class}"]
+    route = ROUTE_FOR_QUALITY_CLASS.get(profile.quality_class, "path_b_clean_scan")
+    runtime_route = RUNTIME_ROUTE_FOR_ROUTE[route]
+    reasons = [f"quality_class:{profile.quality_class}"]
     if profile.has_text_layer:
-        reasons.append(f"has_text_layer(text_density={profile.text_density:.2f})")
+        reasons.append("text_layer_present")
     else:
         reasons.append("no_text_layer")
-    if profile.quality_class == "scan_degraded":
-        reasons.append(
-            f"blur_score={profile.blur_score:.1f},noise_score={profile.noise_score:.1f}"
-        )
     reasons.extend(profile.reasons)
-    return RouteDecision(route=route, quality_class=profile.quality_class, reasons=reasons)
+    strategy = {
+        "path_a_digital_pdf": "digital images, minimal preprocessing",
+        "path_b_clean_scan": "clean raster rendering with light variant fallback",
+        "path_c_degraded_scan": "denoise + adaptive binary + sharpen stack",
+        "path_d_severe_scan": "minimal attempt, then review-first gate",
+    }[route]
+    return RouteDecision(
+        selected_route=route,
+        runtime_route=runtime_route,
+        quality_class=profile.quality_class,
+        reason_codes=reasons,
+        triggering_features={
+            "has_text_layer": profile.has_text_layer,
+            "text_density": profile.text_density,
+            "blur_score": profile.blur_score,
+            "noise_score": profile.noise_score,
+            "page_count": profile.page_count,
+            "table_presence_hint": profile.table_presence_hint,
+        },
+        expected_strategy=strategy,
+        review_first_bias=route == "path_d_severe_scan",
+    )
 
 
 def force_route(route_name: str) -> RouteDecision:
@@ -75,18 +111,29 @@ def force_route(route_name: str) -> RouteDecision:
     bypassed without circumventing the rest of the pipeline.
     """
 
-    if route_name not in VALID_ROUTES:
+    legacy_map: dict[str, Route] = {
+        "native_multimodal": "path_a_digital_pdf",
+        "rendered_multimodal": "path_b_clean_scan",
+        "preprocessed_multimodal": "path_c_degraded_scan",
+    }
+    coerced_route = legacy_map.get(route_name, route_name)
+    if coerced_route not in VALID_ROUTES:
         raise ValueError(
             f"Unknown route '{route_name}'. Expected one of: {VALID_ROUTES}"
         )
-    # Derive a synthetic quality class for logging.
+    route = coerced_route  # type: ignore[assignment]
     quality_class: QualityClass = {
-        "native_multimodal": "digital_clean",
-        "rendered_multimodal": "scan_clean",
-        "preprocessed_multimodal": "scan_degraded",
-    }[route_name]
+        "path_a_digital_pdf": "digital_clean",
+        "path_b_clean_scan": "scan_clean",
+        "path_c_degraded_scan": "scan_degraded",
+        "path_d_severe_scan": "severe_scan",
+    }[route]
     return RouteDecision(
-        route=route_name,  # type: ignore[arg-type]
+        selected_route=route,
+        runtime_route=RUNTIME_ROUTE_FOR_ROUTE[route],
         quality_class=quality_class,
-        reasons=[f"forced_route={route_name}"],
+        reason_codes=[f"forced_route:{route_name}"],
+        triggering_features={},
+        expected_strategy="manual route override",
+        review_first_bias=route == "path_d_severe_scan",
     )

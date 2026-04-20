@@ -150,6 +150,10 @@ def select_preprocessing_variants(
 # variants are introduced at this layer.
 
 _ROUTE_SYNTHETIC_CONDITION: dict[str, DocumentCondition] = {
+    "path_a_digital_pdf": "clean",
+    "path_b_clean_scan": "clean",
+    "path_c_degraded_scan": "noisy_and_blurry",
+    "path_d_severe_scan": "noisy_and_blurry",
     "native_multimodal": "clean",
     "rendered_multimodal": "clean",
     "preprocessed_multimodal": "noisy_and_blurry",
@@ -199,7 +203,7 @@ def variants_for_route(
 
     # For ``rendered_multimodal`` we still want sharpened available as a
     # secondary variant even though the synthetic assessment is "clean".
-    if route == "rendered_multimodal":
+    if route in {"rendered_multimodal", "path_b_clean_scan"}:
         available_set = set(available_variants)
         selected = list(decision.selected_variants)
         _append_if_available(selected, available_set, "sharpened")

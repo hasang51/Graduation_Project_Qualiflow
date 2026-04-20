@@ -81,6 +81,18 @@ def _unresolved_row_count(items: list[ExtractedItem]) -> int:
     return count
 
 
+def _normalization_penalty(review_reasons: list[str]) -> float:
+    penalty = 0.0
+    for reason in review_reasons:
+        if reason.startswith("numeric_uncertain:"):
+            penalty += 0.1
+        elif reason.startswith("numeric_promoted_thousands:"):
+            penalty += 0.05
+        elif reason.startswith("header_row_conflict:"):
+            penalty += 0.08
+    return min(0.45, penalty)
+
+
 def _classify_noise(avg_noise: float | None) -> str:
     if avg_noise is None:
         return "unknown"
@@ -190,6 +202,17 @@ def normalize_confidence(
         "suspicious_numeric_count": suspicious_numeric,
         "row_count_inconsistent": row_count_inconsistent,
         "document_understood": document_understood,
+        "confidence_breakdown": {
+            "extraction_confidence": round(_clamp(raw_confidence), 4),
+            "normalization_confidence": round(_clamp(1.0 - _normalization_penalty(review_reasons)), 4),
+            "spec_resolution_confidence": round(
+                _clamp(1.0 - (unresolved_rows / max(len(extraction.items), 1))), 4
+            ),
+            "validation_confidence": round(
+                _clamp(1.0 - (suspicious_numeric / max(len(extraction.items), 1) * 0.25)), 4
+            ),
+            "overall_decision_confidence": round(final_confidence, 4),
+        },
     }
 
     return ConfidenceAssessment(

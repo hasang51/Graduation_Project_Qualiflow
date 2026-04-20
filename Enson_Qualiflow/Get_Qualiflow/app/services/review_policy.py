@@ -33,6 +33,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
+from app.domain.outcome_taxonomy import (
+    NEEDS_REVIEW,
+    NON_COMPLIANT,
+    UNSUPPORTED_SPEC_FAMILY,
+    UNRESOLVED_SPEC,
+)
 from app.schemas.extraction import UniversalDocumentExtraction
 from app.services.document_profiler import DocumentProfile
 
@@ -49,14 +55,21 @@ TOKEN_FIELD_LABELS = {
 
 @dataclass
 class ReviewDecision:
-    needs_review: bool
+    review_required: bool
     structured_reasons: list[str] = field(default_factory=list)
+    blocking_reasons: list[str] = field(default_factory=list)
+    evidence_gaps: list[str] = field(default_factory=list)
+    reviewer_focus: list[str] = field(default_factory=list)
     all_reasons: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "needs_review": self.needs_review,
-            "structured_reasons": list(self.structured_reasons),
+            "review_required": self.review_required,
+            "needs_review": self.review_required,
+            "review_reasons": list(self.structured_reasons),
+            "blocking_reasons": list(self.blocking_reasons),
+            "evidence_gaps": list(self.evidence_gaps),
+            "recommended_reviewer_focus": list(self.reviewer_focus),
             "all_reasons": list(self.all_reasons),
         }
 
@@ -111,12 +124,18 @@ def _validation_conflict_tokens(extraction: UniversalDocumentExtraction) -> list
         if item.validation.is_compliant is False:
             any_non_compliant = True
         outcome = (item.validation.outcome or "").upper()
-        if outcome == "UNKNOWN_GRADE":
-            any_unknown_grade = True
+        if outcome == NEEDS_REVIEW:
+            joined = " ".join(item.validation.deviations).lower()
+            if "unknown grade" in joined:
+                any_unknown_grade = True
+            if "ambiguous grade" in joined:
+                any_ambiguous = True
         elif outcome == "AMBIGUOUS_GRADE":
             any_ambiguous = True
-        elif outcome == "UNRESOLVED_SPEC":
+        elif outcome == UNRESOLVED_SPEC:
             any_unresolved = True
+        elif outcome == UNSUPPORTED_SPEC_FAMILY:
+            tokens.append("unsupported_spec_family")
         for deviation in item.validation.deviations:
             lowered = deviation.lower()
             if "looks suspicious" in lowered:
@@ -293,15 +312,47 @@ def apply_review_policy(
 
     combined = _dedupe_preserving_order([*extraction.review_reasons, *structured])
     needs_review = bool(structured) or bool(extraction.needs_review) or bool(combined)
+    blocking_reasons = [
+        reason
+        for reason in structured
+        if reason
+        in {
+            "unresolved_spec",
+            "unsupported_spec_family",
+            "validation_conflict:row_non_compliant",
+            "no_items_extracted",
+        }
+    ]
+    evidence_gaps = [
+        reason
+        for reason in structured
+        if reason.startswith("missing_critical_field:")
+        or reason in {"confidence_below_threshold", "table_found_but_no_rows"}
+        or reason.startswith("low_confidence:")
+    ]
+    reviewer_focus: list[str] = []
+    if "unresolved_spec" in structured or "unsupported_spec_family" in structured:
+        reviewer_focus.append("Confirm material family/spec source before compliance verdict.")
+    if any(reason.startswith("missing_critical_field:") for reason in structured):
+        reviewer_focus.append("Verify missing mechanical columns from original certificate.")
+    if any(reason.startswith("header_row_conflict:") for reason in structured):
+        reviewer_focus.append("Resolve header/row semantic conflicts and provenance.")
+    if "validation_conflict:row_non_compliant" in structured:
+        reviewer_focus.append("Re-check threshold violation evidence against resolved spec.")
 
     # Mutate in place so downstream callers see the enriched reasons.
     extraction.review_reasons = combined
     extraction.needs_review = needs_review
     if needs_review and extraction.status == "COMPLETED":
         extraction.status = "NEEDS_REVIEW"
+    if extraction.outcome == NON_COMPLIANT and not needs_review:
+        extraction.status = "COMPLETED"
 
     return ReviewDecision(
-        needs_review=needs_review,
+        review_required=needs_review,
         structured_reasons=structured,
+        blocking_reasons=_dedupe_preserving_order(blocking_reasons),
+        evidence_gaps=_dedupe_preserving_order(evidence_gaps),
+        reviewer_focus=_dedupe_preserving_order(reviewer_focus),
         all_reasons=combined,
     )

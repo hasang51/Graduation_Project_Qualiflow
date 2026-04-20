@@ -1,6 +1,6 @@
 import { Badge } from '../../components/ui/badge'
 import { Card } from '../../components/ui/card'
-import { formatConfidence, formatNullable, getComplianceState } from '../../lib/format'
+import { formatConfidence, formatNullable, getComplianceStateFromOutcome } from '../../lib/format'
 import type { ExtractionResponse } from '../../types/qualiflow'
 
 interface SummaryCardsProps {
@@ -13,14 +13,20 @@ function confidenceTone(score: number): 'success' | 'warning' | 'danger' {
   return 'danger'
 }
 
-function complianceLabel(isCompliant: boolean | null) {
+function complianceLabel(outcome: string | null | undefined, isCompliant: boolean | null) {
+  if (outcome === 'COMPLIANT') return 'Compliant'
+  if (outcome === 'NON_COMPLIANT') return 'Non-compliant'
+  if (outcome === 'UNRESOLVED_SPEC') return 'Spec unresolved'
+  if (outcome === 'UNSUPPORTED_SPEC_FAMILY') return 'Unsupported spec family'
+  if (outcome === 'NEEDS_REVIEW') return 'Needs review'
+  if (outcome === 'NOT_VALIDATED') return 'Not validated'
   if (isCompliant === true) return 'Compliant'
   if (isCompliant === false) return 'Non-compliant'
   return 'Not validated'
 }
 
 export function SummaryCards({ data }: SummaryCardsProps) {
-  const complianceState = getComplianceState(data.is_compliant)
+  const complianceState = getComplianceStateFromOutcome(data.outcome, data.is_compliant)
 
   const cards = [
     { label: 'Supplier Name', value: formatNullable(data.supplier_name, 'Unknown') },
@@ -31,7 +37,10 @@ export function SummaryCards({ data }: SummaryCardsProps) {
       label: 'Confidence Score',
       value: <Badge text={formatConfidence(data.confidence_score)} tone={confidenceTone(data.confidence_score)} />,
     },
-    { label: 'Compliance Status', value: <Badge text={complianceLabel(data.is_compliant)} tone={complianceState} /> },
+    {
+      label: 'Compliance Status',
+      value: <Badge text={complianceLabel(data.outcome, data.is_compliant)} tone={complianceState} />,
+    },
   ]
 
   return (

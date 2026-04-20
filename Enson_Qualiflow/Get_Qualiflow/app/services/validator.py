@@ -12,6 +12,15 @@ from __future__ import annotations
 import re
 
 from app.domain.grade_registry import GradeResolution, resolve_grade
+from app.domain.outcome_taxonomy import (
+    COMPLIANT,
+    NEEDS_REVIEW,
+    NON_COMPLIANT,
+    NOT_VALIDATED,
+    UNSUPPORTED_SPEC_FAMILY,
+    UNRESOLVED_SPEC,
+    aggregate_document_outcome,
+)
 from app.domain.spec_registry import (
     MaterialSpec,
     SpecResolution,
@@ -28,14 +37,14 @@ from app.services.quality_thresholds import (
 )
 
 
-# Validation outcome tags (exported so tests / callers can import them).
-OUTCOME_RESOLVED_COMPLIANT = "RESOLVED_COMPLIANT"
-OUTCOME_RESOLVED_NON_COMPLIANT = "RESOLVED_NON_COMPLIANT"
-OUTCOME_UNRESOLVED_SPEC = "UNRESOLVED_SPEC"
-OUTCOME_UNKNOWN_GRADE = "UNKNOWN_GRADE"
-OUTCOME_AMBIGUOUS_GRADE = "AMBIGUOUS_GRADE"
-OUTCOME_NOT_APPLICABLE = "NOT_APPLICABLE"
-OUTCOME_EXTRACTION_UNCERTAIN = "EXTRACTION_UNCERTAIN"
+# Validation outcome tags (kept as exported aliases for existing imports).
+OUTCOME_RESOLVED_COMPLIANT = COMPLIANT
+OUTCOME_RESOLVED_NON_COMPLIANT = NON_COMPLIANT
+OUTCOME_UNRESOLVED_SPEC = UNRESOLVED_SPEC
+OUTCOME_UNKNOWN_GRADE = NEEDS_REVIEW
+OUTCOME_AMBIGUOUS_GRADE = NEEDS_REVIEW
+OUTCOME_NOT_APPLICABLE = NOT_VALIDATED
+OUTCOME_EXTRACTION_UNCERTAIN = NEEDS_REVIEW
 
 
 # Backward-compatibility shim. The ``/health`` endpoint and some older tests
@@ -183,8 +192,6 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
     review_reasons: list[str] = list(data.review_reasons)
     suspicious_rows = 0
     heat_pattern = _infer_dominant_heat_pattern(data)
-    resolved_compliant_seen = False
-    resolved_non_compliant_seen = False
 
     for item in data.items:
         row_penalty = 0.0
@@ -208,7 +215,14 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
             item.validation = ValidationResult(
                 is_compliant=None,
                 deviations=deviations,
-                outcome=OUTCOME_NOT_APPLICABLE,
+                outcome=NOT_VALIDATED,
+                rule_evidence=[
+                    {
+                        "rule": "validation_prerequisite.mechanical_properties",
+                        "decision": "skipped",
+                        "reason": "No mechanical properties - validation skipped.",
+                    }
+                ],
             )
             item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - row_penalty)
             continue
@@ -217,7 +231,7 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
         spec_resolution = resolve_spec(grade_resolution)
         _record_grade_resolution(item, grade_resolution, spec_resolution)
 
-        # Case 2: unknown/empty grade -> UNKNOWN_GRADE (unresolved, review).
+        # Case 2: unknown/empty grade -> review-safe outcome.
         if spec_resolution.status in ("empty", "unknown_grade"):
             deviations = [
                 f"Unknown grade '{item.grade or '(missing)'}' - manual review required."
@@ -225,7 +239,15 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
             item.validation = ValidationResult(
                 is_compliant=None,
                 deviations=deviations,
-                outcome=OUTCOME_UNKNOWN_GRADE,
+                outcome=NEEDS_REVIEW,
+                rule_evidence=[
+                    {
+                        "rule": "spec_resolution.grade_registry",
+                        "decision": "unresolved",
+                        "reason": spec_resolution.reason,
+                        "candidate_spec_family": list(spec_resolution.candidates),
+                    }
+                ],
             )
             item.needs_review = True
             item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - 0.2)
@@ -233,7 +255,7 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
             suspicious_rows += 1
             continue
 
-        # Case 3: ambiguous grade -> AMBIGUOUS_GRADE.
+        # Case 3: ambiguous grade -> review-safe outcome.
         if spec_resolution.status == "ambiguous_grade":
             candidates_display = ", ".join(spec_resolution.candidates) or "multiple candidates"
             deviations = [
@@ -242,7 +264,15 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
             item.validation = ValidationResult(
                 is_compliant=None,
                 deviations=deviations,
-                outcome=OUTCOME_AMBIGUOUS_GRADE,
+                outcome=NEEDS_REVIEW,
+                rule_evidence=[
+                    {
+                        "rule": "spec_resolution.grade_registry",
+                        "decision": "ambiguous",
+                        "reason": spec_resolution.reason,
+                        "candidate_spec_family": list(spec_resolution.candidates),
+                    }
+                ],
             )
             item.needs_review = True
             item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - 0.15)
@@ -258,11 +288,41 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
             item.validation = ValidationResult(
                 is_compliant=None,
                 deviations=deviations,
-                outcome=OUTCOME_UNRESOLVED_SPEC,
+                outcome=UNRESOLVED_SPEC,
+                rule_evidence=[
+                    {
+                        "rule": "spec_resolution.family",
+                        "decision": "unresolved_spec",
+                        "reason": spec_resolution.reason,
+                        "candidate_spec_family": list(spec_resolution.candidates),
+                    }
+                ],
             )
             item.needs_review = True
             item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - 0.1)
             review_reasons.append(f"unresolved_spec:{spec_resolution.canonical or ''}")
+            continue
+
+        if spec_resolution.status == "unsupported_spec_family":
+            deviations = [
+                f"Grade family '{spec_resolution.canonical or item.grade}' is recognised but not covered by deterministic rules."
+            ]
+            item.validation = ValidationResult(
+                is_compliant=None,
+                deviations=deviations,
+                outcome=UNSUPPORTED_SPEC_FAMILY,
+                rule_evidence=[
+                    {
+                        "rule": "spec_resolution.family",
+                        "decision": "unsupported_spec_family",
+                        "reason": spec_resolution.reason,
+                        "candidate_spec_family": list(spec_resolution.candidates),
+                    }
+                ],
+            )
+            item.needs_review = True
+            item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - 0.1)
+            review_reasons.append("unsupported_spec_family")
             continue
 
         # Case 5: resolved spec -> run the compliance checks.
@@ -322,32 +382,52 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
         if row_suspicious:
             review_reasons.append("numeric fields are suspicious")
 
+        evidence = [
+            {
+                "rule": "spec_resolution.family",
+                "decision": "resolved",
+                "matched_spec_family": spec_resolution.canonical,
+                "candidate_spec_family": list(spec_resolution.candidates),
+                "evidence": {
+                    "yield_strength_mpa": item.mechanical_properties.yield_strength_mpa,
+                    "tensile_strength_mpa": item.mechanical_properties.tensile_strength_mpa,
+                    "elongation_percentage": item.mechanical_properties.elongation_percentage,
+                },
+            }
+        ]
         if hard_violation:
-            outcome = OUTCOME_RESOLVED_NON_COMPLIANT
-            resolved_non_compliant_seen = True
+            outcome = NON_COMPLIANT
             is_compliant_row: bool | None = False
+            evidence.append(
+                {
+                    "rule": "deterministic_validator.threshold_check",
+                    "decision": "violation",
+                    "deviations": list(deviations),
+                }
+            )
         else:
-            outcome = OUTCOME_RESOLVED_COMPLIANT
-            resolved_compliant_seen = True
+            outcome = COMPLIANT
             is_compliant_row = True
+            evidence.append(
+                {
+                    "rule": "deterministic_validator.threshold_check",
+                    "decision": "pass",
+                }
+            )
 
         item.validation = ValidationResult(
             is_compliant=is_compliant_row,
             deviations=deviations,
             outcome=outcome,
+            rule_evidence=evidence,
         )
         item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - row_penalty)
         if row_suspicious:
             suspicious_rows += 1
 
-    # Document-level compliance: only flip to False on genuine resolved
-    # violations; stay None when nothing was resolvable.
-    if resolved_non_compliant_seen:
-        data.is_compliant = False
-    elif resolved_compliant_seen:
-        data.is_compliant = True
-    else:
-        data.is_compliant = None
+    row_outcomes = [item.validation.outcome for item in data.items if item.validation is not None]
+    data.outcome = aggregate_document_outcome([entry for entry in row_outcomes if entry])
+    data.is_compliant = True if data.outcome == COMPLIANT else False if data.outcome == NON_COMPLIANT else None
 
     if data.total_items_detected != len(data.items):
         data.needs_review = True

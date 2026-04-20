@@ -35,30 +35,38 @@ def _profile(
 class ChooseRouteTests(unittest.TestCase):
     def test_digital_clean_selects_native_multimodal(self):
         decision = choose_route(_profile(quality_class="digital_clean", has_text_layer=True, text_density=0.5))
-        self.assertEqual(decision.route, "native_multimodal")
+        self.assertEqual(decision.selected_route, "path_a_digital_pdf")
+        self.assertEqual(decision.runtime_route, "native_multimodal")
         self.assertEqual(decision.quality_class, "digital_clean")
 
     def test_scan_clean_selects_rendered_multimodal(self):
         decision = choose_route(_profile(quality_class="scan_clean"))
-        self.assertEqual(decision.route, "rendered_multimodal")
+        self.assertEqual(decision.selected_route, "path_b_clean_scan")
+        self.assertEqual(decision.runtime_route, "rendered_multimodal")
 
     def test_scan_degraded_selects_preprocessed_multimodal(self):
         decision = choose_route(
             _profile(quality_class="scan_degraded", blur_score=50.0, noise_score=30.0)
         )
-        self.assertEqual(decision.route, "preprocessed_multimodal")
+        self.assertEqual(decision.selected_route, "path_c_degraded_scan")
+        self.assertEqual(decision.runtime_route, "preprocessed_multimodal")
+
+    def test_severe_scan_selects_review_first_path(self):
+        decision = choose_route(_profile(quality_class="severe_scan", blur_score=20.0, noise_score=45.0))
+        self.assertEqual(decision.selected_route, "path_d_severe_scan")
+        self.assertTrue(decision.review_first_bias)
 
     def test_route_is_exactly_one_of_valid_routes(self):
-        for quality in ("digital_clean", "scan_clean", "scan_degraded"):
+        for quality in ("digital_clean", "scan_clean", "scan_degraded", "severe_scan"):
             decision = choose_route(_profile(quality_class=quality))
-            self.assertIn(decision.route, VALID_ROUTES)
+            self.assertIn(decision.selected_route, VALID_ROUTES)
 
 
 class ForceRouteTests(unittest.TestCase):
     def test_force_route_accepts_valid(self):
         for route in VALID_ROUTES:
             decision = force_route(route)
-            self.assertEqual(decision.route, route)
+            self.assertEqual(decision.selected_route, route)
 
     def test_force_route_rejects_unknown(self):
         with self.assertRaises(ValueError):

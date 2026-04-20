@@ -18,7 +18,14 @@ from typing import Literal
 
 from app.domain.grade_registry import GradeResolution
 
-SpecStatus = Literal["resolved", "unresolved", "unknown_grade", "ambiguous_grade", "empty"]
+SpecStatus = Literal[
+    "resolved",
+    "unresolved",
+    "unknown_grade",
+    "ambiguous_grade",
+    "unsupported_spec_family",
+    "empty",
+]
 
 
 @dataclass(frozen=True)
@@ -47,9 +54,9 @@ _CARBON_SPECS: dict[str, MaterialSpec] = {
 }
 
 
-# Stainless austenitic grades are deliberately unresolved in Phase 1 - see
-# docs/phase1_validation_notes.md. Listing them here lets the resolver
-# distinguish "known grade without spec" from "unknown grade" cleanly.
+# Stainless austenitic grades are intentionally routed as unsupported in the
+# prototype validator: they require product-form-aware rule sets that are
+# outside the current deterministic rule baseline.
 _INTENTIONALLY_UNRESOLVED: set[str] = {
     "1.4301",
     "1.4307",
@@ -138,11 +145,11 @@ def resolve_spec(grade: GradeResolution) -> SpecResolution:
     # Known family, but spec intentionally not declared (e.g. stainless).
     if any(candidate in _INTENTIONALLY_UNRESOLVED for candidate in preferred_candidates):
         return SpecResolution(
-            status="unresolved",
+            status="unsupported_spec_family",
             spec=None,
             canonical=grade.canonical,
             candidates=tuple(preferred_candidates),
-            reason="grade family recognised but spec is product-form dependent",
+            reason="grade family recognised but deterministic family rules are not declared",
         )
 
     return SpecResolution(

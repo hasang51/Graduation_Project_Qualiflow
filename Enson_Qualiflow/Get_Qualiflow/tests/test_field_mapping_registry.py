@@ -36,6 +36,9 @@ class ResolveCanonicalFieldTests(unittest.TestCase):
     def test_turkish_synonym_with_diacritics(self):
         self.assertEqual(resolve_canonical_field("DÖKÜM NO"), "heat_number")
 
+    def test_german_synonym_schmelze_no(self):
+        self.assertEqual(resolve_canonical_field("Schmelze No"), "heat_number")
+
     def test_yield_rp02_synonym(self):
         self.assertEqual(resolve_canonical_field("RP 0,2"), "yield_strength_mpa")
 

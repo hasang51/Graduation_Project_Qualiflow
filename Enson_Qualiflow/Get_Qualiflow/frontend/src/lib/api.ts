@@ -8,6 +8,7 @@ import type {
   MechanicalProperties,
   TokenResponse,
   ValidationResult,
+  ValidationOutcome,
 } from '../types/qualiflow'
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:8000'
@@ -69,6 +70,30 @@ function parseMechanicalProperties(value: unknown): MechanicalProperties | null 
   }
 }
 
+function normalizeOutcome(value: unknown): ValidationOutcome | null {
+  const raw = typeof value === 'string' ? value.toUpperCase() : ''
+  const legacyMap: Record<string, ValidationOutcome> = {
+    RESOLVED_COMPLIANT: 'COMPLIANT',
+    RESOLVED_NON_COMPLIANT: 'NON_COMPLIANT',
+    UNKNOWN_GRADE: 'NEEDS_REVIEW',
+    AMBIGUOUS_GRADE: 'NEEDS_REVIEW',
+    EXTRACTION_UNCERTAIN: 'NEEDS_REVIEW',
+    NOT_APPLICABLE: 'NOT_VALIDATED',
+  }
+  const normalized = legacyMap[raw] ?? raw
+  if (
+    normalized === 'COMPLIANT' ||
+    normalized === 'NON_COMPLIANT' ||
+    normalized === 'UNRESOLVED_SPEC' ||
+    normalized === 'UNSUPPORTED_SPEC_FAMILY' ||
+    normalized === 'NOT_VALIDATED' ||
+    normalized === 'NEEDS_REVIEW'
+  ) {
+    return normalized
+  }
+  return null
+}
+
 function parseValidation(value: unknown): ValidationResult | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return null
@@ -81,8 +106,12 @@ function parseValidation(value: unknown): ValidationResult | null {
     : []
 
   return {
-    is_compliant: asBoolean(source.is_compliant) ?? false,
+    is_compliant: asBoolean(source.is_compliant),
     deviations,
+    outcome: normalizeOutcome(source.outcome),
+    rule_evidence: Array.isArray(source.rule_evidence)
+      ? source.rule_evidence.filter((entry): entry is Record<string, unknown> => !!entry && typeof entry === 'object')
+      : [],
   }
 }
 
@@ -115,10 +144,19 @@ function parseExtractionResponse(value: unknown): ExtractionResponse {
     confidence_score: asNumber(source.confidence_score) ?? 0,
     ai_analysis_remarks: asString(source.ai_analysis_remarks),
     is_compliant: asBoolean(source.is_compliant),
+    outcome: normalizeOutcome(source.outcome),
     needs_review: asBoolean(source.needs_review) ?? false,
     review_reasons: Array.isArray(source.review_reasons)
       ? source.review_reasons.filter((x): x is string => typeof x === 'string')
       : [],
+    confidence_breakdown:
+      source.confidence_breakdown && typeof source.confidence_breakdown === 'object'
+        ? (source.confidence_breakdown as Record<string, number>)
+        : null,
+    explanation:
+      source.explanation && typeof source.explanation === 'object'
+        ? (source.explanation as Record<string, unknown>)
+        : null,
   }
 }
 

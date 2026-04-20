@@ -93,7 +93,7 @@ class ValidateDocumentNonCompliantRowTests(unittest.TestCase):
             flagged.validation.is_compliant,
             "unknown grade must not flip is_compliant to False",
         )
-        self.assertEqual(flagged.validation.outcome, "UNKNOWN_GRADE")
+        self.assertEqual(flagged.validation.outcome, "NEEDS_REVIEW")
         self.assertTrue(flagged.needs_review)
         self.assertTrue(
             any("Unknown grade" in d for d in flagged.validation.deviations),
@@ -102,7 +102,7 @@ class ValidateDocumentNonCompliantRowTests(unittest.TestCase):
         # Document-level compliance is None because no row resolved.
         self.assertIsNone(validated.is_compliant)
 
-    def test_unresolved_stainless_grade_is_unresolved_spec(self):
+    def test_unresolved_stainless_grade_is_unsupported_family(self):
         item = _compliant_s235_item()
         item.grade = "1.4301"
         extraction = _make_extraction([item])
@@ -110,7 +110,17 @@ class ValidateDocumentNonCompliantRowTests(unittest.TestCase):
         validated = validate_document(extraction)
         flagged = validated.items[0]
         self.assertIsNone(flagged.validation.is_compliant)
-        self.assertEqual(flagged.validation.outcome, "UNRESOLVED_SPEC")
+        self.assertEqual(flagged.validation.outcome, "UNSUPPORTED_SPEC_FAMILY")
+        self.assertTrue(flagged.needs_review)
+
+    def test_unsupported_family_is_review_safe(self):
+        item = _compliant_s235_item()
+        item.grade = "304"
+        extraction = _make_extraction([item])
+        validated = validate_document(extraction)
+        flagged = validated.items[0]
+        self.assertIsNone(flagged.validation.is_compliant)
+        self.assertEqual(flagged.validation.outcome, "UNSUPPORTED_SPEC_FAMILY")
         self.assertTrue(flagged.needs_review)
 
     def test_ambiguous_composite_grade_is_ambiguous(self):
@@ -122,7 +132,7 @@ class ValidateDocumentNonCompliantRowTests(unittest.TestCase):
         validated = validate_document(extraction)
         flagged = validated.items[0]
         self.assertIsNone(flagged.validation.is_compliant)
-        self.assertEqual(flagged.validation.outcome, "AMBIGUOUS_GRADE")
+        self.assertEqual(flagged.validation.outcome, "NEEDS_REVIEW")
         self.assertTrue(flagged.needs_review)
 
     def test_yield_below_minimum_produces_deviation(self):
@@ -188,7 +198,7 @@ class ValidateDocumentMissingMechanicalsTests(unittest.TestCase):
         validated = validate_document(extraction)
         flagged = validated.items[0]
         self.assertIsNone(flagged.validation.is_compliant)
-        self.assertEqual(flagged.validation.outcome, "NOT_APPLICABLE")
+        self.assertEqual(flagged.validation.outcome, "NOT_VALIDATED")
         # is_compliant at document level is None when no item carries mechanical props
         self.assertIsNone(validated.is_compliant)
 

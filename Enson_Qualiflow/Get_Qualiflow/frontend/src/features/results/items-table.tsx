@@ -37,26 +37,31 @@ interface RowShape {
 
 function complianceText(
   value: boolean | null,
-  outcome: ValidationOutcome | null,
-): { text: string; tone: 'success' | 'danger' | 'warning' } {
+  outcome: ValidationOutcome | string | null,
+): { text: string; tone: 'success' | 'danger' | 'warning' | 'info' } {
   // Outcome takes precedence over the tri-state boolean when available so
   // unresolved / unknown / ambiguous grades land in the warning tone rather
   // than the false-negative "Non-compliant" red badge.
   switch (outcome) {
+    case 'COMPLIANT':
     case 'RESOLVED_COMPLIANT':
       return { text: 'Compliant', tone: 'success' }
+    case 'NON_COMPLIANT':
     case 'RESOLVED_NON_COMPLIANT':
       return { text: 'Non-compliant', tone: 'danger' }
-    case 'UNKNOWN_GRADE':
-      return { text: 'Unknown grade - review', tone: 'warning' }
-    case 'AMBIGUOUS_GRADE':
-      return { text: 'Ambiguous grade - review', tone: 'warning' }
+    case 'NEEDS_REVIEW':
+      return { text: 'Needs review', tone: 'warning' }
     case 'UNRESOLVED_SPEC':
       return { text: 'Spec unresolved - review', tone: 'warning' }
+    case 'UNSUPPORTED_SPEC_FAMILY':
+      return { text: 'Unsupported family - review', tone: 'warning' }
+    case 'NOT_VALIDATED':
     case 'NOT_APPLICABLE':
-      return { text: 'Not validated', tone: 'warning' }
+      return { text: 'Not validated', tone: 'info' }
     case 'EXTRACTION_UNCERTAIN':
-      return { text: 'Uncertain - review', tone: 'warning' }
+    case 'UNKNOWN_GRADE':
+    case 'AMBIGUOUS_GRADE':
+      return { text: 'Needs review', tone: 'warning' }
     default:
       if (value === true) return { text: 'Compliant', tone: 'success' }
       if (value === false) return { text: 'Non-compliant', tone: 'danger' }

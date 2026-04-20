@@ -1,4 +1,4 @@
-import type { ComplianceState } from '../types/qualiflow'
+import type { ComplianceState, ValidationOutcome } from '../types/qualiflow'
 
 export const NA_VALUE = 'N/A'
 export const MISSING_VALUE = '—'
@@ -36,6 +36,26 @@ export function getComplianceState(isCompliant: boolean | null): ComplianceState
   if (isCompliant === true) return 'compliant'
   if (isCompliant === false) return 'non-compliant'
   return 'not-validated'
+}
+
+export function getComplianceStateFromOutcome(
+  outcome: ValidationOutcome | null | undefined,
+  isCompliant: boolean | null,
+): ComplianceState {
+  switch (outcome) {
+    case 'COMPLIANT':
+      return 'compliant'
+    case 'NON_COMPLIANT':
+      return 'non-compliant'
+    case 'UNRESOLVED_SPEC':
+    case 'UNSUPPORTED_SPEC_FAMILY':
+    case 'NEEDS_REVIEW':
+      return 'needs-review'
+    case 'NOT_VALIDATED':
+      return 'not-validated'
+    default:
+      return getComplianceState(isCompliant)
+  }
 }
 
 export function formatBytes(bytes: number): string {

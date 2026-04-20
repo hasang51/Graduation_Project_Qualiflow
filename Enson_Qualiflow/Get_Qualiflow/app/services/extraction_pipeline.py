@@ -8,10 +8,14 @@ import anthropic
 from fastapi import HTTPException
 
 from app.config import settings
+from app.domain.document_context import build_document_context, propagate_context_to_rows
 from app.domain.field_mapping_registry import CANONICAL_FIELDS, explain_mapping, get_registry_snapshot, resolve_canonical_field
 from app.domain.header_propagation import apply_updates, propagate_to_rows
 from app.domain.numeric_parser import parse_mechanical_properties
+from app.domain.outcome_taxonomy import NEEDS_REVIEW, aggregate_document_outcome
 from app.schemas.extraction import ExtractedItem, MechanicalProperties, UniversalDocumentExtraction
+from app.services.extraction_router import RouteDecision
+from app.services.semantic_normalizer import normalize_rows_semantics
 from app.services.confidence import normalize_confidence
 from app.services.document_profiler import DocumentProfile
 from app.services.preprocessing import EncodedVariant, ProcessedPage
@@ -360,6 +364,35 @@ def _apply_header_propagation(
     return list(result.conflicts)
 
 
+def _build_explanation_payload(
+    *,
+    extraction: UniversalDocumentExtraction,
+    profile: DocumentProfile | None,
+    route_decision: RouteDecision | None,
+    review_policy: dict[str, Any],
+    preprocessing_meta: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "document_profile": profile.to_dict() if profile else None,
+        "route_decision": route_decision.to_dict() if route_decision else None,
+        "validation_outcome": {
+            "document_outcome": extraction.outcome,
+            "review_required": extraction.needs_review,
+            "review_reasons": list(extraction.review_reasons),
+        },
+        "review_policy": review_policy,
+        "evidence_propagation_notes": preprocessing_meta.get("document_context", {}).get(
+            "propagation_notes", []
+        ),
+        "unresolved_or_ambiguous": [
+            reason
+            for reason in extraction.review_reasons
+            if "unresolved" in reason or "ambiguous" in reason or "unsupported" in reason
+        ],
+        "confidence_breakdown": extraction.confidence_breakdown or {},
+    }
+
+
 def _row_dict_to_item(row: dict[str, Any]) -> ExtractedItem:
     mp_raw = row.get("mechanical_properties")
     mechanical = None
@@ -384,6 +417,7 @@ def run_multi_stage_extraction(
     pages: list[ProcessedPage],
     preprocessing_meta: dict[str, Any],
     profile: DocumentProfile | None = None,
+    route_decision: RouteDecision | None = None,
 ) -> UniversalDocumentExtraction:
     client = _anthropic_client()
     try:
@@ -410,6 +444,9 @@ def run_multi_stage_extraction(
 
     items_raw = item_payload.get("items", [])
     items_dicts = [_normalize_row_dict(row) for row in items_raw if isinstance(row, dict)]
+    semantic_rows = normalize_rows_semantics(items_dicts)
+    preprocessing_meta["semantic_normalization"] = [entry.to_dict() for entry in semantic_rows]
+    items_dicts = [entry.canonical_values for entry in semantic_rows]
     numeric_tokens = _apply_numeric_parser(items_dicts, preprocessing_meta)
     propagation_tokens = _apply_header_propagation(
         items_dicts,
@@ -417,6 +454,13 @@ def run_multi_stage_extraction(
         ai_remarks=metadata.get("ai_analysis_remarks") if isinstance(metadata, dict) else None,
         preprocessing_meta=preprocessing_meta,
     )
+    context = build_document_context(
+        items_dicts,
+        metadata=metadata if isinstance(metadata, dict) else None,
+        pages_meta=preprocessing_meta.get("pages") if isinstance(preprocessing_meta.get("pages"), list) else None,
+    )
+    context_tokens = propagate_context_to_rows(items_dicts, context)
+    preprocessing_meta["document_context"] = context.to_dict()
     items = [_row_dict_to_item(row) for row in items_dicts]
     preprocessing_meta["field_mapping_diagnostics"] = _mapping_diagnostics(
         metadata=metadata,
@@ -447,9 +491,13 @@ def run_multi_stage_extraction(
 
     # Seed review reasons from numeric parser + header propagation before
     # validation so the validator sees a coherent, pre-normalised state.
-    if numeric_tokens or propagation_tokens:
-        extraction.review_reasons = sorted(set([*extraction.review_reasons, *numeric_tokens, *propagation_tokens]))
-        extraction.needs_review = extraction.needs_review or bool(numeric_tokens or propagation_tokens)
+    if numeric_tokens or propagation_tokens or context_tokens:
+        extraction.review_reasons = sorted(
+            set([*extraction.review_reasons, *numeric_tokens, *propagation_tokens, *context_tokens])
+        )
+        extraction.needs_review = extraction.needs_review or bool(
+            numeric_tokens or propagation_tokens or context_tokens
+        )
 
     extraction = validate_document(extraction)
 
@@ -473,6 +521,7 @@ def run_multi_stage_extraction(
     extraction.review_reasons = confidence_assessment.review_reasons
     extraction.needs_review = confidence_assessment.status == "NEEDS_REVIEW"
     extraction.status = confidence_assessment.status
+    extraction.confidence_breakdown = confidence_assessment.metrics.get("confidence_breakdown")
     preprocessing_meta["confidence_assessment"] = confidence_assessment.metrics
     logger.info("Confidence assessment: %s", json.dumps(confidence_assessment.metrics, ensure_ascii=False))
 
@@ -485,7 +534,19 @@ def run_multi_stage_extraction(
     preprocessing_meta["review_policy"] = review_decision.to_dict()
     logger.info(
         "Review policy: needs_review=%s structured_reasons=%s",
-        review_decision.needs_review,
+        review_decision.review_required,
         review_decision.structured_reasons,
+    )
+    extraction.outcome = aggregate_document_outcome(
+        [item.validation.outcome for item in extraction.items if item.validation]
+    )
+    if extraction.outcome == NEEDS_REVIEW:
+        extraction.needs_review = True
+    extraction.explanation = _build_explanation_payload(
+        extraction=extraction,
+        profile=profile,
+        route_decision=route_decision,
+        review_policy=review_decision.to_dict(),
+        preprocessing_meta=preprocessing_meta,
     )
     return extraction

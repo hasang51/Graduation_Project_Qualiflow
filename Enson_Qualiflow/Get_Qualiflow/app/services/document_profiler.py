@@ -32,7 +32,7 @@ from app.services.image_preprocessing import compute_blur_score, estimate_noise
 
 logger = logging.getLogger("qualiflow.profiler")
 
-QualityClass = Literal["digital_clean", "scan_clean", "scan_degraded"]
+QualityClass = Literal["digital_clean", "scan_clean", "scan_degraded", "severe_scan"]
 
 DIGITAL_TEXT_DENSITY_MIN = 0.02
 """Minimum mean chars-per-page ratio (normalised) treated as a real text layer."""
@@ -45,6 +45,8 @@ NOISE_DEGRADED_THRESHOLD = 25.0
 
 BLUR_MODERATE_THRESHOLD = 150.0
 NOISE_MODERATE_THRESHOLD = 14.0
+BLUR_SEVERE_THRESHOLD = 45.0
+NOISE_SEVERE_THRESHOLD = 38.0
 
 PROFILE_RASTER_DPI = 200
 """Lower DPI than the runtime extraction path; profiling does not need fine detail."""
@@ -65,6 +67,8 @@ class DocumentProfile:
     table_presence_hint: bool
     quality_class: QualityClass
     reasons: list[str] = field(default_factory=list)
+    profile_confidence: float = 0.0
+    metrics_summary: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -177,13 +181,23 @@ def _classify(
         return "digital_clean", reasons
 
     if is_blurry_hard and is_noisy_hard:
+        if blur_score < BLUR_SEVERE_THRESHOLD or noise_score >= NOISE_SEVERE_THRESHOLD:
+            reasons.append(f"blur_severe(blur_score={blur_score:.1f})")
+            reasons.append(f"noise_severe(noise_score={noise_score:.1f})")
+            return "severe_scan", reasons
         reasons.append(f"blur_high(blur_score={blur_score:.1f})")
         reasons.append(f"noise_high(noise_score={noise_score:.1f})")
         return "scan_degraded", reasons
     if is_blurry_hard:
+        if blur_score < BLUR_SEVERE_THRESHOLD and text_density < DIGITAL_TEXT_DENSITY_MIN:
+            reasons.append(f"blur_severe(blur_score={blur_score:.1f})")
+            return "severe_scan", reasons
         reasons.append(f"blur_high(blur_score={blur_score:.1f})")
         return "scan_degraded", reasons
     if is_noisy_hard:
+        if noise_score >= NOISE_SEVERE_THRESHOLD and text_density < DIGITAL_TEXT_DENSITY_MIN:
+            reasons.append(f"noise_severe(noise_score={noise_score:.1f})")
+            return "severe_scan", reasons
         reasons.append(f"noise_high(noise_score={noise_score:.1f})")
         return "scan_degraded", reasons
     if is_blurry_moderate and is_noisy_moderate:
@@ -276,6 +290,32 @@ def profile_document(pdf_path: str | Path, *, document_id: str | None = None) ->
         table_presence_hint=bool(table_presence),
         quality_class=quality_class,
         reasons=reasons,
+        profile_confidence=round(
+            0.95
+            if quality_class == "digital_clean"
+            else 0.82
+            if quality_class == "scan_clean"
+            else 0.68
+            if quality_class == "scan_degraded"
+            else 0.55,
+            2,
+        ),
+        metrics_summary={
+            "has_extractable_text": has_text_layer,
+            "text_density": round(text_density, 4),
+            "blur_score": round(blur_score, 2),
+            "noise_score": round(noise_score, 2),
+            "table_presence_hint": bool(table_presence),
+            "ocr_likelihood": (
+                "low"
+                if quality_class == "digital_clean"
+                else "medium"
+                if quality_class == "scan_clean"
+                else "high"
+                if quality_class == "scan_degraded"
+                else "very_high"
+            ),
+        },
     )
     logger.info(
         "Profiled %s: pages=%d quality=%s has_text=%s blur=%.1f noise=%.1f",
