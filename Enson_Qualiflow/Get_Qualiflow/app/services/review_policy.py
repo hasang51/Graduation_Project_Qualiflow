@@ -94,6 +94,9 @@ def _missing_critical_fields(extraction: UniversalDocumentExtraction) -> list[st
 def _validation_conflict_tokens(extraction: UniversalDocumentExtraction) -> list[str]:
     tokens: list[str] = []
     any_non_compliant = False
+    any_unresolved = False
+    any_ambiguous = False
+    any_unknown_grade = False
     suspicious_seen = False
     heat_mismatch_seen = False
     separator_mismatch_seen = False
@@ -103,8 +106,17 @@ def _validation_conflict_tokens(extraction: UniversalDocumentExtraction) -> list
     for item in extraction.items:
         if item.validation is None:
             continue
-        if not item.validation.is_compliant:
+        # Tri-state: only flip ``any_non_compliant`` on an explicit False,
+        # never on ``None`` (which means unresolved / not applicable).
+        if item.validation.is_compliant is False:
             any_non_compliant = True
+        outcome = (item.validation.outcome or "").upper()
+        if outcome == "UNKNOWN_GRADE":
+            any_unknown_grade = True
+        elif outcome == "AMBIGUOUS_GRADE":
+            any_ambiguous = True
+        elif outcome == "UNRESOLVED_SPEC":
+            any_unresolved = True
         for deviation in item.validation.deviations:
             lowered = deviation.lower()
             if "looks suspicious" in lowered:
@@ -120,6 +132,12 @@ def _validation_conflict_tokens(extraction: UniversalDocumentExtraction) -> list
 
     if any_non_compliant:
         tokens.append("validation_conflict:row_non_compliant")
+    if any_unknown_grade:
+        tokens.append("unresolved_grade")
+    if any_ambiguous:
+        tokens.append("ambiguous_grade")
+    if any_unresolved:
+        tokens.append("unresolved_spec")
     if suspicious_seen:
         tokens.append("validation_conflict:suspicious_numeric_values")
     if heat_mismatch_seen:
@@ -130,6 +148,24 @@ def _validation_conflict_tokens(extraction: UniversalDocumentExtraction) -> list
         tokens.append("validation_conflict:grade_spec_mismatch")
     if unit_missing_seen:
         tokens.append("validation_conflict:missing_unit")
+    return tokens
+
+
+def _numeric_parser_tokens(extraction: UniversalDocumentExtraction) -> list[str]:
+    """Promote pipeline-level numeric-parser tokens to structured reasons."""
+
+    tokens: list[str] = []
+    for reason in extraction.review_reasons:
+        if reason.startswith("numeric_uncertain:") or reason.startswith("numeric_promoted_thousands:"):
+            tokens.append(reason)
+        elif reason.startswith("unresolved_grade:"):
+            tokens.append("unresolved_grade")
+        elif reason.startswith("ambiguous_grade:"):
+            tokens.append("ambiguous_grade")
+        elif reason.startswith("unresolved_spec:"):
+            tokens.append("unresolved_spec")
+        elif reason.startswith("header_row_conflict:"):
+            tokens.append("header_row_conflict:grade")
     return tokens
 
 
@@ -224,6 +260,9 @@ def apply_review_policy(
 
     # 3. Validation conflicts
     structured.extend(_validation_conflict_tokens(extraction))
+
+    # 3b. Numeric-parser + header-propagation tokens surfaced from pipeline.
+    structured.extend(_numeric_parser_tokens(extraction))
 
     # 4. Row count / item issues
     if not extraction.items:

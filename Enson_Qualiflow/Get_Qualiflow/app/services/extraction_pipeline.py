@@ -9,6 +9,8 @@ from fastapi import HTTPException
 
 from app.config import settings
 from app.domain.field_mapping_registry import CANONICAL_FIELDS, explain_mapping, get_registry_snapshot, resolve_canonical_field
+from app.domain.header_propagation import apply_updates, propagate_to_rows
+from app.domain.numeric_parser import parse_mechanical_properties
 from app.schemas.extraction import ExtractedItem, MechanicalProperties, UniversalDocumentExtraction
 from app.services.confidence import normalize_confidence
 from app.services.document_profiler import DocumentProfile
@@ -280,15 +282,21 @@ def _mapping_diagnostics(metadata: dict[str, Any], items_raw: list[dict[str, Any
     }
 
 
-def _parse_item(item_raw: dict[str, Any]) -> ExtractedItem:
+def _normalize_row_dict(item_raw: dict[str, Any]) -> dict[str, Any]:
+    """Flatten an LLM item payload into the canonical-key dict shape.
+
+    Numeric parsing and header propagation operate on plain dicts so the
+    validator and schema stay decoupled from Anthropic's exact key variance.
+    """
+
     mp_raw = item_raw.get("mechanical_properties")
-    mechanical = None
+    mp_payload: dict[str, Any] | None = None
     if isinstance(mp_raw, dict):
-        mechanical = MechanicalProperties(
-            yield_strength_mpa=_value_from_canonical_or_alias(mp_raw, "yield_strength_mpa"),
-            tensile_strength_mpa=_value_from_canonical_or_alias(mp_raw, "tensile_strength_mpa"),
-            elongation_percentage=_value_from_canonical_or_alias(mp_raw, "elongation_percentage"),
-        )
+        mp_payload = {
+            "yield_strength_mpa": _value_from_canonical_or_alias(mp_raw, "yield_strength_mpa"),
+            "tensile_strength_mpa": _value_from_canonical_or_alias(mp_raw, "tensile_strength_mpa"),
+            "elongation_percentage": _value_from_canonical_or_alias(mp_raw, "elongation_percentage"),
+        }
 
     row_conf = item_raw.get("row_confidence")
     if not isinstance(row_conf, (float, int)):
@@ -296,13 +304,79 @@ def _parse_item(item_raw: dict[str, Any]) -> ExtractedItem:
     elif row_conf < 0 or row_conf > 1:
         row_conf = None
 
+    return {
+        "item_id": _value_from_canonical_or_alias(item_raw, "item_id"),
+        "heat_number": _value_from_canonical_or_alias(item_raw, "heat_number"),
+        "grade": _value_from_canonical_or_alias(item_raw, "grade"),
+        "weight_or_length": _value_from_canonical_or_alias(item_raw, "weight_or_length"),
+        "mechanical_properties": mp_payload,
+        "row_confidence": row_conf,
+    }
+
+
+def _apply_numeric_parser(
+    rows: list[dict[str, Any]],
+    preprocessing_meta: dict[str, Any],
+) -> list[str]:
+    """Normalise numeric values in-place.
+
+    Returns a list of structured review-reason tokens (``numeric_uncertain:<field>``
+    and ``numeric_promoted_thousands:<field>``) to surface to the caller.
+    """
+
+    trace: list[dict[str, Any]] = []
+    tokens: list[str] = []
+    for index, row in enumerate(rows):
+        mp_raw = row.get("mechanical_properties")
+        if not isinstance(mp_raw, dict):
+            continue
+        values, row_trace = parse_mechanical_properties(mp_raw)
+        row["mechanical_properties"] = values
+        serialisable_trace = {key: parsed.to_dict() for key, parsed in row_trace.items()}
+        trace.append({"row_index": index, "fields": serialisable_trace})
+        for field_name, parsed in row_trace.items():
+            if parsed.promoted_thousands:
+                tokens.append(f"numeric_promoted_thousands:{field_name}")
+            if parsed.uncertain and parsed.value is not None:
+                tokens.append(f"numeric_uncertain:{field_name}")
+    preprocessing_meta["numeric_parser_trace"] = trace
+    return tokens
+
+
+def _apply_header_propagation(
+    rows: list[dict[str, Any]],
+    metadata: dict[str, Any],
+    ai_remarks: str | None,
+    preprocessing_meta: dict[str, Any],
+) -> list[str]:
+    """Back-fill missing row grades from a strong header grade.
+
+    Returns structured review tokens describing propagation conflicts.
+    """
+
+    result = propagate_to_rows(rows, metadata=metadata, ai_remarks=ai_remarks)
+    preprocessing_meta["header_propagation"] = result.to_dict()
+    apply_updates(rows, result)
+    return list(result.conflicts)
+
+
+def _row_dict_to_item(row: dict[str, Any]) -> ExtractedItem:
+    mp_raw = row.get("mechanical_properties")
+    mechanical = None
+    if isinstance(mp_raw, dict):
+        mechanical = MechanicalProperties(
+            yield_strength_mpa=mp_raw.get("yield_strength_mpa"),
+            tensile_strength_mpa=mp_raw.get("tensile_strength_mpa"),
+            elongation_percentage=mp_raw.get("elongation_percentage"),
+        )
     return ExtractedItem(
-        item_id=_value_from_canonical_or_alias(item_raw, "item_id"),
-        heat_number=_value_from_canonical_or_alias(item_raw, "heat_number"),
-        grade=_value_from_canonical_or_alias(item_raw, "grade"),
-        weight_or_length=_value_from_canonical_or_alias(item_raw, "weight_or_length"),
+        item_id=row.get("item_id"),
+        heat_number=row.get("heat_number"),
+        grade=row.get("grade"),
+        weight_or_length=row.get("weight_or_length"),
         mechanical_properties=mechanical,
-        row_confidence=row_conf,
+        row_confidence=row.get("row_confidence"),
+        grade_provenance=row.get("grade_provenance") or ("row" if row.get("grade") else None),
     )
 
 
@@ -335,7 +409,15 @@ def run_multi_stage_extraction(
     logger.info("LLM usage: %s", combined_usage)
 
     items_raw = item_payload.get("items", [])
-    items = [_parse_item(row) for row in items_raw if isinstance(row, dict)]
+    items_dicts = [_normalize_row_dict(row) for row in items_raw if isinstance(row, dict)]
+    numeric_tokens = _apply_numeric_parser(items_dicts, preprocessing_meta)
+    propagation_tokens = _apply_header_propagation(
+        items_dicts,
+        metadata=metadata,
+        ai_remarks=metadata.get("ai_analysis_remarks") if isinstance(metadata, dict) else None,
+        preprocessing_meta=preprocessing_meta,
+    )
+    items = [_row_dict_to_item(row) for row in items_dicts]
     preprocessing_meta["field_mapping_diagnostics"] = _mapping_diagnostics(
         metadata=metadata,
         items_raw=[row for row in items_raw if isinstance(row, dict)],
@@ -362,6 +444,12 @@ def run_multi_stage_extraction(
         raw_model_confidence=raw_model_confidence,
         ai_analysis_remarks=metadata.get("ai_analysis_remarks"),
     )
+
+    # Seed review reasons from numeric parser + header propagation before
+    # validation so the validator sees a coherent, pre-normalised state.
+    if numeric_tokens or propagation_tokens:
+        extraction.review_reasons = sorted(set([*extraction.review_reasons, *numeric_tokens, *propagation_tokens]))
+        extraction.needs_review = extraction.needs_review or bool(numeric_tokens or propagation_tokens)
 
     extraction = validate_document(extraction)
 

@@ -165,6 +165,81 @@ class ReviewPolicyTests(unittest.TestCase):
         self.assertIn("confidence_below_threshold", decision.structured_reasons)
         self.assertTrue(decision.needs_review)
 
+    def test_unknown_grade_emits_unresolved_grade_token(self):
+        item = ExtractedItem(
+            item_id="1",
+            heat_number="H1",
+            grade="MYSTERY-GRADE",
+            weight_or_length="100 kg",
+            mechanical_properties=MechanicalProperties(
+                yield_strength_mpa=380.0,
+                tensile_strength_mpa=500.0,
+                elongation_percentage=25.0,
+            ),
+            validation=ValidationResult(
+                is_compliant=None,
+                deviations=["Unknown grade 'MYSTERY-GRADE' - manual review required."],
+                outcome="UNKNOWN_GRADE",
+            ),
+            needs_review=True,
+            row_confidence=0.6,
+        )
+        extraction = _make_extraction(items=[item], confidence_score=0.85, needs_review=True)
+        decision = apply_review_policy(extraction, profile=_clean_profile())
+        self.assertIn("unresolved_grade", decision.structured_reasons)
+        # Must not emit the non-compliant token just because is_compliant is None.
+        self.assertNotIn("validation_conflict:row_non_compliant", decision.structured_reasons)
+
+    def test_unresolved_stainless_spec_emits_unresolved_spec_token(self):
+        item = ExtractedItem(
+            item_id="1",
+            heat_number="H1",
+            grade="1.4301",
+            weight_or_length="100 kg",
+            mechanical_properties=MechanicalProperties(
+                yield_strength_mpa=220.0,
+                tensile_strength_mpa=520.0,
+                elongation_percentage=45.0,
+            ),
+            validation=ValidationResult(
+                is_compliant=None,
+                deviations=["Grade '1.4301' recognised but no spec is declared - manual review required."],
+                outcome="UNRESOLVED_SPEC",
+            ),
+            needs_review=True,
+            row_confidence=0.8,
+        )
+        extraction = _make_extraction(items=[item], confidence_score=0.85, needs_review=True)
+        decision = apply_review_policy(extraction, profile=_clean_profile())
+        self.assertIn("unresolved_spec", decision.structured_reasons)
+        self.assertNotIn("validation_conflict:row_non_compliant", decision.structured_reasons)
+
+    def test_numeric_uncertain_is_promoted_to_structured_token(self):
+        item = ExtractedItem(
+            item_id="1",
+            heat_number="H1",
+            grade="S355J2",
+            weight_or_length="100 kg",
+            mechanical_properties=MechanicalProperties(
+                yield_strength_mpa=400.0,
+                tensile_strength_mpa=520.0,
+                elongation_percentage=24.0,
+            ),
+            validation=ValidationResult(
+                is_compliant=True,
+                deviations=[],
+                outcome="RESOLVED_COMPLIANT",
+            ),
+            row_confidence=0.9,
+        )
+        extraction = _make_extraction(
+            items=[item],
+            confidence_score=0.85,
+            review_reasons=["numeric_uncertain:yield_strength_mpa"],
+        )
+        decision = apply_review_policy(extraction, profile=_clean_profile())
+        self.assertIn("numeric_uncertain:yield_strength_mpa", decision.structured_reasons)
+
     def test_preserves_existing_reasons(self):
         items = [
             ExtractedItem(

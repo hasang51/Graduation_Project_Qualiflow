@@ -79,7 +79,9 @@ class ValidateDocumentCompliantRowTests(unittest.TestCase):
 
 
 class ValidateDocumentNonCompliantRowTests(unittest.TestCase):
-    def test_unknown_grade_is_flagged_for_review(self):
+    def test_unknown_grade_is_flagged_for_review_not_as_non_compliant(self):
+        """Phase 1 semantics: an unknown grade is unresolved, not non-compliant."""
+
         item = _compliant_s235_item()
         item.grade = "MYSTERY-GRADE"
         extraction = _make_extraction([item])
@@ -87,13 +89,41 @@ class ValidateDocumentNonCompliantRowTests(unittest.TestCase):
         validated = validate_document(extraction)
         flagged = validated.items[0]
         self.assertIsNotNone(flagged.validation)
-        self.assertFalse(flagged.validation.is_compliant)
+        self.assertIsNone(
+            flagged.validation.is_compliant,
+            "unknown grade must not flip is_compliant to False",
+        )
+        self.assertEqual(flagged.validation.outcome, "UNKNOWN_GRADE")
         self.assertTrue(flagged.needs_review)
         self.assertTrue(
             any("Unknown grade" in d for d in flagged.validation.deviations),
             flagged.validation.deviations,
         )
-        self.assertFalse(validated.is_compliant)
+        # Document-level compliance is None because no row resolved.
+        self.assertIsNone(validated.is_compliant)
+
+    def test_unresolved_stainless_grade_is_unresolved_spec(self):
+        item = _compliant_s235_item()
+        item.grade = "1.4301"
+        extraction = _make_extraction([item])
+
+        validated = validate_document(extraction)
+        flagged = validated.items[0]
+        self.assertIsNone(flagged.validation.is_compliant)
+        self.assertEqual(flagged.validation.outcome, "UNRESOLVED_SPEC")
+        self.assertTrue(flagged.needs_review)
+
+    def test_ambiguous_composite_grade_is_ambiguous(self):
+        item = _compliant_s235_item()
+        # Mixed-family composite should be ambiguous.
+        item.grade = "S355J2 / 304L"
+        extraction = _make_extraction([item])
+
+        validated = validate_document(extraction)
+        flagged = validated.items[0]
+        self.assertIsNone(flagged.validation.is_compliant)
+        self.assertEqual(flagged.validation.outcome, "AMBIGUOUS_GRADE")
+        self.assertTrue(flagged.needs_review)
 
     def test_yield_below_minimum_produces_deviation(self):
         item = _compliant_s235_item()
@@ -157,7 +187,8 @@ class ValidateDocumentMissingMechanicalsTests(unittest.TestCase):
 
         validated = validate_document(extraction)
         flagged = validated.items[0]
-        self.assertTrue(flagged.validation.is_compliant)
+        self.assertIsNone(flagged.validation.is_compliant)
+        self.assertEqual(flagged.validation.outcome, "NOT_APPLICABLE")
         # is_compliant at document level is None when no item carries mechanical props
         self.assertIsNone(validated.is_compliant)
 

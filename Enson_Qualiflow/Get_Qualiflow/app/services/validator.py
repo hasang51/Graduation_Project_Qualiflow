@@ -1,7 +1,24 @@
+"""Row/document validator.
+
+Phase 1 refactor: compliance is now tri-state. An unresolved grade or an
+unresolved spec *never* becomes ``NON_COMPLIANT``; instead the validator
+emits an ``UNKNOWN_GRADE`` / ``UNRESOLVED_SPEC`` outcome and a structured
+review reason. See :mod:`app.domain.grade_registry`,
+:mod:`app.domain.spec_registry`, and ``docs/phase1_validation_notes.md``.
+"""
+
 from __future__ import annotations
 
 import re
 
+from app.domain.grade_registry import GradeResolution, resolve_grade
+from app.domain.spec_registry import (
+    MaterialSpec,
+    SpecResolution,
+    get_spec,
+    known_spec_grades,
+    resolve_spec,
+)
 from app.schemas.extraction import UniversalDocumentExtraction, ValidationResult
 from app.services.quality_thresholds import (
     ELONGATION_PERCENTAGE,
@@ -10,12 +27,31 @@ from app.services.quality_thresholds import (
     YIELD_STRENGTH_MPA,
 )
 
-MATERIAL_SPECS = {
-    "S355J2+N": {"min_yield": 355.0, "min_tensile": 470.0, "max_tensile": 630.0, "min_elongation": 22.0},
-    "S355J2": {"min_yield": 355.0, "min_tensile": 470.0, "max_tensile": 630.0, "min_elongation": 22.0},
-    "S235JR": {"min_yield": 235.0, "min_tensile": 360.0, "max_tensile": 510.0, "min_elongation": 26.0},
-    "S275JR": {"min_yield": 275.0, "min_tensile": 410.0, "max_tensile": 560.0, "min_elongation": 23.0},
-    "API 5L X65": {"min_yield": 448.0, "min_tensile": 531.0, "max_tensile": 758.0, "min_elongation": 18.0},
+
+# Validation outcome tags (exported so tests / callers can import them).
+OUTCOME_RESOLVED_COMPLIANT = "RESOLVED_COMPLIANT"
+OUTCOME_RESOLVED_NON_COMPLIANT = "RESOLVED_NON_COMPLIANT"
+OUTCOME_UNRESOLVED_SPEC = "UNRESOLVED_SPEC"
+OUTCOME_UNKNOWN_GRADE = "UNKNOWN_GRADE"
+OUTCOME_AMBIGUOUS_GRADE = "AMBIGUOUS_GRADE"
+OUTCOME_NOT_APPLICABLE = "NOT_APPLICABLE"
+OUTCOME_EXTRACTION_UNCERTAIN = "EXTRACTION_UNCERTAIN"
+
+
+# Backward-compatibility shim. The ``/health`` endpoint and some older tests
+# import ``MATERIAL_SPECS`` directly from this module. It is now materialised
+# from :mod:`app.domain.spec_registry` so the two sources cannot drift.
+MATERIAL_SPECS: dict[str, dict[str, float]] = {
+    canonical: {
+        "min_yield": _spec.min_yield_mpa,
+        "min_tensile": _spec.min_tensile_mpa,
+        "max_tensile": _spec.max_tensile_mpa,
+        "min_elongation": _spec.min_elongation_pct,
+    }
+    for canonical, _spec in (
+        (canonical, get_spec(canonical)) for canonical in known_spec_grades()
+    )
+    if _spec is not None
 }
 
 
@@ -65,96 +101,182 @@ def _grade_spec_inconsistent(item_grade: str | None, yield_value: float | None, 
     return False
 
 
+def _validate_against_spec(item, spec: MaterialSpec) -> tuple[list[str], bool, float, bool]:
+    """Run the per-row spec comparison.
+
+    Returns ``(deviations, hard_violation, row_penalty, row_suspicious)``.
+    ``hard_violation`` is True only for true spec breaches (below minimum /
+    outside tensile band / below min elongation). Suspicious-band trips
+    contribute to ``row_penalty`` but never set ``hard_violation``.
+    """
+
+    deviations: list[str] = []
+    row_penalty = 0.0
+    row_suspicious = False
+    hard_violation = False
+    mp = item.mechanical_properties
+
+    if mp.yield_strength_mpa is not None:
+        if mp.yield_strength_mpa < spec.min_yield_mpa:
+            deviations.append(
+                f"Yield {mp.yield_strength_mpa:.1f} MPa below minimum {spec.min_yield_mpa:.1f} MPa"
+            )
+            hard_violation = True
+        if _suspicious_numeric(mp.yield_strength_mpa, YIELD_STRENGTH_MPA):
+            deviations.append(f"Yield {mp.yield_strength_mpa:.1f} MPa looks suspicious.")
+            item.needs_review = True
+            row_suspicious = True
+            row_penalty += 0.18
+    else:
+        deviations.append("Yield missing - cannot verify.")
+        row_penalty += 0.04
+
+    if mp.tensile_strength_mpa is not None:
+        if mp.tensile_strength_mpa < spec.min_tensile_mpa:
+            deviations.append(
+                f"Tensile {mp.tensile_strength_mpa:.1f} MPa below minimum {spec.min_tensile_mpa:.1f} MPa"
+            )
+            hard_violation = True
+        if mp.tensile_strength_mpa > spec.max_tensile_mpa:
+            deviations.append(
+                f"Tensile {mp.tensile_strength_mpa:.1f} MPa above maximum {spec.max_tensile_mpa:.1f} MPa"
+            )
+            hard_violation = True
+        if _suspicious_numeric(mp.tensile_strength_mpa, TENSILE_STRENGTH_MPA):
+            deviations.append(f"Tensile {mp.tensile_strength_mpa:.1f} MPa looks suspicious.")
+            item.needs_review = True
+            row_suspicious = True
+            row_penalty += 0.18
+    else:
+        deviations.append("Tensile missing - cannot verify.")
+        row_penalty += 0.04
+
+    if mp.elongation_percentage is not None:
+        if mp.elongation_percentage < spec.min_elongation_pct:
+            deviations.append(
+                f"Elongation {mp.elongation_percentage:.1f}% below minimum {spec.min_elongation_pct:.1f}%"
+            )
+            hard_violation = True
+        if _suspicious_numeric(mp.elongation_percentage, ELONGATION_PERCENTAGE):
+            deviations.append(f"Elongation {mp.elongation_percentage:.1f}% looks suspicious.")
+            item.needs_review = True
+            row_suspicious = True
+            row_penalty += 0.18
+    else:
+        deviations.append("Elongation missing - cannot verify.")
+        row_penalty += 0.04
+
+    return deviations, hard_violation, row_penalty, row_suspicious
+
+
+def _record_grade_resolution(item, grade_resolution: GradeResolution, spec_resolution: SpecResolution) -> None:
+    """Attach grade/spec resolution metadata to the row for UI + review pack."""
+
+    payload = grade_resolution.to_dict()
+    payload["spec"] = spec_resolution.to_dict()
+    item.grade_resolution = payload
+    if not item.grade_provenance:
+        item.grade_provenance = "row" if grade_resolution.status != "empty" else "none"
+
+
 def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExtraction:
-    all_compliant = True
-    items_with_mech = 0
     review_reasons: list[str] = list(data.review_reasons)
     suspicious_rows = 0
     heat_pattern = _infer_dominant_heat_pattern(data)
+    resolved_compliant_seen = False
+    resolved_non_compliant_seen = False
 
     for item in data.items:
         row_penalty = 0.0
         row_suspicious = False
 
+        # Case 1: no mechanical properties -> NOT_APPLICABLE.
         if item.mechanical_properties is None:
-            item.validation = ValidationResult(
-                is_compliant=True,
-                deviations=["No mechanical properties - validation skipped."],
-            )
+            grade_resolution = resolve_grade(item.grade)
+            spec_resolution = resolve_spec(grade_resolution)
+            _record_grade_resolution(item, grade_resolution, spec_resolution)
+
+            deviations = ["No mechanical properties - validation skipped."]
             if _weight_or_length_is_suspicious(item.weight_or_length):
-                item.validation.deviations.append(
+                deviations.append(
                     f"Weight/length '{item.weight_or_length}' looks malformed or lacks a clear unit."
                 )
                 row_penalty += 0.12
-                row_suspicious = True
                 item.needs_review = True
                 review_reasons.append("malformed numeric strings")
+
+            item.validation = ValidationResult(
+                is_compliant=None,
+                deviations=deviations,
+                outcome=OUTCOME_NOT_APPLICABLE,
+            )
             item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - row_penalty)
             continue
 
-        items_with_mech += 1
-        mp = item.mechanical_properties
-        deviations: list[str] = []
-        grade = (item.grade or "").strip()
-        spec = MATERIAL_SPECS.get(grade) or MATERIAL_SPECS.get(grade.upper())
+        grade_resolution = resolve_grade(item.grade)
+        spec_resolution = resolve_spec(grade_resolution)
+        _record_grade_resolution(item, grade_resolution, spec_resolution)
 
-        if spec is None:
-            deviations.append(f"Unknown grade '{item.grade}' - manual review required.")
-            item.validation = ValidationResult(is_compliant=False, deviations=deviations)
+        # Case 2: unknown/empty grade -> UNKNOWN_GRADE (unresolved, review).
+        if spec_resolution.status in ("empty", "unknown_grade"):
+            deviations = [
+                f"Unknown grade '{item.grade or '(missing)'}' - manual review required."
+            ]
+            item.validation = ValidationResult(
+                is_compliant=None,
+                deviations=deviations,
+                outcome=OUTCOME_UNKNOWN_GRADE,
+            )
             item.needs_review = True
             item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - 0.2)
-            all_compliant = False
-            review_reasons.append("grade/spec validation is impossible")
+            review_reasons.append(f"unresolved_grade:{grade_resolution.raw or ''}")
             suspicious_rows += 1
             continue
 
-        if mp.yield_strength_mpa is not None:
-            if mp.yield_strength_mpa < spec["min_yield"]:
-                deviations.append(f"Yield {mp.yield_strength_mpa:.1f} MPa below minimum {spec['min_yield']:.1f} MPa")
-            if _suspicious_numeric(mp.yield_strength_mpa, YIELD_STRENGTH_MPA):
-                deviations.append(f"Yield {mp.yield_strength_mpa:.1f} MPa looks suspicious.")
-                item.needs_review = True
-                row_suspicious = True
-                row_penalty += 0.18
-                review_reasons.append("numeric fields are suspicious")
-        else:
-            deviations.append("Yield missing - cannot verify.")
-            row_penalty += 0.04
+        # Case 3: ambiguous grade -> AMBIGUOUS_GRADE.
+        if spec_resolution.status == "ambiguous_grade":
+            candidates_display = ", ".join(spec_resolution.candidates) or "multiple candidates"
+            deviations = [
+                f"Ambiguous grade '{item.grade}' could match {candidates_display} - manual review required."
+            ]
+            item.validation = ValidationResult(
+                is_compliant=None,
+                deviations=deviations,
+                outcome=OUTCOME_AMBIGUOUS_GRADE,
+            )
+            item.needs_review = True
+            item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - 0.15)
+            review_reasons.append(f"ambiguous_grade:{grade_resolution.raw or ''}")
+            suspicious_rows += 1
+            continue
 
-        if mp.tensile_strength_mpa is not None:
-            if mp.tensile_strength_mpa < spec["min_tensile"]:
-                deviations.append(
-                    f"Tensile {mp.tensile_strength_mpa:.1f} MPa below minimum {spec['min_tensile']:.1f} MPa"
-                )
-            if mp.tensile_strength_mpa > spec["max_tensile"]:
-                deviations.append(
-                    f"Tensile {mp.tensile_strength_mpa:.1f} MPa above maximum {spec['max_tensile']:.1f} MPa"
-                )
-            if _suspicious_numeric(mp.tensile_strength_mpa, TENSILE_STRENGTH_MPA):
-                deviations.append(f"Tensile {mp.tensile_strength_mpa:.1f} MPa looks suspicious.")
-                item.needs_review = True
-                row_suspicious = True
-                row_penalty += 0.18
-                review_reasons.append("numeric fields are suspicious")
-        else:
-            deviations.append("Tensile missing - cannot verify.")
-            row_penalty += 0.04
+        # Case 4: resolved grade but no declared spec -> UNRESOLVED_SPEC.
+        if spec_resolution.status == "unresolved":
+            deviations = [
+                f"Grade '{spec_resolution.canonical or item.grade}' recognised but no spec is declared - manual review required."
+            ]
+            item.validation = ValidationResult(
+                is_compliant=None,
+                deviations=deviations,
+                outcome=OUTCOME_UNRESOLVED_SPEC,
+            )
+            item.needs_review = True
+            item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - 0.1)
+            review_reasons.append(f"unresolved_spec:{spec_resolution.canonical or ''}")
+            continue
 
-        if mp.elongation_percentage is not None:
-            if mp.elongation_percentage < spec["min_elongation"]:
-                deviations.append(f"Elongation {mp.elongation_percentage:.1f}% below minimum {spec['min_elongation']:.1f}%")
-            if _suspicious_numeric(mp.elongation_percentage, ELONGATION_PERCENTAGE):
-                deviations.append(f"Elongation {mp.elongation_percentage:.1f}% looks suspicious.")
-                item.needs_review = True
-                row_suspicious = True
-                row_penalty += 0.18
-                review_reasons.append("numeric fields are suspicious")
-        else:
-            deviations.append("Elongation missing - cannot verify.")
-            row_penalty += 0.04
+        # Case 5: resolved spec -> run the compliance checks.
+        assert spec_resolution.spec is not None  # narrow for type-checkers
+        deviations, hard_violation, spec_penalty, spec_suspicious = _validate_against_spec(
+            item, spec_resolution.spec
+        )
+        row_penalty += spec_penalty
+        row_suspicious = row_suspicious or spec_suspicious
 
         if _weight_or_length_is_suspicious(item.weight_or_length):
-            deviations.append(f"Weight/length '{item.weight_or_length}' looks malformed or lacks a clear unit.")
+            deviations.append(
+                f"Weight/length '{item.weight_or_length}' looks malformed or lacks a clear unit."
+            )
             item.needs_review = True
             row_suspicious = True
             row_penalty += 0.12
@@ -163,38 +285,69 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
         if heat_pattern and item.heat_number:
             dominant_length, dominant_digits = heat_pattern
             normalized_heat = _canonical_heat_pattern(item.heat_number)
-            if abs(len(normalized_heat) - dominant_length) >= 3 or abs(sum(char.isdigit() for char in normalized_heat) - dominant_digits) >= 3:
-                deviations.append(f"Heat number '{item.heat_number}' is inconsistent with the dominant pattern.")
+            if (
+                abs(len(normalized_heat) - dominant_length) >= 3
+                or abs(sum(ch.isdigit() for ch in normalized_heat) - dominant_digits) >= 3
+            ):
+                deviations.append(
+                    f"Heat number '{item.heat_number}' is inconsistent with the dominant pattern."
+                )
                 item.needs_review = True
                 row_suspicious = True
                 row_penalty += 0.14
                 review_reasons.append("heat number format inconsistency")
 
         if item.weight_or_length and "," in item.weight_or_length and "." in item.weight_or_length:
-            deviations.append(f"Weight/length '{item.weight_or_length}' mixes separators and may be misread.")
+            deviations.append(
+                f"Weight/length '{item.weight_or_length}' mixes separators and may be misread."
+            )
             item.needs_review = True
             row_suspicious = True
             row_penalty += 0.12
             review_reasons.append("mixed separators confusion")
 
-        if _grade_spec_inconsistent(item.grade, mp.yield_strength_mpa, mp.tensile_strength_mpa):
-            deviations.append(f"Grade '{item.grade}' is inconsistent with the extracted mechanical values.")
+        if _grade_spec_inconsistent(
+            item.grade,
+            item.mechanical_properties.yield_strength_mpa,
+            item.mechanical_properties.tensile_strength_mpa,
+        ):
+            deviations.append(
+                f"Grade '{item.grade}' is inconsistent with the extracted mechanical values."
+            )
             item.needs_review = True
             row_suspicious = True
             row_penalty += 0.16
             review_reasons.append("inconsistent grade/spec combinations")
 
-        item.validation = ValidationResult(is_compliant=len(deviations) == 0, deviations=deviations)
+        if row_suspicious:
+            review_reasons.append("numeric fields are suspicious")
+
+        if hard_violation:
+            outcome = OUTCOME_RESOLVED_NON_COMPLIANT
+            resolved_non_compliant_seen = True
+            is_compliant_row: bool | None = False
+        else:
+            outcome = OUTCOME_RESOLVED_COMPLIANT
+            resolved_compliant_seen = True
+            is_compliant_row = True
+
+        item.validation = ValidationResult(
+            is_compliant=is_compliant_row,
+            deviations=deviations,
+            outcome=outcome,
+        )
         item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - row_penalty)
-        if deviations:
-            all_compliant = False
         if row_suspicious:
             suspicious_rows += 1
 
-    if items_with_mech == 0:
-        data.is_compliant = None
+    # Document-level compliance: only flip to False on genuine resolved
+    # violations; stay None when nothing was resolvable.
+    if resolved_non_compliant_seen:
+        data.is_compliant = False
+    elif resolved_compliant_seen:
+        data.is_compliant = True
     else:
-        data.is_compliant = all_compliant
+        data.is_compliant = None
 
     if data.total_items_detected != len(data.items):
         data.needs_review = True

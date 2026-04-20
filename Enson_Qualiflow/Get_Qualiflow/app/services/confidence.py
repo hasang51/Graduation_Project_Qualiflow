@@ -69,6 +69,18 @@ def _suspicious_numeric_count(items: list[ExtractedItem]) -> int:
     return count
 
 
+def _unresolved_row_count(items: list[ExtractedItem]) -> int:
+    """Rows whose validation outcome is unresolved (None ``is_compliant``)."""
+
+    count = 0
+    for item in items:
+        if item.validation is None:
+            continue
+        if item.validation.is_compliant is None and (item.validation.outcome or "").upper() != "NOT_APPLICABLE":
+            count += 1
+    return count
+
+
 def _classify_noise(avg_noise: float | None) -> str:
     if avg_noise is None:
         return "unknown"
@@ -146,6 +158,14 @@ def normalize_confidence(
         adjusted -= min(0.24, suspicious_numeric * 0.07)
         caps.append(0.45)
         review_reasons.append("suspicious numeric values")
+
+    unresolved_rows = _unresolved_row_count(extraction.items)
+    if unresolved_rows > 0:
+        # Soft nudge only - unresolved grades / specs mean we *could not
+        # validate*, not that the document is wrong. We neither hard-cap nor
+        # push confidence below the review threshold on their own.
+        adjusted -= min(0.08, unresolved_rows * 0.03)
+        review_reasons.append("unresolved grade or spec")
 
     if document_understood and items_len == 0:
         caps.append(0.35)

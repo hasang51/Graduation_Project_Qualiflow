@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -12,8 +12,21 @@ class MechanicalProperties(BaseModel):
 
 
 class ValidationResult(BaseModel):
-    is_compliant: bool = Field(default=True)
+    """Outcome of validating a single row.
+
+    ``is_compliant`` is tri-state:
+
+    - ``True``  => resolved & compliant,
+    - ``False`` => resolved & non-compliant,
+    - ``None``  => unresolved / not applicable / extraction uncertain.
+
+    ``outcome`` is the narrow machine-readable tag the frontend uses to
+    pick a badge.
+    """
+
+    is_compliant: Optional[bool] = Field(default=True)
     deviations: List[str] = Field(default_factory=list)
+    outcome: Optional[str] = Field(default=None)
 
 
 class ExtractedItem(BaseModel):
@@ -25,6 +38,9 @@ class ExtractedItem(BaseModel):
     validation: Optional[ValidationResult] = Field(default=None)
     row_confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     needs_review: bool = Field(default=False)
+    # Phase 1 additions (all optional to keep API shape backward-compatible)
+    grade_resolution: Optional[Dict[str, Any]] = Field(default=None)
+    grade_provenance: Optional[str] = Field(default=None)
 
 
 class UniversalDocumentExtraction(BaseModel):

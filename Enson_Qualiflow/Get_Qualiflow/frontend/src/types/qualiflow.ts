@@ -4,9 +4,32 @@ export interface MechanicalProperties {
   elongation_percentage: number | null
 }
 
+export type ValidationOutcome =
+  | 'RESOLVED_COMPLIANT'
+  | 'RESOLVED_NON_COMPLIANT'
+  | 'UNRESOLVED_SPEC'
+  | 'UNKNOWN_GRADE'
+  | 'AMBIGUOUS_GRADE'
+  | 'NOT_APPLICABLE'
+  | 'EXTRACTION_UNCERTAIN'
+
 export interface ValidationResult {
-  is_compliant: boolean
+  is_compliant: boolean | null
   deviations: string[]
+  outcome?: ValidationOutcome | null
+}
+
+export interface GradeResolutionPayload {
+  raw?: string
+  normalized?: string
+  status?: string
+  canonical?: string | null
+  candidates?: string[]
+  family_group?: string | null
+  dual_designation?: boolean
+  reason?: string
+  confidence?: number
+  spec?: Record<string, unknown> | null
 }
 
 export interface ExtractedItem {
@@ -18,6 +41,8 @@ export interface ExtractedItem {
   validation: ValidationResult | null
   row_confidence?: number | null
   needs_review?: boolean
+  grade_resolution?: GradeResolutionPayload | null
+  grade_provenance?: string | null
 }
 
 export interface ExtractionResponse {

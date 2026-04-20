@@ -13,7 +13,7 @@ import { Badge } from '../../components/ui/badge'
 import { Card } from '../../components/ui/card'
 import { Input } from '../../components/ui/input'
 import { formatNullable, formatNumber, MISSING_VALUE } from '../../lib/format'
-import type { ExtractedItem } from '../../types/qualiflow'
+import type { ExtractedItem, GradeResolutionPayload, ValidationOutcome } from '../../types/qualiflow'
 
 interface ItemsTableProps {
   items: ExtractedItem[]
@@ -29,13 +29,39 @@ interface RowShape {
   tensileMpa: number | null
   elongation: number | null
   isCompliant: boolean | null
+  outcome: ValidationOutcome | null
   deviations: string[]
+  gradeResolution: GradeResolutionPayload | null
+  gradeProvenance: string | null
 }
 
-function complianceText(value: boolean | null): { text: string; tone: 'success' | 'danger' | 'warning' } {
-  if (value === true) return { text: 'Compliant', tone: 'success' }
-  if (value === false) return { text: 'Non-compliant', tone: 'danger' }
-  return { text: 'Not validated', tone: 'warning' }
+function complianceText(
+  value: boolean | null,
+  outcome: ValidationOutcome | null,
+): { text: string; tone: 'success' | 'danger' | 'warning' } {
+  // Outcome takes precedence over the tri-state boolean when available so
+  // unresolved / unknown / ambiguous grades land in the warning tone rather
+  // than the false-negative "Non-compliant" red badge.
+  switch (outcome) {
+    case 'RESOLVED_COMPLIANT':
+      return { text: 'Compliant', tone: 'success' }
+    case 'RESOLVED_NON_COMPLIANT':
+      return { text: 'Non-compliant', tone: 'danger' }
+    case 'UNKNOWN_GRADE':
+      return { text: 'Unknown grade - review', tone: 'warning' }
+    case 'AMBIGUOUS_GRADE':
+      return { text: 'Ambiguous grade - review', tone: 'warning' }
+    case 'UNRESOLVED_SPEC':
+      return { text: 'Spec unresolved - review', tone: 'warning' }
+    case 'NOT_APPLICABLE':
+      return { text: 'Not validated', tone: 'warning' }
+    case 'EXTRACTION_UNCERTAIN':
+      return { text: 'Uncertain - review', tone: 'warning' }
+    default:
+      if (value === true) return { text: 'Compliant', tone: 'success' }
+      if (value === false) return { text: 'Non-compliant', tone: 'danger' }
+      return { text: 'Not validated', tone: 'warning' }
+  }
 }
 
 export function ItemsTable({ items }: ItemsTableProps) {
@@ -55,7 +81,10 @@ export function ItemsTable({ items }: ItemsTableProps) {
         tensileMpa: item.mechanical_properties?.tensile_strength_mpa ?? null,
         elongation: item.mechanical_properties?.elongation_percentage ?? null,
         isCompliant: item.validation?.is_compliant ?? null,
+        outcome: (item.validation?.outcome as ValidationOutcome | null | undefined) ?? null,
         deviations: item.validation?.deviations ?? [],
+        gradeResolution: item.grade_resolution ?? null,
+        gradeProvenance: item.grade_provenance ?? null,
       })),
     [items],
   )
@@ -96,7 +125,7 @@ export function ItemsTable({ items }: ItemsTableProps) {
         id: 'compliance',
         header: 'Row Status',
         cell: ({ row }) => {
-          const state = complianceText(row.original.isCompliant)
+          const state = complianceText(row.original.isCompliant, row.original.outcome)
           return <Badge text={state.text} tone={state.tone} />
         },
       },
@@ -211,6 +240,19 @@ export function ItemsTable({ items }: ItemsTableProps) {
                             <span className="mr-2 text-slate-500">Elongation:</span>
                             {formatNumber(row.original.elongation)}
                           </p>
+                          {row.original.outcome && (
+                            <p className="text-slate-300">
+                              <span className="mr-2 text-slate-500">Validation outcome:</span>
+                              {row.original.outcome}
+                            </p>
+                          )}
+                          {row.original.gradeResolution?.candidates && row.original.gradeResolution.candidates.length > 0 && (
+                            <p className="text-slate-300">
+                              <span className="mr-2 text-slate-500">Grade candidates:</span>
+                              {row.original.gradeResolution.candidates.join(', ')}
+                              {row.original.gradeProvenance ? ` (${row.original.gradeProvenance})` : ''}
+                            </p>
+                          )}
                           <div className="text-slate-300">
                             <span className="mr-2 text-slate-500">Validation deviations:</span>
                             {row.original.deviations.length > 0 ? (
