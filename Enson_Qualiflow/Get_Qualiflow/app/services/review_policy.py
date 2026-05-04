@@ -43,7 +43,22 @@ from app.schemas.extraction import UniversalDocumentExtraction
 from app.services.document_profiler import DocumentProfile
 
 CRITICAL_STRING_FIELDS = ("heat_number", "grade")
-CRITICAL_NUMERIC_FIELDS = ("yield_strength_mpa", "tensile_strength_mpa")
+CRITICAL_NUMERIC_FIELDS = ("yield_strength_mpa", "tensile_strength_mpa", "elongation_percentage")
+REQUIRED_CRITICAL_FIELDS = (
+    "heat_number",
+    "grade",
+    "yield_strength_mpa",
+    "tensile_strength_mpa",
+    "elongation_percentage",
+)
+SUPPORTED_DOCUMENT_TYPES = {
+    "certificate of analysis",
+    "coa",
+    "mill test certificate",
+    "mill test report",
+    "material test certificate",
+    "mtc",
+}
 TOKEN_FIELD_LABELS = {
     "yield_strength_mpa": "yield_strength",
     "tensile_strength_mpa": "tensile_strength",
@@ -61,17 +76,268 @@ class ReviewDecision:
     evidence_gaps: list[str] = field(default_factory=list)
     reviewer_focus: list[str] = field(default_factory=list)
     all_reasons: list[str] = field(default_factory=list)
+    decision: str | None = None
+    confidence_summary: dict[str, float] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        decision = self.decision or ("review_required" if self.review_required else "auto_accept")
         return {
+            "decision": decision,
             "review_required": self.review_required,
             "needs_review": self.review_required,
             "review_reasons": list(self.structured_reasons),
+            "blocking_errors": list(self.blocking_reasons),
+            "confidence_summary": dict(self.confidence_summary),
             "blocking_reasons": list(self.blocking_reasons),
             "evidence_gaps": list(self.evidence_gaps),
             "recommended_reviewer_focus": list(self.reviewer_focus),
             "all_reasons": list(self.all_reasons),
         }
+
+
+def _normalise_token(value: Any) -> str:
+    if value is None:
+        return ""
+    return " ".join(str(value).strip().lower().split())
+
+
+def _is_missing(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() == ""
+    if isinstance(value, (list, tuple, set, dict)):
+        return len(value) == 0
+    return False
+
+
+def _as_float(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _dedupe_preserving_order(items: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
+def _document_type_supported(value: Any) -> bool:
+    normalised = _normalise_token(value)
+    if not normalised or normalised == "unknown document":
+        return False
+    return any(known in normalised for known in SUPPORTED_DOCUMENT_TYPES)
+
+
+def _profile_value(document_profile: Any, *keys: str) -> Any:
+    if document_profile is None:
+        return None
+    if isinstance(document_profile, dict):
+        for key in keys:
+            if key in document_profile:
+                return document_profile.get(key)
+        return None
+    for key in keys:
+        if hasattr(document_profile, key):
+            return getattr(document_profile, key)
+    return None
+
+
+def _quality_bucket(document_profile: Any) -> str:
+    return _normalise_token(_profile_value(document_profile, "quality_bucket", "quality_class"))
+
+
+def _extract_items_from_json(extracted_json: dict[str, Any]) -> list[dict[str, Any]]:
+    items = extracted_json.get("items")
+    return items if isinstance(items, list) else []
+
+
+def _critical_value_present(extracted_json: dict[str, Any], field_name: str) -> bool:
+    if not _is_missing(extracted_json.get(field_name)):
+        return True
+
+    items = _extract_items_from_json(extracted_json)
+    if field_name in {"heat_number", "grade"}:
+        return any(isinstance(item, dict) and not _is_missing(item.get(field_name)) for item in items)
+
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        mechanical = item.get("mechanical_properties")
+        if isinstance(mechanical, dict) and not _is_missing(mechanical.get(field_name)):
+            return True
+        if not _is_missing(item.get(field_name)):
+            return True
+    return False
+
+
+def _confidence_map(confidence: Any) -> dict[str, float]:
+    """Extract field confidence values from common confidence payload shapes."""
+
+    if confidence is None:
+        return {}
+    if isinstance(confidence, (float, int)):
+        value = max(0.0, min(float(confidence), 1.0))
+        return {"_overall": value}
+    if not isinstance(confidence, dict):
+        return {}
+
+    for key in ("field_confidences", "fields", "critical_fields"):
+        nested = confidence.get(key)
+        if isinstance(nested, dict):
+            return {
+                str(field): max(0.0, min(float(value), 1.0))
+                for field, value in nested.items()
+                if _as_float(value) is not None
+            }
+
+    values: dict[str, float] = {}
+    for field, value in confidence.items():
+        parsed = _as_float(value)
+        if parsed is not None:
+            values[str(field)] = max(0.0, min(parsed, 1.0))
+    return values
+
+
+def _confidence_summary(
+    extracted_json: dict[str, Any],
+    confidence: Any,
+) -> dict[str, float]:
+    if isinstance(confidence, dict):
+        min_value = _as_float(
+            confidence.get("min_critical_field_confidence")
+            if "min_critical_field_confidence" in confidence
+            else confidence.get("min_critical_confidence")
+        )
+        avg_value = _as_float(confidence.get("avg_field_confidence"))
+        if min_value is not None or avg_value is not None:
+            safe_min = max(0.0, min(float(min_value if min_value is not None else 0.0), 1.0))
+            safe_avg = max(0.0, min(float(avg_value if avg_value is not None else safe_min), 1.0))
+            return {
+                "min_critical_field_confidence": round(safe_min, 4),
+                "avg_field_confidence": round(safe_avg, 4),
+            }
+
+    values = _confidence_map(confidence)
+    if not values:
+        row_confidences = [
+            _as_float(item.get("row_confidence"))
+            for item in _extract_items_from_json(extracted_json)
+            if isinstance(item, dict)
+        ]
+        valid_rows = [value for value in row_confidences if value is not None]
+        if valid_rows:
+            values = {"_row_confidence": sum(valid_rows) / len(valid_rows)}
+        else:
+            overall = _as_float(extracted_json.get("confidence_score"))
+            if overall is not None:
+                values = {"_overall": max(0.0, min(overall, 1.0))}
+
+    all_values = list(values.values())
+    critical_values = [
+        values[field]
+        for field in REQUIRED_CRITICAL_FIELDS
+        if field in values
+    ]
+    if not critical_values and "_overall" in values:
+        critical_values = [values["_overall"]]
+    if not critical_values and "_row_confidence" in values:
+        critical_values = [values["_row_confidence"]]
+
+    min_critical = min(critical_values) if critical_values else 0.0
+    avg_field = (sum(all_values) / len(all_values)) if all_values else 0.0
+    return {
+        "min_critical_field_confidence": round(float(min_critical), 4),
+        "avg_field_confidence": round(float(avg_field), 4),
+    }
+
+
+def _blocking_validation_errors(validation_errors: list[Any]) -> list[str]:
+    blocking: list[str] = []
+    for error in validation_errors or []:
+        if isinstance(error, dict):
+            tokens = [
+                _normalise_token(error.get("severity")),
+                _normalise_token(error.get("type")),
+                _normalise_token(error.get("category")),
+                _normalise_token(error.get("code")),
+            ]
+            is_blocking = bool(error.get("blocking")) or "blocking" in tokens or any(
+                "blocking" in token for token in tokens
+            )
+            if is_blocking:
+                blocking.append(str(error.get("code") or error.get("error") or error.get("message") or "blocking_error"))
+        else:
+            text = str(error)
+            if "blocking" in _normalise_token(text):
+                blocking.append(text)
+    return _dedupe_preserving_order(blocking)
+
+
+def evaluate_review_policy(
+    *,
+    extracted_json: dict[str, Any],
+    confidence: Any,
+    validation_errors: list[Any],
+    document_profile: Any,
+    confidence_threshold: float = 0.80,
+) -> dict[str, Any]:
+    """Apply the deterministic JSON review policy.
+
+    The policy never mutates or auto-fills ``extracted_json``. Missing critical
+    values remain missing and force ``review_required``.
+    """
+
+    review_reasons: list[str] = []
+    blocking_errors = _blocking_validation_errors(validation_errors)
+    summary = _confidence_summary(extracted_json, confidence)
+
+    if _quality_bucket(document_profile) == "severe_scan":
+        review_reasons.append("document_quality:severe_scan")
+
+    missing_fields = [
+        field_name
+        for field_name in REQUIRED_CRITICAL_FIELDS
+        if not _critical_value_present(extracted_json, field_name)
+    ]
+    review_reasons.extend(f"missing_critical_field:{field}" for field in missing_fields)
+
+    if blocking_errors:
+        review_reasons.append("validation_blocking_error")
+
+    if summary["min_critical_field_confidence"] < confidence_threshold:
+        review_reasons.append("confidence_below_threshold")
+
+    if not _document_type_supported(extracted_json.get("document_type")):
+        review_reasons.append("unsupported_document_type")
+
+    validation_passes = not validation_errors
+    all_critical_exist = not missing_fields
+    confidence_passes = summary["min_critical_field_confidence"] >= confidence_threshold
+    supported_document = _document_type_supported(extracted_json.get("document_type"))
+
+    if all_critical_exist and validation_passes and confidence_passes and supported_document and not review_reasons:
+        decision = "auto_accept"
+    else:
+        decision = "review_required"
+
+    return {
+        "decision": decision,
+        "review_reasons": _dedupe_preserving_order(review_reasons),
+        "blocking_errors": blocking_errors,
+        "confidence_summary": summary,
+    }
+
+
+apply_deterministic_review_policy = evaluate_review_policy
 
 
 def _missing_critical_fields(extraction: UniversalDocumentExtraction) -> list[str]:
@@ -240,16 +506,6 @@ def _low_confidence_field_tokens(
     return tokens
 
 
-def _dedupe_preserving_order(items: Iterable[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for item in items:
-        if item not in seen:
-            seen.add(item)
-            result.append(item)
-    return result
-
-
 def apply_review_policy(
     extraction: UniversalDocumentExtraction,
     *,
@@ -269,8 +525,15 @@ def apply_review_policy(
     # 1. Missing critical fields
     structured.extend(_missing_critical_fields(extraction))
 
+    # 1b. Unsupported document types can never be auto-accepted.
+    if not _document_type_supported(extraction.document_type):
+        structured.append("unsupported_document_type")
+
     # 2. Document quality
-    if profile is not None and profile.quality_class == "scan_degraded":
+    profile_bucket = _quality_bucket(profile)
+    if profile_bucket == "severe_scan":
+        structured.append("document_quality:severe_scan")
+    elif profile is not None and profile.quality_class == "scan_degraded":
         structured.append("document_quality:scan_degraded")
     elif profile is not None and profile.quality_class == "scan_clean":
         # Only flag scan_clean when other evidence suggests the model struggled.
@@ -348,6 +611,18 @@ def apply_review_policy(
     if extraction.outcome == NON_COMPLIANT and not needs_review:
         extraction.status = "COMPLETED"
 
+    extracted_json = extraction.model_dump(mode="python")
+    confidence_payload = dict(extraction.confidence_breakdown or {})
+    confidence_payload.setdefault("_overall", extraction.confidence_score)
+    deterministic = evaluate_review_policy(
+        extracted_json=extracted_json,
+        confidence=confidence_payload,
+        validation_errors=[],
+        document_profile=profile.to_dict() if profile is not None else None,
+        confidence_threshold=review_confidence_threshold,
+    )
+    decision = deterministic["decision"] if not needs_review else "review_required"
+
     return ReviewDecision(
         review_required=needs_review,
         structured_reasons=structured,
@@ -355,4 +630,6 @@ def apply_review_policy(
         evidence_gaps=_dedupe_preserving_order(evidence_gaps),
         reviewer_focus=_dedupe_preserving_order(reviewer_focus),
         all_reasons=combined,
+        decision=decision,
+        confidence_summary=deterministic["confidence_summary"],
     )

@@ -1,6 +1,0 @@
-{"sessionId":"109b2c","location":"api.ts:register","message":"Register request","data":{"API_BASE_URL":"http://127.0.0.1:8000","fullUrl":"http://127.0.0.1:8000/api/v1/auth/register"},"timestamp":1773147470255,"hypothesisId":"H2"}
-{"sessionId":"109b2c","location":"api.ts:register:response","message":"Register response","data":{"status":404,"statusText":"Not Found","ok":false},"timestamp":1773147470287,"hypothesisId":"H1,H3,H4"}
-{"sessionId":"109b2c","location":"api.ts:register:catch","message":"Register fetch threw","data":{"err":"ApiError: Not Found","name":"ApiError"},"timestamp":1773147470288,"hypothesisId":"H1"}
-{"sessionId":"109b2c","location":"api.ts:register","message":"Register request","data":{"API_BASE_URL":"http://127.0.0.1:8000","fullUrl":"http://127.0.0.1:8000/api/v1/auth/register"},"timestamp":1773147578353,"hypothesisId":"H2"}
-{"sessionId":"109b2c","location":"api.ts:register:response","message":"Register response","data":{"status":404,"statusText":"Not Found","ok":false},"timestamp":1773147578366,"hypothesisId":"H1,H3,H4"}
-{"sessionId":"109b2c","location":"api.ts:register:catch","message":"Register fetch threw","data":{"err":"ApiError: Not Found","name":"ApiError"},"timestamp":1773147578368,"hypothesisId":"H1"}

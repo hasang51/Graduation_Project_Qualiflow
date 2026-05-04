@@ -1,14 +1,23 @@
-"""Run the QualiFlow evaluation harness against a batch run.
+"""Run QualiFlow gold-set evaluation.
 
-Supports experiment modes:
-- A — ``legacy_ocr_offline_baseline``: SKIPPED (cell-level OCR is offline only).
-- B — ``multimodal_direct_no_routing``: compare batch run with ``--mode B``.
-- C — ``multimodal_preprocessed_fixed``: compare batch run with ``--mode C``.
-- D — ``routed_hybrid_proposed``: default; compare batch run with ``--mode D``.
+Workflow:
+1. Read ``data/gold/metadata.csv``.
+2. Generate real predictions with an adapter when the extraction pipeline is
+   callable and source PDFs are available.
+3. Save predictions to ``outputs/predictions/<doc_id>.json``.
+4. Run ``scripts.evaluate_outputs``.
+5. Print a concise metric summary.
 
-If the gold file is a preannotated candidate file (has ``_banner`` marker or
-``review_status`` column), evaluation still runs but metrics are flagged
-``provisional: true`` in the output.
+No prediction values are fabricated. If the real pipeline cannot be called, the
+``MockExtractionAdapter`` documents the integration point and produces no
+prediction file.
+
+Real pipeline connection point:
+``ExistingPipelineAdapter.predict`` currently calls the same internal helper
+used by ``scripts.run_batch_extraction``: ``_run_single``. If QualiFlow later
+exposes a cleaner service-level function such as ``extract_pdf_to_json(path)``,
+replace that call inside ``ExistingPipelineAdapter.predict`` and keep this
+runner unchanged.
 """
 
 from __future__ import annotations
@@ -17,278 +26,246 @@ import argparse
 import csv
 import json
 import sys
-from dataclasses import asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Protocol
 
-from scripts._dataset_common import (
-    DEFAULT_EVAL_DIR,
-    DEFAULT_GOLD_CANDIDATES_DIR,
-    DEFAULT_GOLD_VERIFIED_DIR,
-    ensure_dir,
-)
-from scripts.evaluate_outputs import (
-    DocumentEvaluation,
-    aggregate_metrics,
-    evaluate_document,
-)
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.evaluate_outputs import run_academic_evaluation
 
 
 def _utc_ts() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
-def _load_jsonl(path: Path) -> list[dict]:
-    rows: list[dict] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
-    return rows
+def _read_metadata(path: Path) -> list[dict[str, str]]:
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        required = {
+            "doc_id",
+            "file_name",
+            "quality_bucket",
+            "document_type",
+            "pages",
+            "has_text_layer",
+            "ground_truth_path",
+        }
+        missing = required.difference(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"metadata missing required columns: {', '.join(sorted(missing))}")
+        return [row for row in reader if (row.get("doc_id") or "").strip()]
 
 
-def _load_gold(gold_path: Path) -> tuple[dict[str, dict], bool]:
-    """Return ``(records_by_document_id, provisional)``.
+def _resolve_document_path(row: dict[str, str], documents_root: Path | None) -> Path | None:
+    file_name = (row.get("file_name") or "").strip()
+    if not file_name:
+        return None
+    path = Path(file_name)
+    if path.is_absolute():
+        return path
+    if documents_root is not None:
+        return documents_root / path
+    return None
 
-    ``provisional`` is True for preannotated candidate packs.
+
+class ExtractionAdapter(Protocol):
+    name: str
+
+    def predict(self, row: dict[str, str], pdf_path: Path) -> dict[str, Any] | None:
+        """Return a real prediction payload, or ``None`` when unavailable."""
+
+
+@dataclass
+class MockExtractionAdapter:
+    """No-op adapter for environments where the real pipeline is not callable.
+
+    Connect the real pipeline by implementing ``predict`` with a call that
+    returns the same kind of JSON written by the API or batch extractor. This
+    adapter intentionally returns ``None`` so evaluation can report missing
+    predictions without inventing values.
     """
 
-    provisional = False
-    rows = _load_jsonl(gold_path)
-    cleaned: dict[str, dict] = {}
-    for row in rows:
-        if "_banner" in row:
-            provisional = True
-            continue
-        if row.get("review_status") is not None and row.get("extracted_supplier_name") is not None:
-            # This is an annotation_sheet-style preannotated row. Map to gold shape.
-            provisional = True
-            gold_like = {
-                "document_id": row.get("document_id"),
-                "filename": row.get("filename"),
-                "supplier_name": row.get("verified_supplier_name") or row.get("extracted_supplier_name"),
-                "document_type": row.get("verified_document_type") or row.get("extracted_document_type"),
-                "certificate_date": row.get("verified_certificate_date") or row.get("extracted_certificate_date"),
-                "is_compliant": row.get("verified_is_compliant") or row.get("extracted_is_compliant"),
-                "heat_numbers": row.get("verified_heat_numbers") or row.get("extracted_heat_numbers"),
-                "grades": row.get("verified_grades") or row.get("extracted_grades"),
-                "yield_strength_mpa": row.get("verified_yield_strength_mpa") or row.get("extracted_yield_strength_mpa"),
-                "tensile_strength_mpa": row.get("verified_tensile_strength_mpa") or row.get("extracted_tensile_strength_mpa"),
-                "elongation_percentage": row.get("verified_elongation_percentage") or row.get("extracted_elongation_percentage"),
-            }
-            cleaned[gold_like["document_id"]] = gold_like
-        else:
-            cleaned[row["document_id"]] = row
-    return cleaned, provisional
+    name: str = "mock"
+
+    def predict(self, row: dict[str, str], pdf_path: Path) -> dict[str, Any] | None:
+        return None
 
 
-def _load_run(run_dir: Path) -> dict[str, dict]:
-    per_doc_dir = run_dir / "per_document"
-    if not per_doc_dir.exists():
-        raise FileNotFoundError(f"No per_document/ under {run_dir}")
-    results: dict[str, dict] = {}
-    for per_doc_file in sorted(per_doc_dir.glob("*.json")):
-        data = json.loads(per_doc_file.read_text(encoding="utf-8"))
-        results[data["document_id"]] = data
-    return results
+@dataclass
+class ExistingPipelineAdapter:
+    """Adapter around the current QualiFlow batch extraction helper."""
+
+    mode: str = "D"
+    force_route: str | None = None
+    name: str = "existing"
+
+    def predict(self, row: dict[str, str], pdf_path: Path) -> dict[str, Any] | None:
+        try:
+            from app.services.batch_policy import BatchRunPolicy
+            from scripts.run_batch_extraction import _run_single
+        except Exception as exc:  # noqa: BLE001 - dependency availability is environment-specific.
+            print(f"[warn] real pipeline adapter unavailable: {exc}", file=sys.stderr)
+            return None
+
+        batch_row = {
+            "document_id": row["doc_id"],
+            "filename": row.get("file_name") or pdf_path.name,
+            "abs_path": str(pdf_path.resolve()),
+            "sha256": row["doc_id"],
+        }
+        policy = BatchRunPolicy.from_env()
+        _summary, per_document, error = _run_single(
+            batch_row,
+            mode=self.mode,
+            force_route=self.force_route,
+            dry_run=False,
+            policy=policy,
+        )
+        if error:
+            print(f"[warn] extraction failed for {row['doc_id']}: {error}", file=sys.stderr)
+            return None
+        return per_document
 
 
-def _comparisons_to_str(comparisons) -> str:
-    tokens: list[str] = []
-    for comp in comparisons:
-        flag = "=" if comp.equal else "!"
-        tokens.append(f"{comp.field}{flag}")
-    return ",".join(tokens)
+def _adapter_from_name(name: str) -> ExtractionAdapter:
+    if name == "mock":
+        return MockExtractionAdapter()
+    if name == "existing":
+        return ExistingPipelineAdapter()
+    raise ValueError(f"unknown adapter: {name}")
+
+
+def _write_prediction(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _print_summary(summary: dict[str, Any], out_dir: Path, predictions_dir: Path) -> None:
+    wanted = [
+        "n_documents",
+        "field_accuracy",
+        "critical_field_accuracy",
+        "document_type_accuracy",
+        "processing_decision_accuracy",
+        "review_rate",
+        "unsafe_auto_accept_rate",
+        "missing_required_field_rate",
+        "average_latency_ms",
+    ]
+    print("\nEvaluation summary")
+    print("------------------")
+    for key in wanted:
+        if key in summary and summary[key] != "":
+            print(f"{key}: {summary[key]}")
+    print(f"predictions: {predictions_dir}")
+    print(f"eval_outputs: {out_dir}")
 
 
 def run(
     *,
-    gold_path: Path,
-    run_dir: Path,
-    mode: str,
-    output_root: Path,
-    provisional_override: bool,
-) -> Path:
-    if mode == "A":
-        print("[skip] Experiment Mode A (legacy_ocr_offline_baseline) is not available.")
-        print("       The repository keeps cell-level Tesseract OCR as an offline utility")
-        print("       (app/services/ocr_service.py, scripts/check_ocr_backend.py). It is not")
-        print("       a comparable end-to-end extraction engine — integrating it would require")
-        print("       re-implementing row aggregation from cell crops. Run modes B, C, or D instead.")
-        return output_root  # early exit — nothing written
+    metadata_path: Path,
+    documents_root: Path | None,
+    predictions_dir: Path,
+    out_dir: Path,
+    adapter: ExtractionAdapter,
+    reuse_predictions: bool,
+) -> dict[str, Any]:
+    rows = _read_metadata(metadata_path)
+    predictions_dir.mkdir(parents=True, exist_ok=True)
 
-    gold_by_id, is_provisional_gold = _load_gold(gold_path)
-    if provisional_override:
-        is_provisional_gold = True
+    generated = 0
+    reused = 0
+    skipped = 0
 
-    run_by_id = _load_run(run_dir)
-
-    ts = _utc_ts()
-    eval_dir = ensure_dir(output_root / f"{ts}_mode_{mode}")
-    per_doc_csv = eval_dir / "per_document.csv"
-    metrics_json = eval_dir / "metrics.json"
-    report_md = eval_dir / "report.md"
-
-    evaluations: list[DocumentEvaluation] = []
-    missing: list[str] = []
-    for doc_id, gold_record in gold_by_id.items():
-        run_record = run_by_id.get(doc_id)
-        if run_record is None:
-            missing.append(doc_id)
+    for row in rows:
+        doc_id = row["doc_id"].strip()
+        pred_path = predictions_dir / f"{doc_id}.json"
+        if reuse_predictions and pred_path.exists():
+            reused += 1
             continue
-        evaluations.append(evaluate_document(gold_record=gold_record, per_document=run_record))
 
-    aggregate = aggregate_metrics(evaluations)
+        pdf_path = _resolve_document_path(row, documents_root)
+        if pdf_path is None:
+            print(f"[skip] {doc_id}: no --documents-root and file_name is not absolute")
+            skipped += 1
+            continue
+        if not pdf_path.exists():
+            print(f"[skip] {doc_id}: source PDF not found: {pdf_path}")
+            skipped += 1
+            continue
 
-    with per_doc_csv.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.writer(handle)
-        writer.writerow([
-            "document_id",
-            "filename",
-            "mode",
-            "route_used",
-            "quality_class",
-            "field_accuracy",
-            "critical_field_accuracy",
-            "compliance_correct",
-            "review_required",
-            "latency_ms",
-            "completeness",
-            "comparisons",
-        ])
-        for ev in evaluations:
-            field_acc = ev.field_hits / ev.field_total if ev.field_total else 0.0
-            crit_acc = ev.critical_hits / ev.critical_total if ev.critical_total else 0.0
-            writer.writerow([
-                ev.document_id,
-                ev.filename,
-                ev.mode,
-                ev.route_used,
-                ev.quality_class,
-                round(field_acc, 4),
-                round(crit_acc, 4),
-                ev.compliance_correct,
-                ev.review_required,
-                ev.latency_ms,
-                ev.completeness,
-                _comparisons_to_str(ev.comparisons),
-            ])
+        prediction = adapter.predict(row, pdf_path)
+        if prediction is None:
+            print(f"[skip] {doc_id}: adapter '{adapter.name}' produced no prediction")
+            skipped += 1
+            continue
 
-    metrics_payload = {
-        "timestamp": ts,
-        "mode": mode,
-        "run_dir": str(run_dir.resolve()),
-        "gold_path": str(gold_path.resolve()),
-        "provisional": bool(is_provisional_gold),
-        "aggregate": aggregate,
-        "documents_evaluated": len(evaluations),
-        "documents_missing_in_run": missing,
-    }
-    metrics_json.write_text(json.dumps(metrics_payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        _write_prediction(pred_path, prediction)
+        generated += 1
+        print(f"[ok] wrote prediction: {pred_path}")
 
-    lines = [
-        f"# QualiFlow evaluation — mode {mode}",
-        "",
-        f"- timestamp: `{ts}`",
-        f"- run_dir: `{run_dir}`",
-        f"- gold_path: `{gold_path}`",
-        f"- provisional: **{'YES — NOT VERIFIED GOLD' if is_provisional_gold else 'no — verified gold'}**",
-        f"- documents evaluated: {len(evaluations)}",
-        f"- documents missing in run: {len(missing)}",
-        "",
-        "## Aggregate metrics",
-        "",
-        "| metric | value |",
-        "| --- | --- |",
-    ]
-    for key, value in aggregate.items():
-        lines.append(f"| {key} | {value} |")
-    if is_provisional_gold:
-        lines.append("")
-        lines.append(
-            "> **PROVISIONAL**: these metrics are computed against a preannotated "
-            "candidate set. They are not final thesis results. A reviewer must "
-            "verify the annotation_sheet.csv before treating these numbers as "
-            "authoritative."
-        )
-    report_md.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    print(f"[ok] wrote {per_doc_csv}")
-    print(f"[ok] wrote {metrics_json}")
-    print(f"[ok] wrote {report_md}")
-    print(f"[ok] aggregate: {json.dumps(aggregate, indent=2)}")
-    if is_provisional_gold:
-        print("[warn] metrics are PROVISIONAL (preannotated gold — requires human review)")
-    return eval_dir
+    print(
+        f"[info] prediction generation complete: generated={generated} reused={reused} skipped={skipped}"
+    )
+    summary = run_academic_evaluation(
+        metadata_path=metadata_path,
+        predictions_dir=predictions_dir,
+        out_dir=out_dir,
+    )
+    return summary
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run evaluation against a batch run.")
-    parser.add_argument("--mode", choices=["A", "B", "C", "D"], default="D")
-    parser.add_argument("--run-dir", required=False, default=None, help="Batch run directory.")
+    parser = argparse.ArgumentParser(description="Generate predictions and evaluate the QualiFlow gold set.")
+    parser.add_argument("--metadata", default="data/gold/metadata.csv")
     parser.add_argument(
-        "--gold",
+        "--documents-root",
         default=None,
-        help="Path to gold jsonl (either verified or preannotated candidate).",
+        help="Directory containing source PDFs. Required when metadata file_name values are relative.",
+    )
+    parser.add_argument("--predictions", default="outputs/predictions")
+    parser.add_argument("--out", default=None, help="Defaults to outputs/eval_runs/<timestamp>.")
+    parser.add_argument(
+        "--adapter",
+        choices=["existing", "mock"],
+        default="existing",
+        help="Use 'existing' for the current QualiFlow pipeline, or 'mock' as a documented no-op.",
     )
     parser.add_argument(
-        "--output-root",
-        default=str(DEFAULT_EVAL_DIR),
-    )
-    parser.add_argument(
-        "--provisional",
+        "--no-reuse-predictions",
         action="store_true",
-        help="Force the output to be flagged provisional regardless of source.",
+        help="Regenerate predictions even when outputs/predictions/<doc_id>.json already exists.",
     )
     args = parser.parse_args(argv)
 
-    if args.mode == "A":
-        # Early-exit call to run() to print the skip message.
-        run(
-            gold_path=Path(args.gold or "nonexistent.jsonl"),
-            run_dir=Path(args.run_dir or "nonexistent"),
-            mode="A",
-            output_root=Path(args.output_root),
-            provisional_override=False,
+    metadata_path = Path(args.metadata)
+    predictions_dir = Path(args.predictions)
+    out_dir = Path(args.out) if args.out else Path("outputs") / "eval_runs" / _utc_ts()
+    documents_root = Path(args.documents_root) if args.documents_root else None
+
+    if not metadata_path.exists():
+        print(f"[error] metadata not found: {metadata_path}", file=sys.stderr)
+        return 2
+
+    try:
+        adapter = _adapter_from_name(args.adapter)
+        summary = run(
+            metadata_path=metadata_path,
+            documents_root=documents_root,
+            predictions_dir=predictions_dir,
+            out_dir=out_dir,
+            adapter=adapter,
+            reuse_predictions=not args.no_reuse_predictions,
         )
-        return 0
+    except Exception as exc:
+        print(f"[error] run_eval failed: {exc}", file=sys.stderr)
+        return 1
 
-    if args.run_dir is None:
-        print("[error] --run-dir is required for modes B/C/D", file=sys.stderr)
-        return 2
-
-    if args.gold is None:
-        # Try default verified first, then candidate preannotated.
-        candidates = [
-            DEFAULT_GOLD_VERIFIED_DIR / "gold_manifest.jsonl",
-            DEFAULT_GOLD_VERIFIED_DIR / "annotations.jsonl",
-            DEFAULT_GOLD_CANDIDATES_DIR / "gold_candidates_prefill.jsonl",
-        ]
-        picked = next((c for c in candidates if c.exists()), None)
-        if picked is None:
-            print("[error] --gold not provided and no default gold file found", file=sys.stderr)
-            return 2
-        gold_path = picked
-        print(f"[info] using default gold path: {gold_path}")
-    else:
-        gold_path = Path(args.gold)
-
-    run_dir = Path(args.run_dir)
-    if not run_dir.exists():
-        print(f"[error] run dir not found: {run_dir}", file=sys.stderr)
-        return 2
-    if not gold_path.exists():
-        print(f"[error] gold path not found: {gold_path}", file=sys.stderr)
-        return 2
-
-    run(
-        gold_path=gold_path,
-        run_dir=run_dir,
-        mode=args.mode,
-        output_root=Path(args.output_root),
-        provisional_override=args.provisional,
-    )
+    _print_summary(summary, out_dir, predictions_dir)
     return 0
 
 

@@ -9,7 +9,7 @@ from app.schemas.extraction import (
     ValidationResult,
 )
 from app.services.document_profiler import DocumentProfile
-from app.services.review_policy import apply_review_policy
+from app.services.review_policy import apply_review_policy, evaluate_review_policy
 
 
 def _degraded_profile() -> DocumentProfile:
@@ -68,6 +68,138 @@ def _make_extraction(
 
 
 class ReviewPolicyTests(unittest.TestCase):
+    def test_deterministic_policy_auto_accepts_clean_supported_document(self):
+        decision = evaluate_review_policy(
+            extracted_json={
+                "document_type": "Mill Test Certificate",
+                "items": [
+                    {
+                        "heat_number": "H1",
+                        "grade": "S355J2",
+                        "mechanical_properties": {
+                            "yield_strength_mpa": 380.0,
+                            "tensile_strength_mpa": 500.0,
+                            "elongation_percentage": 25.0,
+                        },
+                    }
+                ],
+            },
+            confidence={
+                "field_confidences": {
+                    "heat_number": 0.95,
+                    "grade": 0.94,
+                    "yield_strength_mpa": 0.93,
+                    "tensile_strength_mpa": 0.92,
+                    "elongation_percentage": 0.91,
+                }
+            },
+            validation_errors=[],
+            document_profile={"quality_bucket": "clean_scan"},
+        )
+        self.assertEqual(decision["decision"], "auto_accept")
+        self.assertEqual(decision["review_reasons"], [])
+        self.assertEqual(decision["blocking_errors"], [])
+
+    def test_deterministic_policy_requires_review_for_severe_scan(self):
+        decision = evaluate_review_policy(
+            extracted_json={
+                "document_type": "Certificate of Analysis",
+                "heat_number": "H1",
+                "grade": "S355J2",
+                "yield_strength_mpa": 380.0,
+                "tensile_strength_mpa": 500.0,
+                "elongation_percentage": 25.0,
+            },
+            confidence=0.95,
+            validation_errors=[],
+            document_profile={"quality_bucket": "severe_scan"},
+        )
+        self.assertEqual(decision["decision"], "review_required")
+        self.assertIn("document_quality:severe_scan", decision["review_reasons"])
+
+    def test_deterministic_policy_never_accepts_missing_critical_fields(self):
+        decision = evaluate_review_policy(
+            extracted_json={
+                "document_type": "Mill Test Certificate",
+                "items": [
+                    {
+                        "heat_number": "H1",
+                        "mechanical_properties": {
+                            "yield_strength_mpa": 380.0,
+                            "tensile_strength_mpa": 500.0,
+                            "elongation_percentage": 25.0,
+                        },
+                    }
+                ],
+            },
+            confidence=0.95,
+            validation_errors=[],
+            document_profile={"quality_bucket": "digital_pdf"},
+        )
+        self.assertEqual(decision["decision"], "review_required")
+        self.assertIn("missing_critical_field:grade", decision["review_reasons"])
+
+    def test_deterministic_policy_blocks_low_critical_confidence(self):
+        decision = evaluate_review_policy(
+            extracted_json={
+                "document_type": "Mill Test Certificate",
+                "heat_number": "H1",
+                "grade": "S355J2",
+                "yield_strength_mpa": 380.0,
+                "tensile_strength_mpa": 500.0,
+                "elongation_percentage": 25.0,
+            },
+            confidence={
+                "field_confidences": {
+                    "heat_number": 0.95,
+                    "grade": 0.79,
+                    "yield_strength_mpa": 0.91,
+                    "tensile_strength_mpa": 0.91,
+                    "elongation_percentage": 0.91,
+                }
+            },
+            validation_errors=[],
+            document_profile={"quality_bucket": "digital_pdf"},
+        )
+        self.assertEqual(decision["decision"], "review_required")
+        self.assertIn("confidence_below_threshold", decision["review_reasons"])
+        self.assertEqual(decision["confidence_summary"]["min_critical_field_confidence"], 0.79)
+
+    def test_deterministic_policy_never_accepts_unsupported_document_type(self):
+        decision = evaluate_review_policy(
+            extracted_json={
+                "document_type": "Invoice",
+                "heat_number": "H1",
+                "grade": "S355J2",
+                "yield_strength_mpa": 380.0,
+                "tensile_strength_mpa": 500.0,
+                "elongation_percentage": 25.0,
+            },
+            confidence=0.95,
+            validation_errors=[],
+            document_profile={"quality_bucket": "digital_pdf"},
+        )
+        self.assertEqual(decision["decision"], "review_required")
+        self.assertIn("unsupported_document_type", decision["review_reasons"])
+
+    def test_deterministic_policy_routes_blocking_validation_errors_to_review(self):
+        decision = evaluate_review_policy(
+            extracted_json={
+                "document_type": "Mill Test Certificate",
+                "heat_number": "H1",
+                "grade": "S355J2",
+                "yield_strength_mpa": 380.0,
+                "tensile_strength_mpa": 500.0,
+                "elongation_percentage": 25.0,
+            },
+            confidence=0.95,
+            validation_errors=[{"code": "schema_violation", "blocking": True}],
+            document_profile={"quality_bucket": "digital_pdf"},
+        )
+        self.assertEqual(decision["decision"], "review_required")
+        self.assertIn("validation_blocking_error", decision["review_reasons"])
+        self.assertEqual(decision["blocking_errors"], ["schema_violation"])
+
     def test_no_items_triggers_no_items_extracted_token(self):
         extraction = _make_extraction(items=[], total_items_detected=3)
         decision = apply_review_policy(extraction, profile=_clean_profile())
