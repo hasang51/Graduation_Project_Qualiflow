@@ -1,0 +1,31 @@
+{
+    "supplier_name": "SHANXI TAIGANG STAINLESS STEEL CO LTD",
+    "document_type": "Mill Test Certificate",
+    "certificate_date": "2019-8-20",
+    "items": [
+        {
+            "item_id": "1",
+            "heat_number": "A2902540",
+            "grade": "1.4401/1.4404/316/316L",
+            "weight_or_length": "10300 Kg",
+            "mechanical_properties": {
+                "yield_strength_mpa": 283,
+                "tensile_strength_mpa": 620,
+                "elongation_percentage": 60
+            }
+        },
+        {
+            "item_id": "2",
+            "heat_number": "A2902540",
+            "grade": "1.4401/1.4404/316/316L",
+            "weight_or_length": "9781 Kg",
+            "mechanical_properties": {
+                "yield_strength_mpa": 283,
+                "tensile_strength_mpa": 620,
+                "elongation_percentage": 60
+            }
+        }
+    ],
+    "review_required": false,
+    "processing_decision": "auto_accept"
+}

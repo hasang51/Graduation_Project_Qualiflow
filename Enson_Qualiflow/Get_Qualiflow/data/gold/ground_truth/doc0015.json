@@ -1,0 +1,20 @@
+{
+    "supplier_name": "ITW WELDING",
+    "document_type": "Mill Test Certificate",
+    "certificate_date": "16.12.2013",
+    "items": [
+        {
+            "item_id": "1",
+            "heat_number": "123753",
+            "grade": "MEGAFIL 1100 M",
+            "weight_or_length": "1024 kg",
+            "mechanical_properties": {
+                "yield_strength_mpa": 959,
+                "tensile_strength_mpa": 980,
+                "elongation_percentage": 14
+            }
+        }
+    ],
+    "review_required": false,
+    "processing_decision": "auto_accept"
+}

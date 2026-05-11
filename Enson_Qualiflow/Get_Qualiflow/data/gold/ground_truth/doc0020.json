@@ -1,0 +1,20 @@
+{
+    "supplier_name": "ERCİYES ÇELİK HALAT TEL SAN. TİC. A.Ş.",
+    "document_type": "Mill Test Certificate",
+    "certificate_date": "28.07.2025",
+    "items": [
+        {
+            "item_id": "1",
+            "heat_number": null,
+            "grade": "6x36 WS",
+            "weight_or_length": "1100 M",
+            "mechanical_properties": {
+                "yield_strength_mpa": null,
+                "tensile_strength_mpa": 1960,
+                "elongation_percentage": null
+            }
+        }
+    ],
+    "review_required": false,
+    "processing_decision": "auto_accept"
+}

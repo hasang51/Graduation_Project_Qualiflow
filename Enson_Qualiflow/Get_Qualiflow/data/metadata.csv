@@ -1,0 +1,21 @@
+doc_id,original_file,recommended_file_name,quality_bucket,document_type,pages,has_text_layer,text_chars,image_count,size_kb,visual_notes,ground_truth_path
+doc001,Bulan#U0131k/2_bulanik.pdf,doc001.pdf,degraded_scan,Mill Test Certificate,1,FALSE,0,1,1286.2,"blurred scan, no text layer, readable but soft",data/gold/ground_truth/doc001.json
+doc002,Bulan#U0131k/3_bulanik.pdf,doc002.pdf,degraded_scan,Mill Test Certificate,1,FALSE,0,1,1326.4,"blurred/low contrast scan, no text layer",data/gold/ground_truth/doc002.json
+doc003,Bulan#U0131k/Bulan#U0131k_1.pdf,doc003.pdf,degraded_scan,Mill Test Certificate,1,TRUE,1614,1,169.3,blurred scan but OCR/text layer exists; blue stamps/tables reduce reliability,data/gold/ground_truth/doc003.json
+doc004,Bulan#U0131k/bulanik_4.pdf,doc004.pdf,severe_scan,Mill Test Certificate,1,FALSE,0,1,586.3,very low visual detail; no text layer; likely unreliable,data/gold/ground_truth/doc004.json
+doc005,D#U00fc#U015f#U00fck Kalite/d#U00fc#U015f#U00fck_kalite_1.pdf,doc005.pdf,severe_scan,Mill Test Certificate,1,FALSE,0,1,53.3,"rotated sideways scan, no text layer; requires preprocessing/rotation; critical fields hard",data/gold/ground_truth/doc005.json
+doc006,D#U00fc#U015f#U00fck Kalite/d#U00fc#U015f#U00fck_kalite_2.pdf,doc006.pdf,degraded_scan,Mill Test Certificate,1,FALSE,0,1,80.2,"low quality scan, no text layer but table mostly readable",data/gold/ground_truth/doc006.json
+doc007,D#U00fc#U015f#U00fck Kalite/d#U00fc#U015f#U00fck_kalite_3.pdf,doc007.pdf,severe_scan,Mill Test Certificate,2,FALSE,0,2,689.6,"2-page poor scan, no text layer; sparse/low contrast",data/gold/ground_truth/doc007.json
+doc008,D#U00fc#U015f#U00fck Kalite/d#U00fc#U015f#U00fck_kalite_4.pdf,doc008.pdf,severe_scan,Mill Test Certificate,1,TRUE,1191,1,572.8,low-quality scanned certificate; partial text layer but noisy and stamped,data/gold/ground_truth/doc008.json
+doc009,Farkl#U0131 Layout/mill_1_layout.pdf,doc009.pdf,digital_pdf,Mill Test Certificate,1,TRUE,1110,0,220.5,"text layer present, non-standard layout; good test for layout variation",data/gold/ground_truth/doc009.json
+doc010,Farkl#U0131 Layout/mill_2_layout.pdf,doc010.pdf,clean_scan,Mill Test Certificate,1,FALSE,0,1,1365.3,image-only layout variant but readable,data/gold/ground_truth/doc010.json
+doc011,Farkl#U0131 Layout/mill_3_layout.pdf,doc011.pdf,clean_scan,Mill Test Certificate,1,TRUE,1173,9,1341.4,layout variant with text layer and good readability,data/gold/ground_truth/doc011.json
+doc012,Farkl#U0131 Layout/mill_4_layout.pdf,doc012.pdf,digital_pdf,Mill Test Certificate,1,TRUE,3305,1,20.8,strong text layer and clean digital certificate,data/gold/ground_truth/doc012.json
+doc013,Temiz/mill_1_temiz.pdf,doc013.pdf,clean_scan,Mill Test Certificate,1,TRUE,2047,6,253.5,clean readable certificate with text layer/images,data/gold/ground_truth/doc013.json
+doc014,Temiz/mill_2_temiz.pdf,doc014.pdf,digital_pdf,Mill Test Certificate,1,TRUE,3189,2,16.4,"compact digital PDF, strong text layer",data/gold/ground_truth/doc014.json
+doc015,Temiz/mill_3_temiz.pdf,doc015.pdf,digital_pdf,Mill Test Certificate,1,TRUE,2511,1,42.6,clean digital/text PDF,data/gold/ground_truth/doc015.json
+doc016,Temiz/mill_4_temiz.pdf,doc016.pdf,digital_pdf,Mill Test Certificate,2,TRUE,4150,4,112.8,multi-page clean PDF with text layer,data/gold/ground_truth/doc016.json
+doc017,Watermarkl#U0131/mill_1_waterm.pdf,doc017.pdf,degraded_scan,Mill Test Certificate,1,TRUE,2195,3,226.9,"watermark degrades table reading, text layer exists",data/gold/ground_truth/doc017.json
+doc018,Watermarkl#U0131/mill_2_waterm.pdf,doc018.pdf,degraded_scan,Mill Test Certificate,2,TRUE,2913,8,98.2,"sample watermark/stamp, two pages; text layer but table interference",data/gold/ground_truth/doc018.json
+doc019,Watermarkl#U0131/mill_4_waterm.pdf,doc019.pdf,degraded_scan,Mill Test Certificate,7,FALSE,0,7,711.2,7-page image-only watermark document; likely extraction hard but not fully unreadable,data/gold/ground_truth/doc019.json
+doc020,doc020.pdf,digital_pdf,Mill Test Certificate,1,true,data/gold/ground_truth/doc020.json
