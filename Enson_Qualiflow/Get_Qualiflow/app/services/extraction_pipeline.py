@@ -20,6 +20,11 @@ from app.services.confidence import normalize_confidence
 from app.services.document_profiler import DocumentProfile
 from app.services.preprocessing import EncodedVariant, ProcessedPage
 from app.services.review_policy import apply_review_policy
+from app.services.row_shape_normalizer import (
+    backfill_single_item_context,
+    collapse_alternative_classification_rows,
+    collapse_vertical_mechanical_rows,
+)
 from app.services.validator import validate_document
 
 logger = logging.getLogger("qualiflow.pipeline")
@@ -34,6 +39,10 @@ METADATA_TOOL: dict[str, Any] = {
             "supplier_name": {"type": "string"},
             "document_type": {"type": "string"},
             "certificate_date": {"type": ["string", "null"]},
+            "heat_number": {"type": ["string", "null"]},
+            "header_grade": {"type": ["string", "null"]},
+            "product_description": {"type": ["string", "null"]},
+            "weight_or_length": {"type": ["string", "null"]},
             "ai_analysis_remarks": {"type": ["string", "null"]},
             "confidence_score": {"type": "number"},
         },
@@ -77,23 +86,31 @@ ITEM_TOOL: dict[str, Any] = {
 METADATA_PROMPT = (
     "You are Stage A of an industrial document extraction pipeline. "
     "Use full-page document context to extract only document-level metadata. "
-    "Do not guess unreadable text. Use null where uncertain. "
+    "Extract all visible text even if slightly blurry. Only use null when text is completely illegible. "
+    "For document_type, use a concise standard label such as 'Mill Test Certificate'. "
+    "When visible, also extract the document-level heat/batch/cast number, product grade, product description, and weight/quantity. "
+    "Heat/batch/cast numbers are often labelled Heat No, Cast No, Batch No, Colata, Lotto, N. Colata, or N. Lotto; capture the visible value exactly. "
     "Recognizing the document type does not imply that tabular row values are readable. "
     "Confidence_score in this stage must reflect document-level understanding only, not row-level extraction quality. "
     "In ai_analysis_remarks, clearly explain when document understanding is acceptable but row extraction may be weak due to blur, scan noise, missing table clarity, or unreadable cells. "
-    "Return only supplier_name, document_type, certificate_date, ai_analysis_remarks, confidence_score."
+    "Return only supplier_name, document_type, certificate_date, heat_number, header_grade, product_description, weight_or_length, ai_analysis_remarks, confidence_score."
 )
 
 ITEM_PROMPT = (
     "You are Stage B of an industrial document extraction pipeline. "
     "Extract table line items from table-focused images. "
-    "Priority is precision over recall for noisy scans. "
+    "A line item means one product/material/heat row, not one mechanical-property label row. "
+    "If mechanical properties are shown vertically as separate Yield/Tensile/Elongation lines for the same product, merge them into one item with one mechanical_properties object. "
+    "If one document-level heat/batch/cast number applies to the product, repeat that value in each item's heat_number field. "
+    "Do not treat classification rows such as M21/C1 as separate heats when they describe the same product grade. "
+    "Extract all values that are visually distinguishable, even from degraded scans. "
     "If a cell is unreadable, set that field to null. "
     "Do not infer a row value unless the cell is visually supported in the image. "
-    "Do not infer, repair, or guess ambiguous row IDs, heat numbers, grades, weights, lengths, or mechanical values from domain intuition. "
+    "Read all visible cell values. If a character is ambiguous but most likely readable, include your best reading and set row_confidence accordingly. "
     "Preserve row structure only when row boundaries or cell contents are actually visible. "
     "Do not create placeholder rows for implied totals or partially imagined table structure. "
-    "If no reliable rows are visible, return total_items_detected as 0 and items as an empty array. "
+    "Only return empty results when the table is completely illegible. "
+    "For blurry or low-contrast documents, try harder to read values. Use row_confidence between 0.3-0.6 for uncertain readings rather than returning null. "
     "Row confidence must be low when text is degraded, cell boundaries are unclear, or digits are ambiguous."
 )
 
@@ -444,6 +461,28 @@ def run_multi_stage_extraction(
 
     items_raw = item_payload.get("items", [])
     items_dicts = [_normalize_row_dict(row) for row in items_raw if isinstance(row, dict)]
+    row_shape_tokens: list[str] = []
+    row_shape_traces: list[dict[str, Any]] = []
+    vertical_result = collapse_vertical_mechanical_rows(items_dicts, metadata=metadata)
+    if vertical_result.tokens:
+        items_dicts = vertical_result.rows
+        row_shape_tokens.extend(vertical_result.tokens)
+        row_shape_traces.append(vertical_result.trace)
+    classification_result = collapse_alternative_classification_rows(items_dicts, metadata=metadata)
+    if classification_result.tokens:
+        items_dicts = classification_result.rows
+        row_shape_tokens.extend(classification_result.tokens)
+        row_shape_traces.append(classification_result.trace)
+    backfill_result = backfill_single_item_context(items_dicts, metadata=metadata)
+    if backfill_result.tokens:
+        items_dicts = backfill_result.rows
+        row_shape_tokens.extend(backfill_result.tokens)
+        row_shape_traces.append(backfill_result.trace)
+    if row_shape_tokens or row_shape_traces:
+        preprocessing_meta["row_shape_normalization"] = {
+            "tokens": row_shape_tokens,
+            "traces": row_shape_traces,
+        }
     semantic_rows = normalize_rows_semantics(items_dicts)
     preprocessing_meta["semantic_normalization"] = [entry.to_dict() for entry in semantic_rows]
     items_dicts = [entry.canonical_values for entry in semantic_rows]
@@ -469,6 +508,8 @@ def run_multi_stage_extraction(
     raw_model_confidence = float(metadata.get("confidence_score", 0.0))
     raw_model_confidence = max(0.0, min(raw_model_confidence, 1.0))
     raw_reported_total_items = int(item_payload.get("total_items_detected", len(items)))
+    if row_shape_tokens:
+        raw_reported_total_items = len(items)
     diagnostic_summary = _build_diagnostic_summary(
         pages=pages,
         metadata=metadata,
@@ -506,7 +547,8 @@ def run_multi_stage_extraction(
         extraction.review_reasons.append("document readability concerns noted in analysis remarks")
         extraction.needs_review = True
 
-    if any(item.row_confidence is not None and item.row_confidence < settings.review_confidence_threshold for item in extraction.items):
+    hard_row_confidence_floor = min(0.5, settings.review_confidence_threshold - 0.2)
+    if any(item.row_confidence is not None and item.row_confidence < hard_row_confidence_floor for item in extraction.items):
         extraction.review_reasons.append("low-confidence rows detected")
     if len(extraction.items) == 0:
         extraction.review_reasons.append("extraction structure is incomplete")

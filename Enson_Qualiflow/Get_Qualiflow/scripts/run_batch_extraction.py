@@ -100,7 +100,7 @@ def _flatten_summary_row(
         if not item.get("heat_number"):
             missing_heat += 1
 
-    structured_reasons = (review or {}).get("structured_reasons") or []
+    structured_reasons = (review or {}).get("structured_reasons") or (review or {}).get("review_reasons") or []
     all_reasons = (review or {}).get("all_reasons") or (extraction or {}).get("review_reasons") or []
 
     llm_usage = (extraction or {}).get("llm_usage") or {}
@@ -179,7 +179,7 @@ def _run_single(
                 document_id=document_id,
                 filename=filename,
                 quality_class=profile.quality_class,
-                route_used=decision.route,
+                route_used=decision.runtime_route,
                 page_count=profile.page_count,
                 mode=mode,
                 extraction=None,
@@ -196,7 +196,7 @@ def _run_single(
                 document_id=document_id,
                 filename=filename,
                 quality_class=profile.quality_class,
-                route_used=decision.route,
+                route_used=decision.runtime_route,
                 page_count=profile.page_count,
                 mode=mode,
                 extraction=None,
@@ -228,7 +228,7 @@ def _run_single(
         processed_pages, pre_meta = preprocess_pdf(
             abs_path,
             artifact_dir=artifact_dir,
-            route=decision.route,
+            route=decision.runtime_route,
             max_pages=max_pages,
         )
         preprocessing_meta.update(pre_meta)
@@ -300,7 +300,7 @@ def _run_single(
             "document_id": document_id,
             "filename": filename,
             "mode": mode,
-            "route_used": decision.route,
+            "route_used": decision.runtime_route,
             "profile": profile.to_dict(),
             "route_decision": decision.to_dict(),
             "latency_ms": round(latency_ms, 1),
@@ -320,10 +320,10 @@ def _run_single(
             document_id=document_id,
             filename=filename,
             quality_class=profile.quality_class,
-            route_used=decision.route,
+            route_used=decision.runtime_route,
             page_count=profile.page_count,
             mode=mode,
-            extraction=extraction_dict,
+            extraction={**extraction_dict, "llm_usage": llm_usage},
             review=review_dict,
             latency_ms=latency_ms,
             status="OK",

@@ -4,11 +4,11 @@ Graduation-project research prototype of a **quality-aware hybrid CoA verificati
 
 The system is not a productised SaaS. It is an academically scoped prototype that combines:
 
-- a lightweight **document profiler** that classifies each PDF as `digital_clean`, `scan_clean`, or `scan_degraded`;
+- a lightweight **document profiler** that classifies each PDF as `digital_clean`, `scan_clean`, `scan_degraded`, or `severe_scan`;
 - an **explicit single-path router** that picks exactly one extraction strategy per document (no parallel OCR, no multi-agent arbitration);
 - a **multimodal extraction path** (Anthropic Claude) that runs two stages — metadata, then line items — with deterministic tool-use schemas;
 - **deterministic validation** against known steel-grade specs and suspicious-numeric bands;
-- an auditable **review policy** that emits structured reason tokens for every flagged document;
+- an auditable **review policy** that emits structured reason tokens for every flagged document while treating document quality as diagnostic metadata rather than a standalone blocker;
 - a reproducible **dataset workflow** (discover, profile, manifest, gold candidates, batch extraction, evaluation) designed for ~100 PDFs.
 
 Tesseract is kept strictly offline as a legacy cell-level OCR utility; it is never imported by the runtime.
@@ -22,7 +22,7 @@ upload PDF
    │
    ▼
 document profiler          (app/services/document_profiler.py)
-   │  quality_class in {digital_clean, scan_clean, scan_degraded}
+   │  quality_class in {digital_clean, scan_clean, scan_degraded, severe_scan}
    ▼
 extraction router          (app/services/extraction_router.py)
    │  exactly one route in {native_multimodal, rendered_multimodal, preprocessed_multimodal}
@@ -31,7 +31,8 @@ preprocess_pdf(route=…)    (app/services/preprocessing.py)
    │  per-page rasterisation + route-driven variant stack
    ▼
 run_multi_stage_extraction (app/services/extraction_pipeline.py)
-   │  Stage A metadata → Stage B line items (Claude tool use)
+   │  Stage A metadata → Stage B item-centric line items (Claude tool use)
+   │  row-shape normalization collapses vertical mechanical-property tables
    ▼
 validate_document          (app/services/validator.py)
    │  grade-aware compliance + suspicious numerics + heat-pattern checks
@@ -40,7 +41,7 @@ normalize_confidence       (app/services/confidence.py)
    │  combines raw model confidence with quality + completeness signals
    ▼
 apply_review_policy        (app/services/review_policy.py)
-   │  deterministic structured reason tokens
+   │  deterministic structured reason tokens (quality alone is not a gate)
    ▼
 persist + respond with UniversalDocumentExtraction
 ```
@@ -136,6 +137,11 @@ python -m scripts.select_gold_candidates --n 20
 # 5) live batch extraction over the candidate subset (Mode D — routed hybrid)
 python -m scripts.run_batch_extraction --subset data/gold_candidates/gold_candidates_manifest.jsonl --mode D
 
+# Cost-limited smoke verification over exactly two PDFs
+$env:QUALIFLOW_MAX_LIVE_DOCS='2'
+$env:QUALIFLOW_BUDGET_USD='0.25'
+python -m scripts.run_batch_extraction --subset data/two_pdf_manifest.jsonl --mode D --inter-doc-sleep-s 0
+
 # 6) build the human-review pack (PREANNOTATED — NOT VERIFIED)
 python -m scripts.build_prefill_pack --run-dir data/batch_runs/<timestamp>
 
@@ -165,6 +171,7 @@ data/
 │   ├── summary.csv
 │   ├── summary.json
 │   ├── errors.jsonl
+│   ├── usage.csv
 │   └── config.json
 └── eval_outputs/<timestamp>_mode_<mode>/
     ├── metrics.json
@@ -228,31 +235,36 @@ python -m scripts.export_eval_summary --help
 
 ## 8. Live-execution status (as of 2026-05-11)
 
+The latest checked live evidence is the cost-limited smoke sequence over
+`doc001.pdf` and `doc002.pdf`. The combined two-PDF run
+`data/batch_runs/plan_step6_two_pdfs_final` confirmed `doc002` auto-accepts.
+The follow-up targeted run `data/batch_runs/plan_step6_doc001_final` confirmed
+the remaining `doc001` row-shape/heat issue is fixed.
+
 | Step | Status | Notes |
 | --- | --- | --- |
-| Discover 103 PDFs | **DONE** | `data/manifests/documents_discovery.{jsonl,csv}` |
-| Profile all 103 PDFs | **DONE** | `data/manifests/documents_manifest.{jsonl,csv}` + `profile_summary.csv` |
-| Build canonical manifest | **DONE** | `data/manifests/manifest.{jsonl,csv}` |
-| Select 20 balanced gold candidates | **DONE** | 20 representative docs (Clean to Severe) |
-| **Live batch extraction (Routed-Hybrid)** | **DONE** | 20 / 20 docs processed via Stage A/B pipeline. |
-| Generate preannotated pack | **DONE** | `data/gold/ground_truth/*.json` files created for all 20 docs. |
-| Final Evaluation (Mode D) | **IN PROGRESS** | System-wide benchmark against 20-doc gold set. |
-| Eval summary | **DONE** | Automated report generation for graduation thesis. |
-| Verified gold | **VERIFIED** | Final human review of the 20-doc sample completed. |
+| Two-PDF manifest | **DONE** | `data/two_pdf_manifest.jsonl` limits live verification to `doc001` and `doc002`. |
+| Cost-limited Mode D run | **DONE** | `2 / 2` docs processed via `preprocessed_multimodal`; no other PDFs were called. |
+| Batch reporting contract | **UPDATED** | `summary.csv` and `usage.csv` are expected to carry structured reasons and token usage on new runs. |
+| Row-shape normalization | **UPDATED** | Vertical mechanical-property rows can be collapsed into one item-centric product row. |
+| Grade/spec coverage | **UPDATED** | Observed `SG2` and `321/321H` aliases are covered by deterministic validation rules. |
+| Full 20-doc benchmark | **PENDING** | Should be run only after the two-PDF smoke set passes with acceptable review reasons. |
+| Verified gold | **PENDING** | Ground-truth files exist, but final thesis metrics should be regenerated from verified results. |
 
-### Evaluation Snapshot (Full 20-Doc Balanced Set)
+### Current Two-PDF Snapshot
 
-| metric | value | description |
+| metric | value | notes |
 | --- | --- | --- |
-| field_accuracy | 0.945 | Mean accuracy across all extracted fields. |
-| critical_field_accuracy | 0.980 | Heat number and Grade extraction precision. |
-| compliance_decision_accuracy | 1.000 | Correctness of Compliant/Non-Compliant logic. |
-| review_rate | 0.250 | Percentage of docs gated for human review (Safety). |
-| average_latency_ms | 18 450 | Mean end-to-end processing time. |
-| extraction_completeness | 0.920 | Recall rate for all required schema fields. |
+| doc001_latest_status | COMPLETED | `data/batch_runs/plan_step6_doc001_final`; `1 / 1` item, no missing critical fields |
+| doc001_latest_review_required | false | Confidence `0.91`, `review_rate=0.0` in the targeted run |
+| doc002_latest_status | COMPLETED | `data/batch_runs/plan_step6_two_pdfs_final`; extraction complete and auto-accepted |
+| batch_errors | 0 | Runtime completed successfully in the latest smoke runs |
+| latest_doc001_estimated_cost_usd | 0.049527 | From `usage.csv` |
 
 > [!NOTE]
-> These metrics represent the final project state. The 25% review rate is a safety feature: low-quality scans are correctly identified and gated for human verification rather than allowing high-risk extraction errors.
+> Historical optimistic 20-document metrics were removed from this README
+> because the current evidence showed unresolved extraction and review-policy
+> issues. Regenerate full metrics only after the two-PDF smoke set is clean.
 
 ---
 
@@ -273,6 +285,7 @@ Phase 2 adds `tests/test_document_profiler.py`, `tests/test_extraction_router.py
 - **Review policy** — `app/services/review_policy.py` — structured review reason tokens.
 - **Adaptive preprocessing** — `app/services/preprocessing.py` + `app/services/preprocessing_strategy.py` — rasterisation, variant stack, route-aware selection. Developer notes in [docs/preprocessing_strategy.md](docs/preprocessing_strategy.md).
 - **Multimodal extraction pipeline** — `app/services/extraction_pipeline.py` — Stage A / Stage B Claude tool-use, normalisation, validation, confidence, review policy.
+- **Row-shape normalizer** — `app/services/row_shape_normalizer.py` — collapses vertical mechanical-property tables and backfills single-item metadata context.
 - **Validation** — `app/services/validator.py` — `MATERIAL_SPECS` compliance, suspicious numeric bands, heat-pattern consistency.
 - **Confidence normalisation** — `app/services/confidence.py` — combines validator output, missing critical fields, blur/noise, and review threshold.
 - **Field registry** — `app/domain/field_mapping_registry.py` — canonical header normalisation. Developer notes in [docs/domain_schema.md](docs/domain_schema.md).

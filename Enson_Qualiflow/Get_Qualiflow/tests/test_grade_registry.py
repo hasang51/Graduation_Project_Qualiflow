@@ -44,6 +44,11 @@ class ResolveGradeSingleTests(unittest.TestCase):
         self.assertEqual(resolution.status, "resolved")
         self.assertEqual(resolution.canonical, "304")
 
+    def test_welding_wire_supplier_grade(self):
+        resolution = resolve_grade("NOVOFIL SG2/NOVOBRONZE SG2")
+        self.assertEqual(resolution.status, "resolved")
+        self.assertEqual(resolution.canonical, "SG2")
+
 
 class ResolveGradeDualDesignationTests(unittest.TestCase):
     def test_304_304l_composite(self):
@@ -68,6 +73,13 @@ class ResolveGradeDualDesignationTests(unittest.TestCase):
     def test_1_4401_1_4404_composite(self):
         resolution = resolve_grade("1.4401/1.4404")
         self.assertEqual(resolution.status, "resolved_dual")
+
+    def test_noisy_321_321h_composite_with_uns_suffix(self):
+        resolution = resolve_grade("1.4541/321 1.4878/321H UNS S32100")
+        self.assertEqual(resolution.status, "resolved_dual")
+        self.assertIn("1.4541", resolution.candidates)
+        self.assertIn("321H", resolution.candidates)
+        self.assertEqual(resolution.family_group, "stainless_austenitic")
 
     def test_cross_family_composite_is_ambiguous(self):
         resolution = resolve_grade("S355J2/304L")

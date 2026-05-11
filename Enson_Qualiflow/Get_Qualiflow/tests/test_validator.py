@@ -123,6 +123,44 @@ class ValidateDocumentNonCompliantRowTests(unittest.TestCase):
         self.assertEqual(flagged.validation.outcome, "UNSUPPORTED_SPEC_FAMILY")
         self.assertTrue(flagged.needs_review)
 
+    def test_observed_321_composite_grade_resolves_for_validation(self):
+        item = ExtractedItem(
+            item_id="1",
+            heat_number="CH-22200",
+            grade="1.4541/321 1.4878/321H UNS S32100",
+            weight_or_length="2195 Kgs",
+            mechanical_properties=MechanicalProperties(
+                yield_strength_mpa=335.0,
+                tensile_strength_mpa=638.0,
+                elongation_percentage=52.0,
+            ),
+            row_confidence=0.9,
+        )
+        validated = validate_document(_make_extraction([item]))
+        flagged = validated.items[0]
+        self.assertTrue(flagged.validation.is_compliant)
+        self.assertEqual(flagged.validation.outcome, "COMPLIANT")
+        self.assertFalse(flagged.needs_review)
+
+    def test_observed_sg2_supplier_grade_resolves_for_validation(self):
+        item = ExtractedItem(
+            item_id="1",
+            heat_number="410537",
+            grade="NOVOFIL SG2/NOVOBRONZE SG2",
+            weight_or_length="1.080 Kg",
+            mechanical_properties=MechanicalProperties(
+                yield_strength_mpa=470.0,
+                tensile_strength_mpa=560.0,
+                elongation_percentage=26.0,
+            ),
+            row_confidence=0.9,
+        )
+        validated = validate_document(_make_extraction([item]))
+        flagged = validated.items[0]
+        self.assertTrue(flagged.validation.is_compliant)
+        self.assertEqual(flagged.validation.outcome, "COMPLIANT")
+        self.assertFalse(flagged.needs_review)
+
     def test_ambiguous_composite_grade_is_ambiguous(self):
         item = _compliant_s235_item()
         # Mixed-family composite should be ambiguous.

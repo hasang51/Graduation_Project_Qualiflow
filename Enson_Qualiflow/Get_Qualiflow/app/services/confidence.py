@@ -132,13 +132,17 @@ def normalize_confidence(
         adjusted -= 0.18
 
     if avg_blur is not None:
-        if avg_blur < 80:
-            adjusted -= 0.18
-            caps.append(0.45)
+        if avg_blur < 30:
+            adjusted -= 0.15
+            caps.append(0.50)
             review_reasons.append("blurry/noisy document")
-        elif avg_blur < 150:
+        elif avg_blur < 80:
             adjusted -= 0.08
-            caps.append(0.7)
+            caps.append(0.70)
+        elif avg_blur < 150:
+            adjusted -= 0.04 if missing_rate < 0.4 else 0.08
+            if missing_rate >= 0.4:
+                caps.append(0.7)
 
     if avg_noise is not None:
         if avg_noise >= 25:
@@ -158,13 +162,13 @@ def normalize_confidence(
         caps.append(0.5)
         review_reasons.append("row count mismatches")
 
-    if missing_rate >= 0.7:
-        adjusted -= 0.16
-        caps.append(0.4)
+    if missing_rate >= 0.8:
+        adjusted -= 0.12
+        caps.append(0.50)
         review_reasons.append("many critical fields are missing")
-    elif missing_rate >= 0.4:
-        adjusted -= 0.08
-        caps.append(0.65)
+    elif missing_rate >= 0.5:
+        adjusted -= 0.06
+        caps.append(0.70)
 
     if suspicious_numeric > 0:
         adjusted -= min(0.24, suspicious_numeric * 0.07)

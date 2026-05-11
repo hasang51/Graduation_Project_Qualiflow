@@ -76,6 +76,12 @@ CANONICAL_GRADES: tuple[_CanonicalGrade, ...] = (
         family_group="line_pipe",
         aliases=("API 5L X65", "API5L X65", "API 5LX65", "API5LX65", "X65", "L450"),
     ),
+    # Welding wire supplier designations observed in the thesis gold sample.
+    _CanonicalGrade(
+        canonical="SG2",
+        family_group="welding_wire",
+        aliases=("SG2", "NOVOFIL SG2", "NOVOBRONZE SG2"),
+    ),
     # Austenitic stainless (EN 10088-1 / AISI dual designation).
     _CanonicalGrade(
         canonical="1.4301",
@@ -124,6 +130,30 @@ CANONICAL_GRADES: tuple[_CanonicalGrade, ...] = (
         family_group="stainless_austenitic",
         aliases=("316L", "AISI 316L", "SS 316L"),
         dual_with=("1.4404",),
+    ),
+    _CanonicalGrade(
+        canonical="1.4541",
+        family_group="stainless_austenitic",
+        aliases=("1.4541", "14541", "X6CRNITI18-10", "X6CRNITI1810"),
+        dual_with=("321",),
+    ),
+    _CanonicalGrade(
+        canonical="321",
+        family_group="stainless_austenitic",
+        aliases=("321", "AISI 321", "SS 321", "UNS S32100", "S32100"),
+        dual_with=("1.4541",),
+    ),
+    _CanonicalGrade(
+        canonical="1.4878",
+        family_group="stainless_austenitic",
+        aliases=("1.4878", "14878", "X8CRNITI18-10", "X8CRNITI1810"),
+        dual_with=("321H",),
+    ),
+    _CanonicalGrade(
+        canonical="321H",
+        family_group="stainless_austenitic",
+        aliases=("321H", "AISI 321H", "SS 321H", "UNS S32109", "S32109"),
+        dual_with=("1.4878",),
     ),
 )
 
@@ -246,6 +276,66 @@ def _match_single(normalized_token: str) -> _CanonicalGrade | None:
     return None
 
 
+def _contained_matches(normalized_token: str) -> list[_CanonicalGrade]:
+    """Return aliases visibly contained in a noisy supplier grade token."""
+
+    token_key = _alias_key(normalized_token)
+    matches: list[_CanonicalGrade] = []
+    for alias_key, grade in _alias_index().items():
+        if len(alias_key) < 3:
+            continue
+        if alias_key in token_key and grade not in matches:
+            matches.append(grade)
+    return matches
+
+
+def _resolution_from_matches(
+    *,
+    raw: str,
+    normalized: str,
+    matches: list[_CanonicalGrade],
+    reason: str,
+) -> GradeResolution:
+    canonicals = tuple(dict.fromkeys(grade.canonical for grade in matches))
+    family_groups = {grade.family_group for grade in matches}
+    if len(canonicals) == 1:
+        grade = matches[0]
+        return GradeResolution(
+            raw=raw,
+            normalized=normalized,
+            status="resolved",
+            canonical=grade.canonical,
+            candidates=(grade.canonical,),
+            family_group=grade.family_group,
+            dual_designation=False,
+            reason=reason,
+            confidence=0.9,
+        )
+    if len(family_groups) == 1:
+        return GradeResolution(
+            raw=raw,
+            normalized=normalized,
+            status="resolved_dual",
+            canonical=canonicals[0],
+            candidates=canonicals,
+            family_group=next(iter(family_groups)),
+            dual_designation=True,
+            reason=reason,
+            confidence=0.85,
+        )
+    return GradeResolution(
+        raw=raw,
+        normalized=normalized,
+        status="ambiguous",
+        canonical=None,
+        candidates=canonicals,
+        family_group=None,
+        dual_designation=False,
+        reason="contained aliases span multiple families",
+        confidence=0.4,
+    )
+
+
 def resolve_grade(raw: str | None) -> GradeResolution:
     """Resolve a raw grade string against the canonical registry.
 
@@ -272,6 +362,14 @@ def resolve_grade(raw: str | None) -> GradeResolution:
     if len(tokens) <= 1:
         match = _match_single(tokens[0] if tokens else normalized)
         if match is None:
+            contained = _contained_matches(tokens[0] if tokens else normalized)
+            if contained:
+                return _resolution_from_matches(
+                    raw=str(raw),
+                    normalized=normalized,
+                    matches=contained,
+                    reason="contained supplier aliases recognised",
+                )
             return GradeResolution(
                 raw=str(raw),
                 normalized=normalized,
@@ -301,7 +399,11 @@ def resolve_grade(raw: str | None) -> GradeResolution:
     for token in tokens:
         match = _match_single(token)
         if match is None:
-            unresolved_tokens.append(token)
+            contained = _contained_matches(token)
+            if contained:
+                resolved.extend(contained)
+            else:
+                unresolved_tokens.append(token)
         else:
             resolved.append(match)
 
@@ -320,6 +422,19 @@ def resolve_grade(raw: str | None) -> GradeResolution:
 
     canonicals = tuple(dict.fromkeys(grade.canonical for grade in resolved))
     family_groups = {grade.family_group for grade in resolved}
+
+    if len(canonicals) == 1:
+        return GradeResolution(
+            raw=str(raw),
+            normalized=normalized,
+            status="resolved",
+            canonical=canonicals[0],
+            candidates=canonicals,
+            family_group=next(iter(family_groups)),
+            dual_designation=False,
+            reason="composite aliases resolve to one canonical grade",
+            confidence=0.9,
+        )
 
     # True dual-certification (same alloy, both designations): all resolved
     # tokens belong to the same family group and are pairwise related via

@@ -16,8 +16,8 @@ Canonical tokens:
 
 - ``missing_critical_field:<field>`` — a critical field is missing across all
   rows (``yield_strength``, ``tensile_strength``, ``heat_number``, ``grade``).
-- ``document_quality:<quality_class>`` — document was classified as
-  ``scan_degraded`` (or ``scan_clean`` + extra concerns).
+- Document quality is retained as diagnostic metadata, but it is not a
+  standalone review gate.
 - ``low_confidence:<field>`` — final confidence is low AND a specific critical
   numeric field is suspicious or missing.
 - ``validation_conflict:<reason>`` — validator reported deviations
@@ -58,6 +58,14 @@ SUPPORTED_DOCUMENT_TYPES = {
     "mill test report",
     "material test certificate",
     "mtc",
+    "inspection certificate",
+    "test report",
+    "test certificate",
+    "certificate of quality",
+    "certificate of conformity",
+    "material certificate",
+    "3.1 certificate",
+    "en 10204",
 }
 TOKEN_FIELD_LABELS = {
     "yield_strength_mpa": "yield_strength",
@@ -85,6 +93,7 @@ class ReviewDecision:
             "decision": decision,
             "review_required": self.review_required,
             "needs_review": self.review_required,
+            "structured_reasons": list(self.structured_reasons),
             "review_reasons": list(self.structured_reasons),
             "blocking_errors": list(self.blocking_reasons),
             "confidence_summary": dict(self.confidence_summary),
@@ -299,9 +308,6 @@ def evaluate_review_policy(
     review_reasons: list[str] = []
     blocking_errors = _blocking_validation_errors(validation_errors)
     summary = _confidence_summary(extracted_json, confidence)
-
-    if _quality_bucket(document_profile) == "severe_scan":
-        review_reasons.append("document_quality:severe_scan")
 
     missing_fields = [
         field_name
@@ -529,16 +535,8 @@ def apply_review_policy(
     if not _document_type_supported(extraction.document_type):
         structured.append("unsupported_document_type")
 
-    # 2. Document quality
-    profile_bucket = _quality_bucket(profile)
-    if profile_bucket == "severe_scan":
-        structured.append("document_quality:severe_scan")
-    elif profile is not None and profile.quality_class == "scan_degraded":
-        structured.append("document_quality:scan_degraded")
-    elif profile is not None and profile.quality_class == "scan_clean":
-        # Only flag scan_clean when other evidence suggests the model struggled.
-        if final_confidence < review_confidence_threshold or not extraction.items:
-            structured.append("document_quality:scan_clean")
+    # 2. Document quality is diagnostic metadata only. Concrete evidence such
+    # as missing fields, low confidence, or row extraction failure gates review.
 
     # 3. Validation conflicts
     structured.extend(_validation_conflict_tokens(extraction))

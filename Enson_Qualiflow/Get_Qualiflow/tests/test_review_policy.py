@@ -100,7 +100,7 @@ class ReviewPolicyTests(unittest.TestCase):
         self.assertEqual(decision["review_reasons"], [])
         self.assertEqual(decision["blocking_errors"], [])
 
-    def test_deterministic_policy_requires_review_for_severe_scan(self):
+    def test_deterministic_policy_does_not_review_for_severe_scan_alone(self):
         decision = evaluate_review_policy(
             extracted_json={
                 "document_type": "Certificate of Analysis",
@@ -114,8 +114,8 @@ class ReviewPolicyTests(unittest.TestCase):
             validation_errors=[],
             document_profile={"quality_bucket": "severe_scan"},
         )
-        self.assertEqual(decision["decision"], "review_required")
-        self.assertIn("document_quality:severe_scan", decision["review_reasons"])
+        self.assertEqual(decision["decision"], "auto_accept")
+        self.assertNotIn("document_quality:severe_scan", decision["review_reasons"])
 
     def test_deterministic_policy_never_accepts_missing_critical_fields(self):
         decision = evaluate_review_policy(
@@ -227,7 +227,7 @@ class ReviewPolicyTests(unittest.TestCase):
         self.assertIn("missing_critical_field:yield_strength", decision.structured_reasons)
         self.assertIn("missing_critical_field:tensile_strength", decision.structured_reasons)
 
-    def test_degraded_document_emits_document_quality_token(self):
+    def test_degraded_document_does_not_emit_document_quality_token(self):
         items = [
             ExtractedItem(
                 item_id="1",
@@ -244,7 +244,8 @@ class ReviewPolicyTests(unittest.TestCase):
         ]
         extraction = _make_extraction(items=items, confidence_score=0.5, needs_review=True)
         decision = apply_review_policy(extraction, profile=_degraded_profile())
-        self.assertIn("document_quality:scan_degraded", decision.structured_reasons)
+        self.assertNotIn("document_quality:scan_degraded", decision.structured_reasons)
+        self.assertIn("confidence_below_threshold", decision.structured_reasons)
 
     def test_validation_conflict_token_on_suspicious(self):
         mp = MechanicalProperties(

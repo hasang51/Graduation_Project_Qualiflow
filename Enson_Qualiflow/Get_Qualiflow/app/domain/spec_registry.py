@@ -51,6 +51,14 @@ _CARBON_SPECS: dict[str, MaterialSpec] = {
     "S355J2": MaterialSpec("S355J2", 355.0, 470.0, 630.0, 22.0),
     "S355J2+N": MaterialSpec("S355J2+N", 355.0, 470.0, 630.0, 22.0),
     "API 5L X65": MaterialSpec("API 5L X65", 448.0, 531.0, 758.0, 18.0),
+    "SG2": MaterialSpec("SG2", 420.0, 500.0, 640.0, 22.0),
+    # Narrow thesis support for the observed 321/321H stainless MTCs. These
+    # minima are intentionally conservative and only unlock deterministic
+    # validation for the declared aliases below.
+    "1.4541": MaterialSpec("1.4541", 205.0, 515.0, 750.0, 35.0),
+    "321": MaterialSpec("321", 205.0, 515.0, 750.0, 35.0),
+    "1.4878": MaterialSpec("1.4878", 205.0, 515.0, 750.0, 35.0),
+    "321H": MaterialSpec("321H", 205.0, 515.0, 750.0, 35.0),
 }
 
 
