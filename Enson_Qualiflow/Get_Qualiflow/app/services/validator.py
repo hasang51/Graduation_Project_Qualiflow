@@ -29,11 +29,9 @@ from app.domain.spec_registry import (
     resolve_spec,
 )
 from app.schemas.extraction import UniversalDocumentExtraction, ValidationResult
-from app.services.quality_thresholds import (
-    ELONGATION_PERCENTAGE,
+from app.domain.validation_config import (
     SuspiciousBand,
-    TENSILE_STRENGTH_MPA,
-    YIELD_STRENGTH_MPA,
+    get_validation_config,
 )
 
 
@@ -86,6 +84,38 @@ def _canonical_heat_pattern(value: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", value.upper())
 
 
+# Character groups that are visually interchangeable on degraded or low-DPI scans.
+# Each frozenset is one equivalence class; membership is checked bidirectionally.
+_CONFUSABLE_DIGIT_PAIRS: list[frozenset[str]] = [
+    frozenset({"0", "O", "D"}),   # round shapes
+    frozenset({"1", "I", "L"}),   # thin verticals
+    frozenset({"5", "S"}),        # top-loop digits
+    frozenset({"6", "G", "B"}),   # partially closed loops
+    frozenset({"8", "B"}),        # double-loop
+    frozenset({"2", "Z"}),        # diagonal-stroke confusion
+]
+
+
+def _chars_confusable(a: str, b: str) -> bool:
+    """Return True if *a* and *b* belong to the same OCR-confusable equivalence class."""
+    au, bu = a.upper(), b.upper()
+    return any(au in group and bu in group for group in _CONFUSABLE_DIGIT_PAIRS)
+
+
+def _heat_numbers_confusably_similar(h1: str, h2: str) -> bool:
+    """Return True when two heat numbers differ only by confusable character substitutions.
+
+    Same-length strings where every position either matches exactly or maps to a
+    known OCR confusion pair indicate that one value is a misread of the other.
+    Different-length strings are treated as structurally distinct (not an OCR error).
+    """
+    c1 = _canonical_heat_pattern(h1)
+    c2 = _canonical_heat_pattern(h2)
+    if len(c1) != len(c2) or c1 == c2:
+        return False
+    return all(a == b or _chars_confusable(a, b) for a, b in zip(c1, c2))
+
+
 def _infer_dominant_heat_pattern(data: UniversalDocumentExtraction) -> tuple[int, int] | None:
     canonical_values = [_canonical_heat_pattern(item.heat_number) for item in data.items if item.heat_number]
     if len(canonical_values) < 2:
@@ -110,7 +140,7 @@ def _grade_spec_inconsistent(item_grade: str | None, yield_value: float | None, 
     return False
 
 
-def _validate_against_spec(item, spec: MaterialSpec) -> tuple[list[str], bool, float, bool]:
+def _validate_against_spec(item, spec: MaterialSpec, config) -> tuple[list[str], bool, float, bool]:
     """Run the per-row spec comparison.
 
     Returns ``(deviations, hard_violation, row_penalty, row_suspicious)``.
@@ -131,7 +161,7 @@ def _validate_against_spec(item, spec: MaterialSpec) -> tuple[list[str], bool, f
                 f"Yield {mp.yield_strength_mpa:.1f} MPa below minimum {spec.min_yield_mpa:.1f} MPa"
             )
             hard_violation = True
-        if _suspicious_numeric(mp.yield_strength_mpa, YIELD_STRENGTH_MPA):
+        if _suspicious_numeric(mp.yield_strength_mpa, config.yield_strength_range):
             deviations.append(f"Yield {mp.yield_strength_mpa:.1f} MPa looks suspicious.")
             item.needs_review = True
             row_suspicious = True
@@ -151,7 +181,7 @@ def _validate_against_spec(item, spec: MaterialSpec) -> tuple[list[str], bool, f
                 f"Tensile {mp.tensile_strength_mpa:.1f} MPa above maximum {spec.max_tensile_mpa:.1f} MPa"
             )
             hard_violation = True
-        if _suspicious_numeric(mp.tensile_strength_mpa, TENSILE_STRENGTH_MPA):
+        if _suspicious_numeric(mp.tensile_strength_mpa, config.tensile_strength_range):
             deviations.append(f"Tensile {mp.tensile_strength_mpa:.1f} MPa looks suspicious.")
             item.needs_review = True
             row_suspicious = True
@@ -166,7 +196,7 @@ def _validate_against_spec(item, spec: MaterialSpec) -> tuple[list[str], bool, f
                 f"Elongation {mp.elongation_percentage:.1f}% below minimum {spec.min_elongation_pct:.1f}%"
             )
             hard_violation = True
-        if _suspicious_numeric(mp.elongation_percentage, ELONGATION_PERCENTAGE):
+        if _suspicious_numeric(mp.elongation_percentage, config.elongation_range):
             deviations.append(f"Elongation {mp.elongation_percentage:.1f}% looks suspicious.")
             item.needs_review = True
             row_suspicious = True
@@ -192,6 +222,7 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
     review_reasons: list[str] = list(data.review_reasons)
     suspicious_rows = 0
     heat_pattern = _infer_dominant_heat_pattern(data)
+    config = get_validation_config(data.product_category)
 
     for item in data.items:
         row_penalty = 0.0
@@ -230,6 +261,42 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
         grade_resolution = resolve_grade(item.grade)
         spec_resolution = resolve_spec(grade_resolution)
         _record_grade_resolution(item, grade_resolution, spec_resolution)
+
+        if data.product_category == "WIRE_ROPE":
+            deviations = []
+            row_penalty = 0.0
+            row_suspicious = False
+            
+            mp = item.mechanical_properties
+            if mp.tensile_strength_mpa is None:
+                deviations.append("Tensile Strength Class missing - cannot verify.")
+                row_penalty += 0.04
+            elif _suspicious_numeric(mp.tensile_strength_mpa, config.tensile_strength_range):
+                deviations.append(f"Tensile {mp.tensile_strength_mpa:.1f} MPa looks suspicious.")
+                item.needs_review = True
+                row_suspicious = True
+                row_penalty += 0.18
+                
+            evidence = [
+                {
+                    "rule": "product_category.wire_rope",
+                    "decision": "bypass_spec",
+                    "evidence": {
+                        "tensile_strength_mpa": mp.tensile_strength_mpa,
+                    },
+                }
+            ]
+            item.validation = ValidationResult(
+                is_compliant=True,
+                deviations=deviations,
+                outcome=COMPLIANT,
+                rule_evidence=evidence,
+            )
+            item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - row_penalty)
+            if row_suspicious:
+                suspicious_rows += 1
+                review_reasons.append("numeric fields are suspicious")
+            continue
 
         # Case 2: unknown/empty grade -> review-safe outcome.
         if spec_resolution.status in ("empty", "unknown_grade"):
@@ -328,7 +395,7 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
         # Case 5: resolved spec -> run the compliance checks.
         assert spec_resolution.spec is not None  # narrow for type-checkers
         deviations, hard_violation, spec_penalty, spec_suspicious = _validate_against_spec(
-            item, spec_resolution.spec
+            item, spec_resolution.spec, config
         )
         row_penalty += spec_penalty
         row_suspicious = row_suspicious or spec_suspicious
@@ -378,6 +445,24 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
             row_suspicious = True
             row_penalty += 0.16
             review_reasons.append("inconsistent grade/spec combinations")
+
+        # Suspicious duplication: Claude's "fill every column" instinct copies
+        # a single source value into both heat_number and item_id when the PDF
+        # only has one traceability column.  Identical canonical forms are the
+        # clearest signal.
+        if (
+            item.heat_number
+            and item.item_id
+            and _canonical_heat_pattern(item.heat_number) == _canonical_heat_pattern(item.item_id)
+        ):
+            deviations.append(
+                f"heat_number '{item.heat_number}' and item_id '{item.item_id}' are identical — "
+                "possible field-duplication hallucination (single-column source)."
+            )
+            item.needs_review = True
+            row_suspicious = True
+            row_penalty += 0.20
+            review_reasons.append("suspicious_duplication:heat_and_item_id")
 
         if row_suspicious:
             review_reasons.append("numeric fields are suspicious")
@@ -431,12 +516,54 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
 
     if data.total_items_detected != len(data.items):
         data.needs_review = True
-        review_reasons.append("row count mismatches")
+        review_reasons.append("row_count_inconsistent")
         data.total_items_detected = len(data.items)
 
     if data.items and suspicious_rows / len(data.items) >= 0.35:
         data.needs_review = True
         review_reasons.append("too many rows are suspicious")
+
+    # Cross-row confusable heat number check: if any two heat numbers in the
+    # document differ only by OCR-confusable character substitutions (e.g.
+    # '1011005' vs '1011006' where 5/6 are visually ambiguous on a noisy scan),
+    # flag the entire document for human review rather than silently accepting
+    # one of the values.
+    _all_heat_values = [item.heat_number for item in data.items if item.heat_number]
+    if len(_all_heat_values) >= 2:
+        _confusable_found = False
+        for _i in range(len(_all_heat_values)):
+            for _j in range(_i + 1, len(_all_heat_values)):
+                if _heat_numbers_confusably_similar(_all_heat_values[_i], _all_heat_values[_j]):
+                    _confusable_found = True
+                    break
+            if _confusable_found:
+                break
+        if _confusable_found:
+            for item in data.items:
+                if item.heat_number:
+                    item.needs_review = True
+            data.needs_review = True
+            review_reasons.append("validation_conflict:confusable_heat_numbers")
+
+    # Contradiction check: if audit text admits a field is unreadable/unclear but
+    # heat_number is still non-null, the model contradicted itself — treat as a
+    # hallucination and block auto-acceptance.
+    _CONTRADICTION_KEYWORDS = frozenset({
+        "unclear", "partially visible", "hard to read", "guess",
+        "blurred", "cannot read", "can't read", "not readable", "illegible",
+    })
+    _audit_text = " ".join(filter(None, [
+        str(data.ai_analysis_remarks or "").lower(),
+        str(data.stage_b_extraction_audit or "").lower(),
+    ]))
+    if any(kw in _audit_text for kw in _CONTRADICTION_KEYWORDS):
+        _contradicted_items = [item for item in data.items if item.heat_number]
+        if _contradicted_items:
+            for _item in _contradicted_items:
+                _item.heat_number = None
+                _item.needs_review = True
+            data.needs_review = True
+            review_reasons.append("contradictory_audit:heat_number_guessed")
 
     data.review_reasons = sorted(set(review_reasons))
     return data

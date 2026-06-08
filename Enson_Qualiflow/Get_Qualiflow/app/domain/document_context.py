@@ -57,7 +57,15 @@ def build_document_context(
         supplier_name=str(meta.get("supplier_name")) if meta.get("supplier_name") else None,
         certificate_metadata={
             key: meta.get(key)
-            for key in ("document_type", "certificate_date", "certificate_no", "order_no")
+            for key in (
+                "document_type",
+                "certificate_date",
+                "batch_number",
+                "certificate_number",
+                "certificate_no",
+                "order_number",
+                "order_no",
+            )
             if meta.get(key) is not None
         },
     )

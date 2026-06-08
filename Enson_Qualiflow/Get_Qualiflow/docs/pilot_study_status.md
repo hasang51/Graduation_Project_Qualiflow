@@ -26,7 +26,7 @@ study** consistent with resource-constrained academic research.
 | --- | --- | --- |
 | digital_clean | ~35 | ~34 % |
 | scan_clean | ~45 | ~44 % |
-| scan_degraded | ~23 | ~22 % |
+| noisy_scan | ~23 | ~22 % |
 
 _(from `data/manifests/profile_summary.csv`)_
 
@@ -41,20 +41,20 @@ Location: `data/gold_candidates/gold_candidates_manifest.{jsonl,csv}`
 | --- | --- |
 | digital_clean | 6 |
 | scan_clean | 8 |
-| scan_degraded | 6 |
+| noisy_scan | 6 |
 
 ---
 
 ## Live pilot extraction — initial 3 docs (2026-04-20)
 
-All 3 successful live docs were `scan_degraded`. The Anthropic org rate limit
+All 3 successful live docs were `noisy_scan`. The Anthropic org rate limit
 (30 000 input tokens / minute) interrupted the run after doc 3.
 
 | filename | quality_class | route | pages_sent | confidence | items | review |
 | --- | --- | --- | --- | --- | --- | --- |
-| Screenshot_3-output.pdf | scan_degraded | preprocessed_multimodal | 1 | 0.85 | 1 | NEEDS_REVIEW |
-| 001125.pdf | scan_degraded | preprocessed_multimodal | 2 | 0.85 | 1 | NEEDS_REVIEW |
-| 1ff62aadb0ec3dc42572e2d090067615.pdf | scan_degraded | preprocessed_multimodal | 3 | 0.32 | 0 | NEEDS_REVIEW |
+| Screenshot_3-output.pdf | noisy_scan | preprocessed_multimodal | 1 | 0.85 | 1 | NEEDS_REVIEW |
+| 001125.pdf | noisy_scan | preprocessed_multimodal | 2 | 0.85 | 1 | NEEDS_REVIEW |
+| 1ff62aadb0ec3dc42572e2d090067615.pdf | noisy_scan | preprocessed_multimodal | 3 | 0.32 | 0 | NEEDS_REVIEW |
 
 Batch run: `data/batch_runs/20260420T_live_full/`
 
@@ -69,7 +69,7 @@ Optimisation objective: max diversity, min pages-sent, exclude severe-blur.
 | --- | --- | --- | --- |
 | GRN16192.pdf | digital_clean | 1 | low |
 | STAL 316 L.pdf | scan_clean | 1 | low |
-| Outokumpu.pdf | scan_degraded | 1 | low |
+| Outokumpu.pdf | noisy_scan | 1 | low |
 | S355MC-Dry-8.05-x-914.6.pdf | digital_clean | 2 | medium |
 | 20160919104079247924.pdf | scan_clean | 1 | low |
 
@@ -113,7 +113,7 @@ because the new docs had fewer missing fields.
 
 High review_rate is expected: all docs trigger at least one review token
 (`validation_conflict:row_non_compliant` for compliance failures;
-`document_quality:scan_degraded` for degraded scans). The review policy is
+`document_quality:noisy_scan` for degraded scans). The review policy is
 working as designed — it flags everything for human sign-off when no verified
 gold exists.
 

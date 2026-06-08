@@ -5,7 +5,7 @@ from pathlib import Path
 
 import requests
 
-from app.services.quality_thresholds import TENSILE_STRENGTH_MPA, YIELD_STRENGTH_MPA
+from app.domain.validation_config import DEFAULT_TENSILE_RANGE, DEFAULT_YIELD_RANGE
 
 BASE_URL = "http://127.0.0.1:8000"
 FILES = ["belge.pdf", "noisy_image.pdf"]
@@ -31,9 +31,9 @@ def summarize(data: dict) -> dict:
         mp = row.get("mechanical_properties") or {}
         y = mp.get("yield_strength_mpa")
         t = mp.get("tensile_strength_mpa")
-        if isinstance(y, (int, float)) and YIELD_STRENGTH_MPA.is_suspicious(float(y)):
+        if isinstance(y, (int, float)) and DEFAULT_YIELD_RANGE.is_suspicious(float(y)):
             suspicious += 1
-        if isinstance(t, (int, float)) and TENSILE_STRENGTH_MPA.is_suspicious(float(t)):
+        if isinstance(t, (int, float)) and DEFAULT_TENSILE_RANGE.is_suspicious(float(t)):
             suspicious += 1
     return {
         "row_count": len(items),

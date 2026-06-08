@@ -22,7 +22,7 @@ def _degraded_profile() -> DocumentProfile:
         blur_score=40.0,
         noise_score=30.0,
         table_presence_hint=True,
-        quality_class="scan_degraded",
+        quality_class="noisy_scan",
         reasons=["blur_high", "noise_high"],
     )
 
@@ -244,7 +244,7 @@ class ReviewPolicyTests(unittest.TestCase):
         ]
         extraction = _make_extraction(items=items, confidence_score=0.5, needs_review=True)
         decision = apply_review_policy(extraction, profile=_degraded_profile())
-        self.assertNotIn("document_quality:scan_degraded", decision.structured_reasons)
+        self.assertNotIn("document_quality:noisy_scan", decision.structured_reasons)
         self.assertIn("confidence_below_threshold", decision.structured_reasons)
 
     def test_validation_conflict_token_on_suspicious(self):
@@ -297,6 +297,51 @@ class ReviewPolicyTests(unittest.TestCase):
         )
         self.assertIn("confidence_below_threshold", decision.structured_reasons)
         self.assertTrue(decision.review_required)
+
+    def test_missing_critical_identifier_group_when_none_present(self):
+        items = [
+            ExtractedItem(
+                item_id=None,
+                pipe_id=None,
+                heat_number=None,
+                batch_number=None,
+                lot_number=None,
+                colata_number=None,
+                cast_number=None,
+                charge_number=None,
+                coil_number=None,
+                grade="S355J2",
+                mechanical_properties=MechanicalProperties(
+                    yield_strength_mpa=355.0,
+                    tensile_strength_mpa=510.0,
+                    elongation_percentage=24.0,
+                ),
+                validation=ValidationResult(is_compliant=True, deviations=[], outcome="COMPLIANT"),
+            )
+        ]
+        extraction = _make_extraction(items=items)
+        decision = apply_review_policy(extraction, profile=_clean_profile())
+        self.assertIn("missing_critical_identifier_group", decision.structured_reasons)
+
+    def test_does_not_emit_missing_heat_when_batch_exists(self):
+        items = [
+            ExtractedItem(
+                item_id=None,
+                heat_number=None,
+                batch_number="410537",
+                grade="S355J2",
+                mechanical_properties=MechanicalProperties(
+                    yield_strength_mpa=355.0,
+                    tensile_strength_mpa=510.0,
+                    elongation_percentage=24.0,
+                ),
+                validation=ValidationResult(is_compliant=True, deviations=[], outcome="COMPLIANT"),
+                accepted_identifier_values={"batch_number": "410537", "traceability_identifier_value": "410537"},
+            )
+        ]
+        extraction = _make_extraction(items=items)
+        decision = apply_review_policy(extraction, profile=_clean_profile())
+        self.assertNotIn("missing_critical_field:heat_number", decision.structured_reasons)
 
     def test_unknown_grade_emits_unresolved_grade_token(self):
         item = ExtractedItem(
@@ -377,7 +422,7 @@ class ReviewPolicyTests(unittest.TestCase):
             grade="S355J2",
             weight_or_length="100 kg",
             mechanical_properties=MechanicalProperties(
-                yield_strength_mpa=400.0,
+                yield_strength_mpa=70.0,
                 tensile_strength_mpa=520.0,
                 elongation_percentage=24.0,
             ),
@@ -421,6 +466,74 @@ class ReviewPolicyTests(unittest.TestCase):
         # No structured tokens are expected for a fully-clean record, so
         # needs_review should reflect only the pre-existing reason.
         self.assertTrue(decision.review_required)
+
+    def test_doc008_identifier_uncertainty_beats_high_confidence_compliance(self):
+        items = [
+            ExtractedItem(
+                item_id="1",
+                heat_number="10115084",
+                grade="S195",
+                weight_or_length="126,9 x 2.60 mm",
+                mechanical_properties=MechanicalProperties(
+                    yield_strength_mpa=264.0,
+                    tensile_strength_mpa=418.0,
+                    elongation_percentage=34.0,
+                ),
+                validation=ValidationResult(is_compliant=True, deviations=[], outcome="COMPLIANT"),
+                needs_review=False,
+                row_confidence=0.95,
+            ),
+            ExtractedItem(
+                item_id=None,
+                heat_number=None,
+                grade="S195",
+                weight_or_length="126,9 x 2.60 mm",
+                mechanical_properties=MechanicalProperties(
+                    yield_strength_mpa=258.0,
+                    tensile_strength_mpa=421.0,
+                    elongation_percentage=29.0,
+                ),
+                validation=ValidationResult(is_compliant=True, deviations=[], outcome="COMPLIANT"),
+                needs_review=True,
+                row_confidence=0.95,
+            ),
+        ]
+        extraction = _make_extraction(
+            items=items,
+            confidence_score=0.95,
+            needs_review=True,
+            review_reasons=["critical_identifier_unverified"],
+            status="COMPLETED",
+        )
+
+        decision = apply_review_policy(
+            extraction,
+            profile=_degraded_profile(),
+            preprocessing_meta={
+                "identifier_guard": {
+                    "events": [
+                        {
+                            "row_index": 1,
+                            "suppressed_fields": ["heat_number"],
+                            "suppressed_identifiers": [
+                                {
+                                    "field": "heat_number",
+                                    "raw_candidate": "10115084",
+                                    "accepted_value": None,
+                                    "evidence_note": "Suppressed heat_number candidate.",
+                                }
+                            ],
+                        }
+                    ]
+                }
+            },
+        )
+
+        self.assertTrue(decision.review_required)
+        self.assertTrue(extraction.needs_review)
+        self.assertEqual(extraction.status, "NEEDS_REVIEW")
+        self.assertIn("critical_identifier_unverified", decision.structured_reasons)
+        self.assertIn("traceability_unverified", decision.structured_reasons)
 
 
 if __name__ == "__main__":

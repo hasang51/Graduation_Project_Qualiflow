@@ -68,6 +68,7 @@ class RowShapeNormalizerTests(unittest.TestCase):
         self.assertEqual(result.rows[0]["mechanical_properties"]["yield_strength_mpa"], 470.0)
         self.assertEqual(result.rows[0]["mechanical_properties"]["tensile_strength_mpa"], 560.0)
         self.assertEqual(result.rows[0]["mechanical_properties"]["elongation_percentage"], 26.0)
+        self.assertIsNone(result.rows[0]["item_id"])
         self.assertIn("row_shape:vertical_mechanical_table_collapsed", result.tokens)
 
     def test_does_not_collapse_when_rows_have_heat_numbers(self):
@@ -143,7 +144,7 @@ class RowShapeNormalizerTests(unittest.TestCase):
         )
 
         self.assertEqual(len(result.rows), 1)
-        self.assertEqual(result.rows[0]["item_id"], "1")
+        self.assertIsNone(result.rows[0]["item_id"])
         self.assertEqual(result.rows[0]["heat_number"], "410537")
         self.assertEqual(result.rows[0]["mechanical_properties"]["yield_strength_mpa"], 470.0)
         self.assertIn("row_shape:alternative_classification_rows_collapsed", result.tokens)

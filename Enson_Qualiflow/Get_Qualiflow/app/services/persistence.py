@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models_db import AnalysisItem, AnalysisRun, Document, User
 from app.schemas.extraction import UniversalDocumentExtraction
+from app.services.traceability import sanitize_result_for_api_boundary, sanitize_unverified_traceability_for_user
 
 
 def upsert_document(
@@ -58,6 +59,9 @@ def update_run_completed(
     extraction: UniversalDocumentExtraction,
     preprocessing_meta: dict[str, Any],
 ) -> AnalysisRun:
+    sanitize_unverified_traceability_for_user(extraction)
+    sanitized_payload = sanitize_result_for_api_boundary(extraction)
+
     run.status = extraction.status or ("NEEDS_REVIEW" if extraction.needs_review else "COMPLETED")
     run.extraction_confidence = extraction.confidence_score
     run.global_is_compliant = extraction.is_compliant
@@ -66,7 +70,7 @@ def update_run_completed(
     run.certificate_date = extraction.certificate_date
     run.total_items_detected = extraction.total_items_detected
     run.ai_analysis_remarks = extraction.ai_analysis_remarks
-    run.raw_response_json = json.dumps(extraction.model_dump(), ensure_ascii=False)
+    run.raw_response_json = json.dumps(sanitized_payload, ensure_ascii=False)
     run.preprocessing_meta_json = json.dumps(preprocessing_meta, ensure_ascii=False)
     run.error_message = None
 

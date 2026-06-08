@@ -4,7 +4,7 @@ Graduation-project research prototype of a **quality-aware hybrid CoA verificati
 
 The system is not a productised SaaS. It is an academically scoped prototype that combines:
 
-- a lightweight **document profiler** that classifies each PDF as `digital_clean`, `scan_clean`, `scan_degraded`, or `severe_scan`;
+- a lightweight **document profiler** that classifies each PDF as `digital_clean`, `scan_clean`, `noisy_scan`, or `severe_scan`;
 - an **explicit single-path router** that picks exactly one extraction strategy per document (no parallel OCR, no multi-agent arbitration);
 - a **multimodal extraction path** (Anthropic Claude) that runs two stages — metadata, then line items — with deterministic tool-use schemas;
 - **deterministic validation** against known steel-grade specs and suspicious-numeric bands;
@@ -22,7 +22,7 @@ upload PDF
    │
    ▼
 document profiler          (app/services/document_profiler.py)
-   │  quality_class in {digital_clean, scan_clean, scan_degraded, severe_scan}
+   │  quality_class in {digital_clean, scan_clean, noisy_scan, severe_scan}
    ▼
 extraction router          (app/services/extraction_router.py)
    │  exactly one route in {native_multimodal, rendered_multimodal, preprocessed_multimodal}

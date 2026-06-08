@@ -1,4 +1,5 @@
 import type { ExtractedItem } from '../types/qualiflow'
+import { renderCriticalIdentifier } from './critical-identifiers'
 
 function escapeCsv(value: string): string {
   const escaped = value.replace(/"/g, '""')
@@ -7,7 +8,7 @@ function escapeCsv(value: string): string {
 
 export function buildItemsCsv(items: ExtractedItem[]): string {
   const headers = [
-    'Heat No.',
+    'Heat / Batch No.',
     'Item ID (Pipe/Coil)',
     'Grade',
     'Weight/Length',
@@ -19,16 +20,40 @@ export function buildItemsCsv(items: ExtractedItem[]): string {
   ]
 
   const rows = items.map((item) => {
-    const rowCompliance =
-      item.validation?.is_compliant === true
-        ? 'Compliant'
-        : item.validation?.is_compliant === false
-          ? 'Non-compliant'
-          : 'Not validated'
+    let rowCompliance = 'Not validated'
+    if (
+      (item.validation?.outcome === 'COMPLIANT' || item.validation?.is_compliant === true) &&
+      item.traceability_status !== 'VERIFIED'
+    ) {
+      rowCompliance = 'Needs review'
+    } else if (item.needs_review === true) {
+      rowCompliance = 'Needs review'
+    } else if (item.validation?.is_compliant === true) {
+      rowCompliance = 'Compliant'
+    } else if (item.validation?.is_compliant === false) {
+      rowCompliance = 'Non-compliant'
+    }
 
     return [
-      item.heat_number ?? '',
-      item.item_id ?? '',
+      renderCriticalIdentifier(
+        item,
+        [
+          'traceability_identifier_value',
+          'heat_number',
+          'batch_number',
+          'colata_number',
+          'lot_number',
+          'cast_number',
+          'charge_number',
+        ],
+        '',
+      ),
+      renderCriticalIdentifier(
+        item,
+        ['item_id', 'pipe_id', 'pipe_coil_id'],
+        '',
+        { allowCrossFieldFallback: false, allowTraceabilityShortcut: false },
+      ),
       item.grade ?? '',
       item.weight_or_length ?? '',
       item.mechanical_properties?.yield_strength_mpa?.toString() ?? '',

@@ -18,7 +18,7 @@ from app.services.document_profiler import DocumentProfile, QualityClass
 Route = Literal[
     "path_a_digital_pdf",
     "path_b_clean_scan",
-    "path_c_degraded_scan",
+    "path_c_noisy_scan",
     "path_d_severe_scan",
 ]
 RuntimeRoute = Literal["native_multimodal", "rendered_multimodal", "preprocessed_multimodal"]
@@ -26,21 +26,21 @@ RuntimeRoute = Literal["native_multimodal", "rendered_multimodal", "preprocessed
 ROUTE_FOR_QUALITY_CLASS: dict[QualityClass, Route] = {
     "digital_clean": "path_a_digital_pdf",
     "scan_clean": "path_b_clean_scan",
-    "scan_degraded": "path_c_degraded_scan",
+    "noisy_scan": "path_c_noisy_scan",
     "severe_scan": "path_d_severe_scan",
 }
 
 RUNTIME_ROUTE_FOR_ROUTE: dict[Route, RuntimeRoute] = {
     "path_a_digital_pdf": "native_multimodal",
     "path_b_clean_scan": "rendered_multimodal",
-    "path_c_degraded_scan": "preprocessed_multimodal",
+    "path_c_noisy_scan": "preprocessed_multimodal",
     "path_d_severe_scan": "preprocessed_multimodal",
 }
 
 VALID_ROUTES: tuple[Route, ...] = (
     "path_a_digital_pdf",
     "path_b_clean_scan",
-    "path_c_degraded_scan",
+    "path_c_noisy_scan",
     "path_d_severe_scan",
 )
 
@@ -83,7 +83,7 @@ def choose_route(profile: DocumentProfile) -> RouteDecision:
     strategy = {
         "path_a_digital_pdf": "digital images, minimal preprocessing",
         "path_b_clean_scan": "clean raster rendering with light variant fallback",
-        "path_c_degraded_scan": "denoise + adaptive binary + sharpen stack",
+        "path_c_noisy_scan": "denoise + adaptive binary + sharpen stack",
         "path_d_severe_scan": "minimal attempt, then review-first gate",
     }[route]
     return RouteDecision(
@@ -114,7 +114,7 @@ def force_route(route_name: str) -> RouteDecision:
     legacy_map: dict[str, Route] = {
         "native_multimodal": "path_a_digital_pdf",
         "rendered_multimodal": "path_b_clean_scan",
-        "preprocessed_multimodal": "path_c_degraded_scan",
+        "preprocessed_multimodal": "path_c_noisy_scan",
     }
     coerced_route = legacy_map.get(route_name, route_name)
     if coerced_route not in VALID_ROUTES:
@@ -125,7 +125,7 @@ def force_route(route_name: str) -> RouteDecision:
     quality_class: QualityClass = {
         "path_a_digital_pdf": "digital_clean",
         "path_b_clean_scan": "scan_clean",
-        "path_c_degraded_scan": "scan_degraded",
+        "path_c_noisy_scan": "noisy_scan",
         "path_d_severe_scan": "severe_scan",
     }[route]
     return RouteDecision(

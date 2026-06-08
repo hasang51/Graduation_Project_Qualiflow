@@ -1,4 +1,4 @@
-import type { ComplianceState, ValidationOutcome } from '../types/qualiflow'
+import type { ComplianceState, TraceabilityStatus, ValidationOutcome } from '../types/qualiflow'
 
 export const NA_VALUE = 'N/A'
 export const MISSING_VALUE = '—'
@@ -41,7 +41,12 @@ export function getComplianceState(isCompliant: boolean | null): ComplianceState
 export function getComplianceStateFromOutcome(
   outcome: ValidationOutcome | null | undefined,
   isCompliant: boolean | null,
+  needsReview = false,
+  traceabilityStatus?: TraceabilityStatus | null,
 ): ComplianceState {
+  if ((outcome === 'COMPLIANT' || isCompliant === true) && traceabilityStatus !== 'VERIFIED') return 'needs-review'
+  if (needsReview) return 'needs-review'
+
   switch (outcome) {
     case 'COMPLIANT':
       return 'compliant'

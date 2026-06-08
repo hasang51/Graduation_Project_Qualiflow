@@ -13,6 +13,7 @@ from app.deps import get_current_user
 from app.models_db import AnalysisRun, Document, User
 from app.schemas.analysis import AnalysisDetail, AnalysisListItem
 from app.schemas.extraction import UniversalDocumentExtraction
+from app.services.traceability import sanitize_result_for_api_boundary
 
 router = APIRouter(prefix="/api/v1", tags=["analyses"])
 
@@ -51,6 +52,8 @@ def get_analysis(
 
     extraction = None
     raw_json = json.loads(row.raw_response_json) if row.raw_response_json else None
+    if isinstance(raw_json, dict):
+        raw_json = sanitize_result_for_api_boundary(raw_json)
     pre_meta = json.loads(row.preprocessing_meta_json) if row.preprocessing_meta_json else None
     if raw_json:
         extraction = UniversalDocumentExtraction.model_validate(raw_json)

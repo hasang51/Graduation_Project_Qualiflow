@@ -4,6 +4,63 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.schemas.extraction import ExtractedItem, UniversalDocumentExtraction
+from app.domain.validation_config import get_validation_config
+
+CRITICAL_IDENTIFIER_CONFIDENCE_CAP = 0.70
+LOW_CRITICAL_IDENTIFIER_CONFIDENCE_THRESHOLD = 0.80
+
+# Substrings Stage B extraction_audit uses to report that a PDF column exists.
+_ITEM_ID_ABSENT_HINTS = (
+    "no item id",
+    "no item-id",
+    "no item identifier",
+    "no separate item id",
+    "no item id column",
+    "without item id",
+    "item id absent",
+    "missing item id column",
+    "no column for item id",
+)
+
+_HEAT_ABSENT_HINTS = (
+    "no heat",
+    "no heat no",
+    "no heat number",
+    "no heat column",
+    "heat absent",
+)
+
+
+def extraction_audit_excuses_missing_field(
+    audit: Any,
+    *,
+    field: str,
+    items: list[ExtractedItem],
+) -> bool:
+    """If Stage B says a column does not appear in the raster, skip missing penalties.
+
+    Only applies when *no* extracted row hallucinated a non-empty value for that
+    field (document-level semantics).
+    """
+
+    if not audit or not isinstance(audit, str) or not audit.strip():
+        return False
+    low = audit.lower()
+    field = field.lower()
+    if field == "item_id":
+        if any(getattr(it, "item_id", None) for it in items):
+            return False
+        return any(h in low for h in _ITEM_ID_ABSENT_HINTS)
+    if field == "heat_number":
+        if any(getattr(it, "heat_number", None) for it in items):
+            return False
+        return any(h in low for h in _HEAT_ABSENT_HINTS)
+    return False
+
+
+# When final confidence survives caps, preprocessing blur/noise is diagnostic only —
+# never force human review purely on raster quality signals.
+_DIAGNOSTIC_REVIEW_REASONS_ABOVE_CONFIDENCE_FLOOR = frozenset({"blurry/noisy document"})
 
 
 @dataclass
@@ -36,27 +93,41 @@ def _table_found(preprocessing_meta: dict[str, Any]) -> bool:
     )
 
 
-def _missing_critical_fields_rate(items: list[ExtractedItem]) -> float:
+def _missing_critical_fields_rate(
+    items: list[ExtractedItem],
+    config,
+    *,
+    preprocessing_meta: dict[str, Any] | None = None,
+) -> float:
     if not items:
         return 1.0
+
+    audit = (preprocessing_meta or {}).get("stage_b_extraction_audit")
 
     missing = 0
     total = 0
     for item in items:
-        for value in (item.item_id, item.heat_number, item.grade):
+        # Check basic string fields
+        for field, value in [("item_id", item.item_id), ("heat_number", item.heat_number), ("grade", item.grade)]:
+            if field not in config.mandatory_fields:
+                continue
+            if extraction_audit_excuses_missing_field(audit, field=field, items=items):
+                continue
             total += 1
             if not value:
                 missing += 1
 
         if item.mechanical_properties is not None:
-            for value in (
-                item.mechanical_properties.yield_strength_mpa,
-                item.mechanical_properties.tensile_strength_mpa,
-                item.mechanical_properties.elongation_percentage,
-            ):
-                total += 1
-                if value is None:
-                    missing += 1
+            # Check mechanical properties
+            for field, value in [
+                ("yield_strength_mpa", item.mechanical_properties.yield_strength_mpa),
+                ("tensile_strength_mpa", item.mechanical_properties.tensile_strength_mpa),
+                ("elongation_percentage", item.mechanical_properties.elongation_percentage),
+            ]:
+                if field in config.mandatory_fields and field not in config.optional_fields:
+                    total += 1
+                    if value is None:
+                        missing += 1
 
     return missing / max(total, 1)
 
@@ -79,6 +150,45 @@ def _unresolved_row_count(items: list[ExtractedItem]) -> int:
         if item.validation.is_compliant is None and (item.validation.outcome or "").upper() != "NOT_APPLICABLE":
             count += 1
     return count
+
+
+def _identifier_guard_events(preprocessing_meta: dict[str, Any]) -> list[dict[str, Any]]:
+    guard = preprocessing_meta.get("identifier_guard")
+    if not isinstance(guard, dict):
+        return []
+
+    events: list[dict[str, Any]] = []
+    for bucket in guard.get("events") or []:
+        if not isinstance(bucket, dict):
+            continue
+        suppressed = bucket.get("suppressed_identifiers")
+        if isinstance(suppressed, list):
+            events.extend(event for event in suppressed if isinstance(event, dict))
+        elif bucket.get("field"):
+            events.append(bucket)
+    return events
+
+
+def _has_low_critical_identifier_confidence(preprocessing_meta: dict[str, Any]) -> bool:
+    for event in _identifier_guard_events(preprocessing_meta):
+        confidence = event.get("confidence")
+        if isinstance(confidence, (float, int)) and not isinstance(confidence, bool):
+            if float(confidence) < LOW_CRITICAL_IDENTIFIER_CONFIDENCE_THRESHOLD:
+                return True
+        if event.get("reason") in {"low_identifier_confidence", "missing_identifier_confidence"}:
+            return True
+    return False
+
+
+def _has_ambiguous_null_critical_identifier(preprocessing_meta: dict[str, Any]) -> bool:
+    for event in _identifier_guard_events(preprocessing_meta):
+        if event.get("accepted_value") is not None:
+            continue
+        reason = str(event.get("reason") or "").lower()
+        evidence_note = str(event.get("evidence_note") or "").lower()
+        if "ambig" in reason or "ambig" in evidence_note or reason == "visual_ambiguity":
+            return True
+    return False
 
 
 def _normalization_penalty(review_reasons: list[str]) -> float:
@@ -118,11 +228,17 @@ def normalize_confidence(
     table_found = _table_found(preprocessing_meta)
     avg_blur = _avg_page_metric(preprocessing_meta, "blur_score")
     avg_noise = _avg_page_metric(preprocessing_meta, "noise_estimate")
-    missing_rate = _missing_critical_fields_rate(extraction.items)
+
+    config = get_validation_config(extraction.product_category)
+    missing_rate = _missing_critical_fields_rate(
+        extraction.items, config, preprocessing_meta=preprocessing_meta
+    )
     suspicious_numeric = _suspicious_numeric_count(extraction.items)
     row_count_inconsistent = raw_reported_total_items != items_len
     document_understood = _is_document_understood(extraction)
     noise_severity = _classify_noise(avg_noise)
+    low_identifier_confidence = _has_low_critical_identifier_confidence(preprocessing_meta)
+    ambiguous_null_identifier = _has_ambiguous_null_critical_identifier(preprocessing_meta)
 
     adjusted = raw_confidence
     caps = [1.0]
@@ -160,7 +276,15 @@ def normalize_confidence(
     if row_count_inconsistent:
         adjusted -= 0.10
         caps.append(0.5)
-        review_reasons.append("row count mismatches")
+        review_reasons.append("row_count_inconsistent")
+
+    if low_identifier_confidence:
+        caps.append(CRITICAL_IDENTIFIER_CONFIDENCE_CAP)
+        review_reasons.append("critical identifier confidence is low")
+
+    if ambiguous_null_identifier:
+        review_reasons.append("critical_identifier_unverified")
+        review_reasons.append("traceability_unverified")
 
     if missing_rate >= 0.8:
         adjusted -= 0.12
@@ -191,6 +315,13 @@ def normalize_confidence(
     if final_confidence < review_confidence_threshold:
         review_reasons.append("confidence falls below threshold")
     unique_reasons = sorted(set(review_reasons))
+    high_floor = max(0.90, review_confidence_threshold)
+    if final_confidence >= high_floor:
+        unique_reasons = sorted(
+            reason
+            for reason in unique_reasons
+            if reason not in _DIAGNOSTIC_REVIEW_REASONS_ABOVE_CONFIDENCE_FLOOR
+        )
     status = "NEEDS_REVIEW" if unique_reasons else "COMPLETED"
 
     metrics = {
@@ -206,6 +337,8 @@ def normalize_confidence(
         "suspicious_numeric_count": suspicious_numeric,
         "row_count_inconsistent": row_count_inconsistent,
         "document_understood": document_understood,
+        "low_critical_identifier_confidence": low_identifier_confidence,
+        "ambiguous_null_critical_identifier": ambiguous_null_identifier,
         "confidence_breakdown": {
             "extraction_confidence": round(_clamp(raw_confidence), 4),
             "normalization_confidence": round(_clamp(1.0 - _normalization_penalty(review_reasons)), 4),

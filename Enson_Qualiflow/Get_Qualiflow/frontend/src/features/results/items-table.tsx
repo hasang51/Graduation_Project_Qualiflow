@@ -12,8 +12,9 @@ import { Fragment, useMemo, useState } from 'react'
 import { Badge } from '../../components/ui/badge'
 import { Card } from '../../components/ui/card'
 import { Input } from '../../components/ui/input'
+import { renderCriticalIdentifier } from '../../lib/critical-identifiers'
 import { formatNullable, formatNumber, MISSING_VALUE } from '../../lib/format'
-import type { ExtractedItem, GradeResolutionPayload, ValidationOutcome } from '../../types/qualiflow'
+import type { ExtractedItem, GradeResolutionPayload, TraceabilityStatus, ValidationOutcome } from '../../types/qualiflow'
 
 interface ItemsTableProps {
   items: ExtractedItem[]
@@ -30,6 +31,9 @@ interface RowShape {
   elongation: number | null
   isCompliant: boolean | null
   outcome: ValidationOutcome | null
+  needsReview: boolean
+  traceabilityStatus: TraceabilityStatus | null
+  traceabilityConfidence: number | null
   deviations: string[]
   gradeResolution: GradeResolutionPayload | null
   gradeProvenance: string | null
@@ -38,7 +42,14 @@ interface RowShape {
 function complianceText(
   value: boolean | null,
   outcome: ValidationOutcome | string | null,
+  needsReview = false,
+  traceabilityStatus?: TraceabilityStatus | null,
 ): { text: string; tone: 'success' | 'danger' | 'warning' | 'info' } {
+  if ((outcome === 'COMPLIANT' || value === true) && traceabilityStatus !== 'VERIFIED') {
+    return { text: 'Needs review', tone: 'warning' }
+  }
+  if (needsReview) return { text: 'Needs review', tone: 'warning' }
+
   // Outcome takes precedence over the tri-state boolean when available so
   // unresolved / unknown / ambiguous grades land in the warning tone rather
   // than the false-negative "Non-compliant" red badge.
@@ -78,8 +89,21 @@ export function ItemsTable({ items }: ItemsTableProps) {
     () =>
       items.map((item, index) => ({
         index,
-        heatNo: item.heat_number,
-        itemId: item.item_id,
+        heatNo: renderCriticalIdentifier(item, [
+          'traceability_identifier_value',
+          'heat_number',
+          'batch_number',
+          'colata_number',
+          'lot_number',
+          'cast_number',
+          'charge_number',
+        ]),
+        itemId: renderCriticalIdentifier(
+          item,
+          ['item_id', 'pipe_id', 'pipe_coil_id'],
+          MISSING_VALUE,
+          { allowCrossFieldFallback: false, allowTraceabilityShortcut: false },
+        ),
         grade: item.grade,
         weightOrLength: item.weight_or_length,
         yieldMpa: item.mechanical_properties?.yield_strength_mpa ?? null,
@@ -87,6 +111,9 @@ export function ItemsTable({ items }: ItemsTableProps) {
         elongation: item.mechanical_properties?.elongation_percentage ?? null,
         isCompliant: item.validation?.is_compliant ?? null,
         outcome: (item.validation?.outcome as ValidationOutcome | null | undefined) ?? null,
+        needsReview: item.needs_review === true,
+        traceabilityStatus: item.traceability_status ?? null,
+        traceabilityConfidence: item.traceability_confidence ?? null,
         deviations: item.validation?.deviations ?? [],
         gradeResolution: item.grade_resolution ?? null,
         gradeProvenance: item.grade_provenance ?? null,
@@ -98,7 +125,7 @@ export function ItemsTable({ items }: ItemsTableProps) {
     () => [
       {
         accessorKey: 'heatNo',
-        header: 'Heat No.',
+        header: 'Heat / Batch No.',
         cell: ({ row }) => formatNullable(row.original.heatNo),
       },
       {
@@ -130,7 +157,12 @@ export function ItemsTable({ items }: ItemsTableProps) {
         id: 'compliance',
         header: 'Row Status',
         cell: ({ row }) => {
-          const state = complianceText(row.original.isCompliant, row.original.outcome)
+          const state = complianceText(
+            row.original.isCompliant,
+            row.original.outcome,
+            row.original.needsReview,
+            row.original.traceabilityStatus,
+          )
           return <Badge text={state.text} tone={state.tone} />
         },
       },
@@ -249,6 +281,15 @@ export function ItemsTable({ items }: ItemsTableProps) {
                             <p className="text-slate-300">
                               <span className="mr-2 text-slate-500">Validation outcome:</span>
                               {row.original.outcome}
+                            </p>
+                          )}
+                          {row.original.traceabilityStatus && (
+                            <p className="text-slate-300">
+                              <span className="mr-2 text-slate-500">Traceability:</span>
+                              {row.original.traceabilityStatus}
+                              {row.original.traceabilityConfidence !== null
+                                ? ` (${Math.round(row.original.traceabilityConfidence * 100)}%)`
+                                : ''}
                             </p>
                           )}
                           {row.original.gradeResolution?.candidates && row.original.gradeResolution.candidates.length > 0 && (

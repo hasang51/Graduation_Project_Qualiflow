@@ -11,6 +11,10 @@ import numpy as np
 from pdf2image import convert_from_path
 from PIL import Image
 
+# Industrial/engineering PDFs can exceed PIL's default 89 MP warning threshold.
+# 200 MP covers the largest A0-size scans at 400 DPI without disabling the guard entirely.
+Image.MAX_IMAGE_PIXELS = 200_000_000
+
 from app.config import settings
 from app.services.image_preprocessing import (
     build_page_variants,
@@ -46,6 +50,29 @@ class ProcessedPage:
     selected_variants: list[str]
     primary_variant: str
     detected_condition: str
+
+
+_PIL_SMART_RESIZE_MAX_EDGE = 3000
+
+
+def _pil_smart_resize(image: Image.Image, max_edge: int = _PIL_SMART_RESIZE_MAX_EDGE) -> Image.Image:
+    """Resize a PIL image so its longest edge does not exceed *max_edge* pixels.
+
+    Runs in PIL space, before the image is converted to a numpy array, which
+    keeps peak RAM low for very large scans and prevents DecompressionBomb
+    warnings from surfacing mid-pipeline.
+
+    LANCZOS is used because its sinc-based kernel preserves high-frequency
+    detail (thin table lines, stamped serial numbers, stencilled heat marks)
+    during large-ratio downscales — far better than bilinear or area averaging
+    for fine-print OCR accuracy.
+    """
+    w, h = image.size
+    long_edge = max(w, h)
+    if long_edge <= max_edge:
+        return image
+    scale = max_edge / long_edge
+    return image.resize((max(1, int(w * scale)), max(1, int(h * scale))), Image.Resampling.LANCZOS)
 
 
 def _downscale_to_max_edge(arr: np.ndarray, max_edge: int) -> np.ndarray:
@@ -137,6 +164,7 @@ def preprocess_pdf(
     condition_counts: dict[str, int] = {"clean": 0, "noisy": 0, "blurry": 0, "noisy_and_blurry": 0}
 
     for idx, page in enumerate(pages, start=1):
+        page = _pil_smart_resize(page)
         gray_pil: Image.Image = page.convert("L")
         gray = np.array(gray_pil)
         page_variants = build_page_variants(gray)

@@ -16,7 +16,7 @@ It ranks pages by cheap heuristics derived from already-computed metadata:
 Selection strategy by quality class:
 - ``digital_clean``: 1–2 pages (usually all content is on page 1)
 - ``scan_clean``: 1–2 pages
-- ``scan_degraded``: up to ``max_pages`` (default 3) but prefer pages with
+- ``noisy_scan``: up to ``max_pages`` (default 3) but prefer pages with
   table presence
 - severe_scan (blur < threshold): caller should skip entirely (see batch_policy)
 """
@@ -54,7 +54,7 @@ def select_pages(
         objects produced by ``preprocess_pdf``.
     quality_class:
         The document-level quality class string (``digital_clean``,
-        ``scan_clean``, ``scan_degraded``).
+        ``scan_clean``, ``noisy_scan``).
     max_pages:
         Hard upper bound on returned pages.
     """

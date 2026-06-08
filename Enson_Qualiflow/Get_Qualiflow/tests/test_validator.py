@@ -7,10 +7,10 @@ from app.schemas.extraction import (
     MechanicalProperties,
     UniversalDocumentExtraction,
 )
-from app.services.quality_thresholds import (
-    ELONGATION_PERCENTAGE,
-    TENSILE_STRENGTH_MPA,
-    YIELD_STRENGTH_MPA,
+from app.domain.validation_config import (
+    DEFAULT_ELONGATION_RANGE,
+    DEFAULT_TENSILE_RANGE,
+    DEFAULT_YIELD_RANGE,
 )
 from app.services.validator import MATERIAL_SPECS, validate_document
 
@@ -45,24 +45,24 @@ def _compliant_s235_item() -> ExtractedItem:
 
 class QualityThresholdBandsTests(unittest.TestCase):
     def test_yield_band_matches_documented_range(self):
-        self.assertEqual((YIELD_STRENGTH_MPA.lower, YIELD_STRENGTH_MPA.upper), (80.0, 1500.0))
+        self.assertEqual((DEFAULT_YIELD_RANGE.lower, DEFAULT_YIELD_RANGE.upper), (80.0, 1500.0))
 
     def test_tensile_band_matches_documented_range(self):
-        self.assertEqual((TENSILE_STRENGTH_MPA.lower, TENSILE_STRENGTH_MPA.upper), (120.0, 1800.0))
+        self.assertEqual((DEFAULT_TENSILE_RANGE.lower, DEFAULT_TENSILE_RANGE.upper), (120.0, 1800.0))
 
     def test_elongation_band_matches_documented_range(self):
-        self.assertEqual((ELONGATION_PERCENTAGE.lower, ELONGATION_PERCENTAGE.upper), (1.0, 80.0))
+        self.assertEqual((DEFAULT_ELONGATION_RANGE.lower, DEFAULT_ELONGATION_RANGE.upper), (1.0, 80.0))
 
     def test_values_within_band_are_not_suspicious(self):
-        self.assertFalse(YIELD_STRENGTH_MPA.is_suspicious(350.0))
-        self.assertFalse(TENSILE_STRENGTH_MPA.is_suspicious(500.0))
-        self.assertFalse(ELONGATION_PERCENTAGE.is_suspicious(25.0))
+        self.assertFalse(DEFAULT_YIELD_RANGE.is_suspicious(350.0))
+        self.assertFalse(DEFAULT_TENSILE_RANGE.is_suspicious(500.0))
+        self.assertFalse(DEFAULT_ELONGATION_RANGE.is_suspicious(25.0))
 
     def test_values_outside_band_are_suspicious(self):
-        self.assertTrue(YIELD_STRENGTH_MPA.is_suspicious(50.0))
-        self.assertTrue(YIELD_STRENGTH_MPA.is_suspicious(1600.0))
-        self.assertTrue(TENSILE_STRENGTH_MPA.is_suspicious(90.0))
-        self.assertTrue(ELONGATION_PERCENTAGE.is_suspicious(200.0))
+        self.assertTrue(DEFAULT_YIELD_RANGE.is_suspicious(50.0))
+        self.assertTrue(DEFAULT_YIELD_RANGE.is_suspicious(1600.0))
+        self.assertTrue(DEFAULT_TENSILE_RANGE.is_suspicious(90.0))
+        self.assertTrue(DEFAULT_ELONGATION_RANGE.is_suspicious(200.0))
 
 
 class ValidateDocumentCompliantRowTests(unittest.TestCase):
@@ -201,7 +201,7 @@ class ValidateDocumentRowCountTests(unittest.TestCase):
         validated = validate_document(extraction)
         self.assertTrue(validated.needs_review)
         self.assertEqual(validated.total_items_detected, len(validated.items))
-        self.assertIn("row count mismatches", validated.review_reasons)
+        self.assertIn("row_count_inconsistent", validated.review_reasons)
 
 
 class ValidateDocumentHeatPatternTests(unittest.TestCase):

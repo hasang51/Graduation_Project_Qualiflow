@@ -593,7 +593,16 @@ def run(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run batch extraction across a manifest.")
+    parser = argparse.ArgumentParser(
+        description="Run batch extraction across a manifest.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "BatchRunPolicy environment overrides (defaults in parentheses): "
+            "QUALIFLOW_MAX_LIVE_DOCS (5), QUALIFLOW_BUDGET_USD (2.00), "
+            "QUALIFLOW_SKIP_SEVERE_SCAN (1), QUALIFLOW_BATCH_SLEEP_S (45), "
+            "QUALIFLOW_RESUME (1 — skip documents when per_document/<id>.json already exists)."
+        ),
+    )
     parser.add_argument(
         "--manifest",
         default=str(DEFAULT_MANIFEST_DIR / "manifest.jsonl"),

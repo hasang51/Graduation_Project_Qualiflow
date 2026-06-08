@@ -105,7 +105,7 @@ def build(discovery_path: Path, profile_path: Path, output_dir: Path) -> tuple[P
                 "blur_score": profile.get("blur_score", 0.0),
                 "noise_score": profile.get("noise_score", 0.0),
                 "table_presence_hint": profile.get("table_presence_hint", False),
-                "quality_class": profile.get("quality_class", "scan_degraded"),
+                "quality_class": profile.get("quality_class", "noisy_scan"),
                 "page_bucket": page_bucket(int(profile.get("page_count", 0) or 0)),
                 "size_bucket": size_bucket(int(size_bytes or 0)),
                 "supplier_hint": guess_supplier_hint(filename),

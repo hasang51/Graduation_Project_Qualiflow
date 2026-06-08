@@ -39,6 +39,9 @@ class ResolveCanonicalFieldTests(unittest.TestCase):
     def test_german_synonym_schmelze_no(self):
         self.assertEqual(resolve_canonical_field("Schmelze No"), "heat_number")
 
+    def test_batch_lot_synonym(self):
+        self.assertEqual(resolve_canonical_field("Lot No"), "batch_number")
+
     def test_yield_rp02_synonym(self):
         self.assertEqual(resolve_canonical_field("RP 0,2"), "yield_strength_mpa")
 

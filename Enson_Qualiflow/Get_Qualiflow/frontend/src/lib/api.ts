@@ -7,6 +7,7 @@ import type {
   MeResponse,
   MechanicalProperties,
   TokenResponse,
+  TraceabilityStatus,
   ValidationResult,
   ValidationOutcome,
 } from '../types/qualiflow'
@@ -55,6 +56,20 @@ function asNumber(value: unknown): number | null {
 
 function asBoolean(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null
+}
+
+function normalizeStatus(value: unknown): ExtractionResponse['status'] {
+  const raw = typeof value === 'string' ? value.toUpperCase() : ''
+  if (raw === 'PROCESSING' || raw === 'COMPLETED' || raw === 'FAILED' || raw === 'NEEDS_REVIEW') {
+    return raw
+  }
+  return null
+}
+
+function normalizeTraceabilityStatus(value: unknown): TraceabilityStatus | null {
+  const raw = typeof value === 'string' ? value.toUpperCase() : ''
+  if (raw === 'VERIFIED' || raw === 'UNVERIFIED') return raw
+  return null
 }
 
 function parseMechanicalProperties(value: unknown): MechanicalProperties | null {
@@ -119,13 +134,30 @@ function parseItem(value: unknown): ExtractedItem {
   const source = asObject(value)
   return {
     item_id: asString(source.item_id),
+    pipe_id: asString(source.pipe_id),
     heat_number: asString(source.heat_number),
+    batch_number: asString(source.batch_number),
+    lot_number: asString(source.lot_number),
+    colata_number: asString(source.colata_number),
+    cast_number: asString(source.cast_number),
+    charge_number: asString(source.charge_number),
+    coil_number: asString(source.coil_number),
+    certificate_number: asString(source.certificate_number),
+    order_number: asString(source.order_number),
+    traceability_identifier_type: asString(source.traceability_identifier_type),
+    traceability_identifier_label: asString(source.traceability_identifier_label),
+    traceability_identifier_value: asString(source.traceability_identifier_value),
     grade: asString(source.grade),
     weight_or_length: asString(source.weight_or_length),
     mechanical_properties: parseMechanicalProperties(source.mechanical_properties),
     validation: parseValidation(source.validation),
     row_confidence: asNumber(source.row_confidence),
     needs_review: asBoolean(source.needs_review) ?? false,
+    traceability_status: normalizeTraceabilityStatus(source.traceability_status),
+    traceability_confidence: asNumber(source.traceability_confidence),
+    identifier_visibility_verified: asBoolean(source.identifier_visibility_verified),
+    accepted_identifier_values: asObject(source.accepted_identifier_values),
+    raw_identifier_candidates: asObject(source.raw_identifier_candidates),
   }
 }
 
@@ -137,6 +169,17 @@ function parseExtractionResponse(value: unknown): ExtractionResponse {
   return {
     supplier_name: asString(source.supplier_name) ?? 'Unknown supplier',
     document_type: asString(source.document_type) ?? 'Unknown document',
+    batch_number: asString(source.batch_number),
+    lot_number: asString(source.lot_number),
+    colata_number: asString(source.colata_number),
+    cast_number: asString(source.cast_number),
+    charge_number: asString(source.charge_number),
+    coil_number: asString(source.coil_number),
+    certificate_number: asString(source.certificate_number),
+    order_number: asString(source.order_number),
+    traceability_identifier_type: asString(source.traceability_identifier_type),
+    traceability_identifier_label: asString(source.traceability_identifier_label),
+    traceability_identifier_value: asString(source.traceability_identifier_value),
     certificate_date: asString(source.certificate_date),
     total_items_detected:
       asNumber(source.total_items_detected) ?? items.length,
@@ -145,6 +188,7 @@ function parseExtractionResponse(value: unknown): ExtractionResponse {
     ai_analysis_remarks: asString(source.ai_analysis_remarks),
     is_compliant: asBoolean(source.is_compliant),
     outcome: normalizeOutcome(source.outcome),
+    status: normalizeStatus(source.status),
     needs_review: asBoolean(source.needs_review) ?? false,
     review_reasons: Array.isArray(source.review_reasons)
       ? source.review_reasons.filter((x): x is string => typeof x === 'string')
@@ -157,6 +201,11 @@ function parseExtractionResponse(value: unknown): ExtractionResponse {
       source.explanation && typeof source.explanation === 'object'
         ? (source.explanation as Record<string, unknown>)
         : null,
+    traceability_status: normalizeTraceabilityStatus(source.traceability_status),
+    traceability_confidence: asNumber(source.traceability_confidence),
+    identifier_visibility_verified: asBoolean(source.identifier_visibility_verified),
+    accepted_identifier_values: asObject(source.accepted_identifier_values),
+    raw_identifier_candidates: asObject(source.raw_identifier_candidates),
   }
 }
 

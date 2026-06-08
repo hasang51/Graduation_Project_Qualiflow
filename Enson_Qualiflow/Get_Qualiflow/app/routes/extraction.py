@@ -22,6 +22,7 @@ from app.services.persistence import (
 )
 from app.services.preprocessing import preprocess_pdf
 from app.services.storage import artifact_dir_for_hash, persist_pdf, sha256_bytes
+from app.services.traceability import sanitize_result_for_api_boundary, sanitize_unverified_traceability_for_user
 
 logger = logging.getLogger("qualiflow.extract")
 router = APIRouter(prefix="/api/v1", tags=["extraction"])
@@ -118,6 +119,16 @@ async def extract_document(
             profile=profile,
             route_decision=route_decision,
         )
+        sanitize_unverified_traceability_for_user(extraction)
+        if extraction.review_reasons and any(
+            reason in {"traceability_unverified", "critical_identifier_unverified"}
+            for reason in extraction.review_reasons
+        ):
+            extraction.ai_analysis_remarks = (
+                "Mechanical values were extracted, but traceability-critical identifiers could not be "
+                "verified with production-grade confidence. The system intentionally suppresses "
+                "ambiguous identifier candidates and routes the affected rows to human review."
+            )
         logger.info(
             "Extraction complete: filename=%s page_count=%s document_type=%s total_items_detected=%s items_array_length=%s raw_model_confidence=%s confidence_score=%s status=%s",
             request_filename,
@@ -136,7 +147,7 @@ async def extract_document(
                 update_run_completed(db, run, extraction, preprocessing_meta)
                 db.commit()
 
-        return extraction
+        return sanitize_result_for_api_boundary(extraction)
     except HTTPException as exc:
         if current_user and run:
             run = db.get(type(run), run.id)

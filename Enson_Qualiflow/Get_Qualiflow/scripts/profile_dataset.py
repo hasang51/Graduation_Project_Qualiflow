@@ -93,7 +93,7 @@ def run(discovery_path: Path, output_dir: Path, limit: int | None) -> tuple[Path
                     "blur_score": 0.0,
                     "noise_score": 0.0,
                     "table_presence_hint": False,
-                    "quality_class": "scan_degraded",
+                    "quality_class": "noisy_scan",
                     "reasons": [f"profile_error:{type(exc).__name__}"],
                 }
             elapsed = time.perf_counter() - started

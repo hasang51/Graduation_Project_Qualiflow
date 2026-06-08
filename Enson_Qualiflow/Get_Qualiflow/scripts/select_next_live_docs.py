@@ -6,7 +6,7 @@ Selection objective
 2. Prefer short docs (1–2 pages) to minimise token cost.
 3. Exclude severe-scan docs (blur_score < threshold) unless --include-severe.
 4. Maintain diversity across quality buckets (digital_clean, scan_clean,
-   scan_degraded).
+   noisy_scan).
 5. Within budget, prefer docs with a strong relevance signal (text-dense or
    table-present).
 
@@ -72,7 +72,7 @@ def _estimate_pages_to_send(row: dict, *, include_severe: bool) -> int:
         return min(page_count, 2)
     if quality == "scan_clean":
         return min(page_count, 2)
-    if quality == "scan_degraded":
+    if quality == "noisy_scan":
         return min(page_count, 3)
     return min(page_count, 2)
 
@@ -95,7 +95,7 @@ def _score(row: dict, *, include_severe: bool) -> float | None:
     table_hint = bool(row.get("table_presence_hint"))
 
     # Exclude severe-scan docs unless explicitly included.
-    if quality == "scan_degraded" and blur_score < SEVERE_BLUR_THRESHOLD and not include_severe:
+    if quality == "noisy_scan" and blur_score < SEVERE_BLUR_THRESHOLD and not include_severe:
         return None
 
     score = 0.0
@@ -111,7 +111,7 @@ def _score(row: dict, *, include_severe: bool) -> float | None:
         score -= (page_count - 4) * 5.0  # penalise long docs
 
     # Diverse quality classes are valued.
-    quality_bonus = {"digital_clean": 20.0, "scan_clean": 18.0, "scan_degraded": 15.0}
+    quality_bonus = {"digital_clean": 20.0, "scan_clean": 18.0, "noisy_scan": 15.0}
     score += quality_bonus.get(quality, 10.0)
 
     # Text layer and table presence are positive signals.
@@ -122,7 +122,7 @@ def _score(row: dict, *, include_severe: bool) -> float | None:
     score += text_density * 5.0
 
     # Penalise very blurry scans even if not "severe".
-    if quality == "scan_degraded" and blur_score < 100:
+    if quality == "noisy_scan" and blur_score < 100:
         score -= 10.0
 
     return score
@@ -166,7 +166,7 @@ def select(
     scored.sort(key=lambda t: -t[0])
 
     # Greedy balanced pick: fill buckets in rotation.
-    buckets: dict[str, list] = {"digital_clean": [], "scan_clean": [], "scan_degraded": []}
+    buckets: dict[str, list] = {"digital_clean": [], "scan_clean": [], "noisy_scan": []}
     for _, row in scored:
         q = row.get("quality_class", "scan_clean")
         buckets.setdefault(q, []).append(row)

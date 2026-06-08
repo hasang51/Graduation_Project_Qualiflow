@@ -55,8 +55,8 @@ class BatchRunPolicy:
     max_pages_per_doc:
         Hard cap on pages sent to the LLM for *any* document. The page
         selector may choose fewer based on document quality.
-    max_pages_scan_degraded:
-        Override page cap specifically for ``scan_degraded`` docs.
+    max_pages_noisy_scan:
+        Override page cap specifically for ``noisy_scan`` docs.
         Allowed to be slightly higher than ``max_pages_per_doc`` because
         degraded docs sometimes need a second page for the table.
     skip_severe_scan:
@@ -79,7 +79,7 @@ class BatchRunPolicy:
 
     max_new_live_docs: int = 5
     max_pages_per_doc: int = 2
-    max_pages_scan_degraded: int = 3
+    max_pages_noisy_scan: int = 3
     skip_severe_scan: bool = True
     severe_blur_threshold: float = 30.0   # below this = almost certainly unreadable
     inter_doc_sleep_s: float = 45.0
@@ -97,8 +97,8 @@ class BatchRunPolicy:
 
     def max_pages_for_quality(self, quality_class: str) -> int:
         """Return the page cap for a given quality class."""
-        if quality_class == "scan_degraded":
-            return self.max_pages_scan_degraded
+        if quality_class == "noisy_scan":
+            return self.max_pages_noisy_scan
         return self.max_pages_per_doc
 
     def should_skip_document(
@@ -109,7 +109,7 @@ class BatchRunPolicy:
         """Return ``(should_skip, reason)``."""
         if self._total_new_live_docs >= self.max_new_live_docs:
             return True, f"max_new_live_docs={self.max_new_live_docs} reached"
-        if self.skip_severe_scan and quality_class == "scan_degraded":
+        if self.skip_severe_scan and quality_class == "noisy_scan":
             if blur_score is not None and blur_score < self.severe_blur_threshold:
                 return True, f"severe_scan: blur_score={blur_score:.1f} < {self.severe_blur_threshold}"
         return False, ""
@@ -160,7 +160,7 @@ class BatchRunPolicy:
         return cls(
             max_new_live_docs=int(os.getenv("QUALIFLOW_MAX_LIVE_DOCS", "5")),
             max_pages_per_doc=int(os.getenv("QUALIFLOW_MAX_PAGES_PER_DOC", "2")),
-            max_pages_scan_degraded=int(os.getenv("QUALIFLOW_MAX_PAGES_SCAN_DEGRADED", "3")),
+            max_pages_noisy_scan=int(os.getenv("QUALIFLOW_MAX_PAGES_NOISY_SCAN", "3")),
             skip_severe_scan=os.getenv("QUALIFLOW_SKIP_SEVERE_SCAN", "1").lower() in {
                 "1", "true", "yes"
             },

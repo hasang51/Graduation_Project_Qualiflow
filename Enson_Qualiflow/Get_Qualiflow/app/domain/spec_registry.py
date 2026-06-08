@@ -52,6 +52,9 @@ _CARBON_SPECS: dict[str, MaterialSpec] = {
     "S355J2+N": MaterialSpec("S355J2+N", 355.0, 470.0, 630.0, 22.0),
     "API 5L X65": MaterialSpec("API 5L X65", 448.0, 531.0, 758.0, 18.0),
     "SG2": MaterialSpec("SG2", 420.0, 500.0, 640.0, 22.0),
+    # EN 10255-style S195 pipe baseline. Keep the wider 350-620 tensile band
+    # aligned with the current project convention for supplier variance.
+    "S195": MaterialSpec("S195", 195.0, 350.0, 620.0, 20.0),
     # Narrow thesis support for the observed 321/321H stainless MTCs. These
     # minima are intentionally conservative and only unlock deterministic
     # validation for the declared aliases below.

@@ -10,7 +10,7 @@ PROPERTY_LABELS: dict[str, tuple[str, ...]] = {
     "tensile_strength_mpa": ("tensile", "carico di rottura", "rm"),
     "elongation_percentage": ("elongation", "allungamento", "a5"),
 }
-HEADER_HEAT_KEYS = ("heat_number", "header_heat_number", "batch_number", "cast_number")
+HEADER_HEAT_KEYS = ("heat_number", "header_heat_number", "cast_number")
 HEADER_GRADE_KEYS = ("header_grade", "document_grade", "product_grade", "grade")
 HEADER_WEIGHT_KEYS = ("weight_or_length", "product_weight", "quantity")
 
@@ -175,19 +175,17 @@ def collapse_vertical_mechanical_rows(
         grade = grade or _text(product_row.get("grade")) or None
         weight = weight or _text(product_row.get("weight_or_length")) or None
 
-    item_id = "1"
     collapsed = {
-        "item_id": item_id,
+        "item_id": None,
         "heat_number": heat_number,
         "grade": grade,
         "weight_or_length": weight,
         "mechanical_properties": payload["mechanical_properties"],
         "row_confidence": _confidence(payload["row_confidences"]),
     }
-    if not collapsed["grade"]:
-        # The group key may be a classification such as M21/C1, not a material
-        # grade. Keep it out of the grade field but retain traceability.
-        collapsed["item_id"] = f"{item_id} ({selected_group})"
+    # item_id intentionally None: collapsed rows originate from vertically split
+    # mechanical-property lines whose ``item_id`` cells are property labels —
+    # not raster Item ID traceability columns.
 
     trace = {
         "strategy": "vertical_mechanical_table_collapse",
@@ -273,7 +271,7 @@ def collapse_alternative_classification_rows(
         return RowShapeNormalizationResult(rows=rows)
 
     selected = dict(rows[0])
-    selected["item_id"] = "1"
+    selected["item_id"] = None
     selected["grade"] = grade
     heat_number = _metadata_value(metadata, HEADER_HEAT_KEYS) or (next(iter(heat_values)) if heat_values else None)
     if heat_number:

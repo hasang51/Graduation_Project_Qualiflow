@@ -1,0 +1,20 @@
+{
+  "total_pdfs": 20,
+  "total_gold_json": 20,
+  "total_pages": 29,
+  "documents_with_text_layer": 12,
+  "documents_without_text_layer": 8,
+  "total_text_chars": 29417,
+  "total_size_kb": 10010.5,
+  "quality_bucket_counts": {
+    "clean_scan": 3,
+    "degraded_scan": 7,
+    "digital_pdf": 6,
+    "severe_scan": 4
+  },
+  "page_count_distribution": {
+    "1": 16,
+    "2": 3,
+    "7": 1
+  }
+}

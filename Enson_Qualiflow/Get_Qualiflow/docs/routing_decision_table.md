@@ -6,7 +6,7 @@ The extraction router is now explicit and inspectable (`app/services/extraction_
 
 - `digital_clean`
 - `scan_clean`
-- `scan_degraded`
+- `noisy_scan`
 - `severe_scan`
 
 ## Explicit Paths
@@ -15,7 +15,7 @@ The extraction router is now explicit and inspectable (`app/services/extraction_
 | --- | --- | --- | --- |
 | `path_a_digital_pdf` | clean text layer + acceptable quality | `native_multimodal` | no |
 | `path_b_clean_scan` | scan but clean | `rendered_multimodal` | no |
-| `path_c_degraded_scan` | degraded but still extractable | `preprocessed_multimodal` | conditional |
+| `path_c_noisy_scan` | degraded but still extractable | `preprocessed_multimodal` | conditional |
 | `path_d_severe_scan` | severe blur/noise or very poor readability | `preprocessed_multimodal` (minimal attempt) | yes |
 
 ## Explainability Payload

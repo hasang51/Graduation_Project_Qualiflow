@@ -66,7 +66,7 @@ class BuildManifestTests(unittest.TestCase):
                     "blur_score": 40.0,
                     "noise_score": 30.0,
                     "table_presence_hint": True,
-                    "quality_class": "scan_degraded",
+                    "quality_class": "noisy_scan",
                     "reasons": ["blur_high", "noise_high"],
                     "abs_path": "/fake/Big-Pipe-Mill.pdf",
                     "sha256": "def456" + "0" * 58,
@@ -90,7 +90,7 @@ class BuildManifestTests(unittest.TestCase):
             self.assertEqual(acroni["supplier_hint"], "acroni")
 
             big = by_id["def456"]
-            self.assertEqual(big["quality_class"], "scan_degraded")
+            self.assertEqual(big["quality_class"], "noisy_scan")
             self.assertEqual(big["page_bucket"], "long")
             self.assertEqual(big["size_bucket"], "xl")
             self.assertIn(big["supplier_hint"], {"pipe_mill"})
@@ -100,7 +100,7 @@ class SelectBalancedTests(unittest.TestCase):
     def test_round_robin_over_quality_classes(self):
         rows = []
         for i in range(5):
-            rows.append({"document_id": f"degraded_{i}", "quality_class": "scan_degraded", "page_bucket": "short"})
+            rows.append({"document_id": f"degraded_{i}", "quality_class": "noisy_scan", "page_bucket": "short"})
         for i in range(5):
             rows.append({"document_id": f"clean_{i}", "quality_class": "scan_clean", "page_bucket": "short"})
         for i in range(5):
@@ -110,7 +110,7 @@ class SelectBalancedTests(unittest.TestCase):
         self.assertEqual(len(picks), 6)
         classes = [row["quality_class"] for row in picks]
         # Each class should contribute at least once.
-        self.assertIn("scan_degraded", classes)
+        self.assertIn("noisy_scan", classes)
         self.assertIn("scan_clean", classes)
         self.assertIn("digital_clean", classes)
 

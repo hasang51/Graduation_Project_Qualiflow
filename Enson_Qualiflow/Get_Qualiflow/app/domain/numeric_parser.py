@@ -8,7 +8,7 @@ convention; validating the float directly then breaks compliance logic.
 This module applies **field-aware** normalisation:
 
 - Each supported field has a plausible numeric band (reusing
-  :mod:`app.services.quality_thresholds`).
+  :mod:`app.domain.validation_config`).
 - The parser scores both the "decimal separator" and the "thousands separator"
   interpretation of the raw text against that band.
 - When only one interpretation is plausible the parser returns it.
@@ -24,11 +24,11 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from app.services.quality_thresholds import (
-    ELONGATION_PERCENTAGE,
+from app.domain.validation_config import (
+    DEFAULT_ELONGATION_RANGE,
+    DEFAULT_TENSILE_RANGE,
+    DEFAULT_YIELD_RANGE,
     SuspiciousBand,
-    TENSILE_STRENGTH_MPA,
-    YIELD_STRENGTH_MPA,
 )
 
 FieldKind = Literal[
@@ -69,9 +69,9 @@ class ParsedNumber:
 # readings still count as plausible; the suspicious band is the validator's
 # concern, not the parser's.
 _PLAUSIBLE_BANDS: dict[FieldKind, SuspiciousBand] = {
-    "yield_mpa": YIELD_STRENGTH_MPA,
-    "tensile_mpa": TENSILE_STRENGTH_MPA,
-    "elongation_pct": ELONGATION_PERCENTAGE,
+    "yield_mpa": DEFAULT_YIELD_RANGE,
+    "tensile_mpa": DEFAULT_TENSILE_RANGE,
+    "elongation_pct": DEFAULT_ELONGATION_RANGE,
 }
 
 # Fields where the value is usually an integer or a single-decimal-digit

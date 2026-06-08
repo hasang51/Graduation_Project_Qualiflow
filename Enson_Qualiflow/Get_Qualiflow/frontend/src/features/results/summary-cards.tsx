@@ -1,7 +1,7 @@
 import { Badge } from '../../components/ui/badge'
 import { Card } from '../../components/ui/card'
 import { formatConfidence, formatNullable, getComplianceStateFromOutcome } from '../../lib/format'
-import type { ExtractionResponse } from '../../types/qualiflow'
+import type { ExtractionResponse, TraceabilityStatus } from '../../types/qualiflow'
 
 interface SummaryCardsProps {
   data: ExtractionResponse
@@ -13,7 +13,14 @@ function confidenceTone(score: number): 'success' | 'warning' | 'danger' {
   return 'danger'
 }
 
-function complianceLabel(outcome: string | null | undefined, isCompliant: boolean | null) {
+function complianceLabel(
+  outcome: string | null | undefined,
+  isCompliant: boolean | null,
+  needsReview: boolean,
+  traceabilityStatus?: TraceabilityStatus | null,
+) {
+  if ((outcome === 'COMPLIANT' || isCompliant === true) && traceabilityStatus !== 'VERIFIED') return 'Needs review'
+  if (needsReview) return 'Needs review'
   if (outcome === 'COMPLIANT') return 'Compliant'
   if (outcome === 'NON_COMPLIANT') return 'Non-compliant'
   if (outcome === 'UNRESOLVED_SPEC') return 'Spec unresolved'
@@ -26,7 +33,15 @@ function complianceLabel(outcome: string | null | undefined, isCompliant: boolea
 }
 
 export function SummaryCards({ data }: SummaryCardsProps) {
-  const complianceState = getComplianceStateFromOutcome(data.outcome, data.is_compliant)
+  const needsReview = data.needs_review === true || data.status === 'NEEDS_REVIEW'
+  const complianceState = getComplianceStateFromOutcome(
+    data.outcome,
+    data.is_compliant,
+    needsReview,
+    data.traceability_status,
+  )
+  const traceabilityBlocksCompliance =
+    data.traceability_status !== 'VERIFIED' && data.review_reasons?.includes('traceability_unverified')
 
   const cards = [
     { label: 'Supplier Name', value: formatNullable(data.supplier_name, 'Unknown') },
@@ -39,7 +54,12 @@ export function SummaryCards({ data }: SummaryCardsProps) {
     },
     {
       label: 'Compliance Status',
-      value: <Badge text={complianceLabel(data.outcome, data.is_compliant)} tone={complianceState} />,
+      value: (
+        <Badge
+          text={complianceLabel(data.outcome, data.is_compliant, needsReview, data.traceability_status)}
+          tone={complianceState}
+        />
+      ),
     },
   ]
 
@@ -51,6 +71,14 @@ export function SummaryCards({ data }: SummaryCardsProps) {
           <div className="text-base font-semibold text-slate-100">{card.value}</div>
         </Card>
       ))}
+      {traceabilityBlocksCompliance && (
+        <Card className="space-y-2 md:col-span-2 xl:col-span-3">
+          <Badge
+            text="Mechanical compliance passed, but traceability identifiers require human verification."
+            tone="warning"
+          />
+        </Card>
+      )}
     </section>
   )
 }

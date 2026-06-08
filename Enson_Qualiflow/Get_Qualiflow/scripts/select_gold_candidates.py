@@ -47,7 +47,7 @@ def select_balanced(manifest_rows: list[dict], n: int) -> list[dict]:
         for page_b in groups[quality]:
             groups[quality][page_b].sort(key=lambda r: r.get("document_id", ""))
 
-    quality_order = ["scan_degraded", "scan_clean", "digital_clean"]
+    quality_order = ["noisy_scan", "scan_clean", "digital_clean"]
     # Ensure unknown classes still participate.
     for quality in sorted(groups.keys()):
         if quality not in quality_order:

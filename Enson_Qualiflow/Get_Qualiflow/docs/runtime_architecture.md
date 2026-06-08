@@ -24,7 +24,7 @@ Fields produced:
 | `blur_score` | float | `min(compute_blur_score(page))` across the first 2 rasterised pages (worst-page blur). |
 | `noise_score` | float | `max(estimate_noise(page))` across the first 2 rasterised pages (worst-page noise). |
 | `table_presence_hint` | bool | True if any sample page has a horizontal ink run ≥ 40% of the image width. |
-| `quality_class` | `digital_clean` \| `scan_clean` \| `scan_degraded` | See the decision table below. |
+| `quality_class` | `digital_clean` \| `scan_clean` \| `noisy_scan` | See the decision table below. |
 | `reasons` | list[str] | Human-readable reasons for the classification. |
 
 ### Quality-class decision table
@@ -32,10 +32,10 @@ Fields produced:
 | has_text_layer | text_density | blur_score | noise_score | quality_class |
 | --- | --- | --- | --- | --- |
 | true | ≥ 0.02 | ≥ 80 | < 25 | `digital_clean` |
-| true | ≥ 0.02 | < 80 OR ≥ 25 | — | `scan_degraded` (when both moderate+) OR `scan_clean` |
-| any | — | < 80 | — | `scan_degraded` (blur_high) |
-| any | — | — | ≥ 25 | `scan_degraded` (noise_high) |
-| any | — | < 150 | ≥ 14 | `scan_degraded` (both moderate) |
+| true | ≥ 0.02 | < 80 OR ≥ 25 | — | `noisy_scan` (when both moderate+) OR `scan_clean` |
+| any | — | < 80 | — | `noisy_scan` (blur_high) |
+| any | — | — | ≥ 25 | `noisy_scan` (noise_high) |
+| any | — | < 150 | ≥ 14 | `noisy_scan` (both moderate) |
 | false | — | ≥ 80 | < 25 | `scan_clean` |
 
 Thresholds are defined as module constants so tests can pin them (`BLUR_DEGRADED_THRESHOLD`, `NOISE_DEGRADED_THRESHOLD`, `BLUR_MODERATE_THRESHOLD`, `NOISE_MODERATE_THRESHOLD`, `DIGITAL_TEXT_DENSITY_MIN`).
@@ -56,7 +56,7 @@ Mapping:
 | --- | --- | --- |
 | `digital_clean` | `native_multimodal` | `full_gray`, `contrast` |
 | `scan_clean` | `rendered_multimodal` | `full_gray`, `contrast`, `sharpened` (fallback) |
-| `scan_degraded` | `preprocessed_multimodal` | `denoised`, `adaptive_binary`, `sharpened`, `table_crop` (if detected) |
+| `noisy_scan` | `preprocessed_multimodal` | `denoised`, `adaptive_binary`, `sharpened`, `table_crop` (if detected) |
 
 The router returns exactly one route per document — there is no fan-out. Forcing a route (`--force-route` / `--mode B/C` in the batch runner) bypasses the profiler but still goes through the rest of the pipeline, which keeps experiments comparable.
 
@@ -84,9 +84,9 @@ The function is **deterministic**, **auditable**, and **additive** — it does n
 | `missing_critical_field:grade` | `grade` missing on every row. |
 | `missing_critical_field:yield_strength` | `yield_strength_mpa` missing on every row. |
 | `missing_critical_field:tensile_strength` | `tensile_strength_mpa` missing on every row. |
-| `document_quality:scan_degraded` | `profile.quality_class == "scan_degraded"`. |
+| `document_quality:noisy_scan` | `profile.quality_class == "noisy_scan"`. |
 | `document_quality:scan_clean` | `profile.quality_class == "scan_clean"` AND (low confidence OR no items). |
-| `low_confidence:yield_strength` | Final confidence < threshold AND yield is suspicious/missing AND profile is scan_degraded. |
+| `low_confidence:yield_strength` | Final confidence < threshold AND yield is suspicious/missing AND profile is noisy_scan. |
 | `low_confidence:tensile_strength` | Same as above for tensile. |
 | `validation_conflict:row_non_compliant` | Any row has `validation.is_compliant == false`. |
 | `validation_conflict:suspicious_numeric_values` | Validator emitted a "looks suspicious" deviation. |

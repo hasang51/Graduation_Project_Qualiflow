@@ -76,6 +76,11 @@ CANONICAL_GRADES: tuple[_CanonicalGrade, ...] = (
         family_group="line_pipe",
         aliases=("API 5L X65", "API5L X65", "API 5LX65", "API5LX65", "X65", "L450"),
     ),
+    _CanonicalGrade(
+        canonical="S195",
+        family_group="pipe",
+        aliases=("S195", "EN 10255", "S195T"),
+    ),
     # Welding wire supplier designations observed in the thesis gold sample.
     _CanonicalGrade(
         canonical="SG2",

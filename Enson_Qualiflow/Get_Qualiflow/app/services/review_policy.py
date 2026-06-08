@@ -39,7 +39,9 @@ from app.domain.outcome_taxonomy import (
     UNSUPPORTED_SPEC_FAMILY,
     UNRESOLVED_SPEC,
 )
+from app.domain.validation_config import get_validation_config
 from app.schemas.extraction import UniversalDocumentExtraction
+from app.services.confidence import extraction_audit_excuses_missing_field
 from app.services.document_profiler import DocumentProfile
 
 CRITICAL_STRING_FIELDS = ("heat_number", "grade")
@@ -74,6 +76,18 @@ TOKEN_FIELD_LABELS = {
     "grade": "grade",
     "elongation_percentage": "elongation",
 }
+TRACEABILITY_IDENTIFIER_GROUP_FIELDS = (
+    "heat_number",
+    "batch_number",
+    "lot_number",
+    "colata_number",
+    "cast_number",
+    "charge_number",
+    "coil_number",
+    "item_id",
+    "pipe_id",
+    "traceability_identifier_value",
+)
 
 
 @dataclass
@@ -188,6 +202,21 @@ def _critical_value_present(extracted_json: dict[str, Any], field_name: str) -> 
     return False
 
 
+def _traceability_value_present(entry: dict[str, Any]) -> bool:
+    accepted = entry.get("accepted_identifier_values")
+    if isinstance(accepted, dict):
+        accepted_trace = accepted.get("traceability_identifier_value")
+        if not _is_missing(accepted_trace):
+            return True
+        for field_name in TRACEABILITY_IDENTIFIER_GROUP_FIELDS:
+            if field_name in accepted and not _is_missing(accepted.get(field_name)):
+                return True
+    for field_name in TRACEABILITY_IDENTIFIER_GROUP_FIELDS:
+        if not _is_missing(entry.get(field_name)):
+            return True
+    return False
+
+
 def _confidence_map(confidence: Any) -> dict[str, float]:
     """Extract field confidence values from common confidence payload shapes."""
 
@@ -219,6 +248,7 @@ def _confidence_map(confidence: Any) -> dict[str, float]:
 def _confidence_summary(
     extracted_json: dict[str, Any],
     confidence: Any,
+    required_fields: tuple[str, ...],
 ) -> dict[str, float]:
     if isinstance(confidence, dict):
         min_value = _as_float(
@@ -253,9 +283,11 @@ def _confidence_summary(
     all_values = list(values.values())
     critical_values = [
         values[field]
-        for field in REQUIRED_CRITICAL_FIELDS
+        for field in required_fields
         if field in values
     ]
+    # Aggregate-only payloads (scalar model confidence → ``_overall``) still
+    # represent document-level certainty and must gate review coherently.
     if not critical_values and "_overall" in values:
         critical_values = [values["_overall"]]
     if not critical_values and "_row_confidence" in values:
@@ -307,11 +339,14 @@ def evaluate_review_policy(
 
     review_reasons: list[str] = []
     blocking_errors = _blocking_validation_errors(validation_errors)
-    summary = _confidence_summary(extracted_json, confidence)
+    product_category = extracted_json.get("product_category")
+    config = get_validation_config(product_category)
+    required_fields = tuple(f for f in config.mandatory_fields if f not in config.optional_fields)
+    summary = _confidence_summary(extracted_json, confidence, required_fields)
 
     missing_fields = [
         field_name
-        for field_name in REQUIRED_CRITICAL_FIELDS
+        for field_name in required_fields
         if not _critical_value_present(extracted_json, field_name)
     ]
     review_reasons.extend(f"missing_critical_field:{field}" for field in missing_fields)
@@ -346,7 +381,10 @@ def evaluate_review_policy(
 apply_deterministic_review_policy = evaluate_review_policy
 
 
-def _missing_critical_fields(extraction: UniversalDocumentExtraction) -> list[str]:
+def _missing_critical_fields(
+    extraction: UniversalDocumentExtraction,
+    preprocessing_meta: dict[str, Any] | None,
+) -> list[str]:
     """Return tokens for critical fields that are missing across *all* rows."""
 
     if not extraction.items:
@@ -354,15 +392,27 @@ def _missing_critical_fields(extraction: UniversalDocumentExtraction) -> list[st
         return []
 
     missing_tokens: list[str] = []
+    audit = (preprocessing_meta or {}).get("stage_b_extraction_audit") if preprocessing_meta else None
+
+    config = get_validation_config(extraction.product_category)
+    mandatory = [f for f in config.mandatory_fields if f not in config.optional_fields]
+    string_fields = [f for f in mandatory if f in ("heat_number", "grade", "item_id")]
+    numeric_fields = [f for f in mandatory if f in ("yield_strength_mpa", "tensile_strength_mpa", "elongation_percentage")]
 
     # String fields: missing on every row
-    for field_name in CRITICAL_STRING_FIELDS:
+    for field_name in string_fields:
+        if field_name == "heat_number":
+            # Heat is no longer a standalone critical token when another
+            # accepted traceability-group identifier exists.
+            continue
+        if extraction_audit_excuses_missing_field(audit, field=field_name, items=extraction.items):
+            continue
         if all(not getattr(item, field_name, None) for item in extraction.items):
             label = TOKEN_FIELD_LABELS.get(field_name, field_name)
             missing_tokens.append(f"missing_critical_field:{label}")
 
     # Numeric fields: missing on every row
-    for field_name in CRITICAL_NUMERIC_FIELDS:
+    for field_name in numeric_fields:
         all_missing = True
         for item in extraction.items:
             mp = item.mechanical_properties
@@ -372,6 +422,37 @@ def _missing_critical_fields(extraction: UniversalDocumentExtraction) -> list[st
         if all_missing:
             label = TOKEN_FIELD_LABELS.get(field_name, field_name)
             missing_tokens.append(f"missing_critical_field:{label}")
+
+    if not any(
+        _traceability_value_present(
+            {
+                "heat_number": getattr(item, "heat_number", None),
+                "batch_number": getattr(item, "batch_number", None),
+                "lot_number": getattr(item, "lot_number", None),
+                "colata_number": getattr(item, "colata_number", None),
+                "cast_number": getattr(item, "cast_number", None),
+                "charge_number": getattr(item, "charge_number", None),
+                "coil_number": getattr(item, "coil_number", None),
+                "item_id": getattr(item, "item_id", None),
+                "pipe_id": getattr(item, "pipe_id", None),
+                "traceability_identifier_value": getattr(item, "traceability_identifier_value", None),
+                "accepted_identifier_values": getattr(item, "accepted_identifier_values", {}),
+            }
+        )
+        for item in extraction.items
+    ) and not _traceability_value_present(
+        {
+            "batch_number": getattr(extraction, "batch_number", None),
+            "lot_number": getattr(extraction, "lot_number", None),
+            "colata_number": getattr(extraction, "colata_number", None),
+            "cast_number": getattr(extraction, "cast_number", None),
+            "charge_number": getattr(extraction, "charge_number", None),
+            "coil_number": getattr(extraction, "coil_number", None),
+            "traceability_identifier_value": getattr(extraction, "traceability_identifier_value", None),
+            "accepted_identifier_values": getattr(extraction, "accepted_identifier_values", {}),
+        }
+    ):
+        missing_tokens.append("missing_critical_identifier_group")
 
     return missing_tokens
 
@@ -387,6 +468,8 @@ def _validation_conflict_tokens(extraction: UniversalDocumentExtraction) -> list
     separator_mismatch_seen = False
     grade_spec_mismatch_seen = False
     unit_missing_seen = False
+    duplication_seen = False
+    confusable_heat_seen = False
 
     for item in extraction.items:
         if item.validation is None:
@@ -420,6 +503,14 @@ def _validation_conflict_tokens(extraction: UniversalDocumentExtraction) -> list
                 grade_spec_mismatch_seen = True
             if "lacks a clear unit" in lowered:
                 unit_missing_seen = True
+            if "field-duplication hallucination" in lowered:
+                duplication_seen = True
+
+    # Promote document-level tokens already appended by the validator.
+    if "suspicious_duplication:heat_and_item_id" in extraction.review_reasons:
+        duplication_seen = True
+    if "validation_conflict:confusable_heat_numbers" in extraction.review_reasons:
+        confusable_heat_seen = True
 
     if any_non_compliant:
         tokens.append("validation_conflict:row_non_compliant")
@@ -439,6 +530,10 @@ def _validation_conflict_tokens(extraction: UniversalDocumentExtraction) -> list
         tokens.append("validation_conflict:grade_spec_mismatch")
     if unit_missing_seen:
         tokens.append("validation_conflict:missing_unit")
+    if duplication_seen:
+        tokens.append("suspicious_duplication:heat_and_item_id")
+    if confusable_heat_seen:
+        tokens.append("validation_conflict:confusable_heat_numbers")
     return tokens
 
 
@@ -488,13 +583,17 @@ def _low_confidence_field_tokens(
     final_confidence = extraction.confidence_score or 0.0
     if final_confidence >= threshold:
         return tokens
-    if profile is not None and profile.quality_class != "scan_degraded":
+    if profile is not None and profile.quality_class != "noisy_scan":
         # Low-confidence-on-numeric tokens are only emitted when the document
         # itself is degraded. The generic ``confidence_below_threshold`` token
         # is emitted separately below.
         return tokens
 
-    for field_name in CRITICAL_NUMERIC_FIELDS:
+    config = get_validation_config(extraction.product_category)
+    mandatory = [f for f in config.mandatory_fields if f not in config.optional_fields]
+    numeric_fields = [f for f in mandatory if f in ("yield_strength_mpa", "tensile_strength_mpa", "elongation_percentage")]
+
+    for field_name in numeric_fields:
         suspicious_or_missing = _numeric_field_is_suspicious(extraction, field_name)
         if not suspicious_or_missing:
             # Check missing-everywhere as well
@@ -512,6 +611,48 @@ def _low_confidence_field_tokens(
     return tokens
 
 
+def _critical_identifier_unverified_tokens(
+    extraction: UniversalDocumentExtraction,
+    preprocessing_meta: dict[str, Any] | None,
+) -> list[str]:
+    """Return review tokens for rows with suppressed or uncertain identifiers."""
+
+    tokens: list[str] = []
+    guard = (preprocessing_meta or {}).get("identifier_guard")
+    if isinstance(guard, dict) and guard.get("events"):
+        tokens.append("critical_identifier_unverified")
+        tokens.append("traceability_unverified")
+    if "critical_identifier_unverified" in extraction.review_reasons:
+        tokens.append("critical_identifier_unverified")
+        tokens.append("traceability_unverified")
+    if "traceability_unverified" in extraction.review_reasons:
+        tokens.append("traceability_unverified")
+    return _dedupe_preserving_order(tokens)
+
+
+def _is_blocking_review_reason(reason: str) -> bool:
+    return (
+        reason
+        in {
+            "unresolved_spec",
+            "unsupported_spec_family",
+            "validation_conflict:row_non_compliant",
+            "no_items_extracted",
+            "visual ambiguity detected in row",
+            "low-confidence rows detected",
+            "extraction structure is incomplete",
+            # Hallucination-audit gates: a document with fabricated cross-field
+            # copies or OCR-confusable heat numbers must never auto-accept.
+            "suspicious_duplication:heat_and_item_id",
+            "validation_conflict:confusable_heat_numbers",
+            "row_count_inconsistent",
+        }
+        or reason.startswith("missing_critical_field:")
+        or reason == "missing_critical_identifier_group"
+        or reason.startswith("critical_identifier_unverified")
+        or reason == "traceability_unverified"
+    )
+
 def apply_review_policy(
     extraction: UniversalDocumentExtraction,
     *,
@@ -525,11 +666,33 @@ def apply_review_policy(
     without discarding existing reasons.
     """
 
+    # 0. Clean numeric uncertainty if within category bounds
+    config = get_validation_config(extraction.product_category)
+    cleaned_reasons = []
+    for reason in extraction.review_reasons:
+        if reason.startswith("numeric_uncertain:"):
+            field = reason.split(":", 1)[1]
+            band_attr = field.replace("_mpa", "").replace("_percentage", "") + "_range"
+            band = getattr(config, band_attr, None)
+            if band is not None:
+                all_within_bounds = True
+                for item in extraction.items:
+                    mp = item.mechanical_properties
+                    if mp is not None:
+                        val = getattr(mp, field, None)
+                        if val is not None and band.is_suspicious(val):
+                            all_within_bounds = False
+                            break
+                if all_within_bounds and extraction.items:
+                    continue  # Drop this reason
+        cleaned_reasons.append(reason)
+    extraction.review_reasons = cleaned_reasons
+
     structured: list[str] = []
     final_confidence = extraction.confidence_score or 0.0
 
     # 1. Missing critical fields
-    structured.extend(_missing_critical_fields(extraction))
+    structured.extend(_missing_critical_fields(extraction, preprocessing_meta))
 
     # 1b. Unsupported document types can never be auto-accepted.
     if not _document_type_supported(extraction.document_type):
@@ -565,31 +728,57 @@ def apply_review_policy(
         _low_confidence_field_tokens(extraction, profile, review_confidence_threshold)
     )
 
-    # 6. Confidence below threshold (generic)
+    # 6. Row-level identifier uncertainty must survive later confidence
+    # reconciliation. A visually uncertain heat number is not verified just
+    # because the row's mechanical values passed deterministic checks.
+    structured.extend(_critical_identifier_unverified_tokens(extraction, preprocessing_meta))
+
+    # 7. Confidence below threshold (generic)
     if final_confidence < review_confidence_threshold:
         structured.append("confidence_below_threshold")
 
     structured = _dedupe_preserving_order(structured)
 
-    combined = _dedupe_preserving_order([*extraction.review_reasons, *structured])
-    needs_review = bool(structured) or bool(extraction.needs_review) or bool(combined)
     blocking_reasons = [
         reason
-        for reason in structured
-        if reason
-        in {
-            "unresolved_spec",
-            "unsupported_spec_family",
-            "validation_conflict:row_non_compliant",
-            "no_items_extracted",
-        }
+        for reason in [*structured, *extraction.review_reasons]
+        if _is_blocking_review_reason(reason)
     ]
+
+    all_compliant = bool(extraction.items) and all(
+        item.validation is not None and item.validation.is_compliant is True
+        for item in extraction.items
+    )
+
+    extraction_confidence_floor = max(0.90, review_confidence_threshold)
+    bypass_structured_review = (
+        len(structured) == 0
+        and extraction.items
+        and final_confidence >= extraction_confidence_floor
+        and bool(all_compliant)
+        and bool(not blocking_reasons)
+        and not any(item.needs_review for item in extraction.items)
+    )
+
+    combined = _dedupe_preserving_order([*extraction.review_reasons, *structured])
+    needs_review = bool(structured) or bool(extraction.needs_review) or bool(combined)
+
+    # High-confidence + clean structured policy gate: preprocessing noise /
+    # non-blocking legacy reasons alone must never force NEEDS_REVIEW.
+    if bypass_structured_review:
+        needs_review = False
+        extraction.needs_review = False
+        combined = []
+        blocking_reasons = []
+
     evidence_gaps = [
         reason
         for reason in structured
         if reason.startswith("missing_critical_field:")
         or reason in {"confidence_below_threshold", "table_found_but_no_rows"}
         or reason.startswith("low_confidence:")
+        or reason == "critical_identifier_unverified"
+        or reason == "traceability_unverified"
     ]
     reviewer_focus: list[str] = []
     if "unresolved_spec" in structured or "unsupported_spec_family" in structured:
@@ -598,15 +787,27 @@ def apply_review_policy(
         reviewer_focus.append("Verify missing mechanical columns from original certificate.")
     if any(reason.startswith("header_row_conflict:") for reason in structured):
         reviewer_focus.append("Resolve header/row semantic conflicts and provenance.")
+    if "critical_identifier_unverified" in structured or "traceability_unverified" in structured:
+        reviewer_focus.append("Verify suppressed traceability identifiers against the original certificate.")
     if "validation_conflict:row_non_compliant" in structured:
         reviewer_focus.append("Re-check threshold violation evidence against resolved spec.")
+    if "suspicious_duplication:heat_and_item_id" in structured:
+        reviewer_focus.append(
+            "heat_number and item_id are identical — confirm whether the source PDF "
+            "has one traceability column or two distinct ones."
+        )
+    if "validation_conflict:confusable_heat_numbers" in structured:
+        reviewer_focus.append(
+            "Two or more heat numbers differ only by OCR-confusable characters "
+            "(e.g. 5/S, 0/O, 8/B) — verify each value against the original certificate."
+        )
 
     # Mutate in place so downstream callers see the enriched reasons.
     extraction.review_reasons = combined
     extraction.needs_review = needs_review
-    if needs_review and extraction.status == "COMPLETED":
+    if needs_review:
         extraction.status = "NEEDS_REVIEW"
-    if extraction.outcome == NON_COMPLIANT and not needs_review:
+    else:
         extraction.status = "COMPLETED"
 
     extracted_json = extraction.model_dump(mode="python")

@@ -44,11 +44,11 @@ class ChooseRouteTests(unittest.TestCase):
         self.assertEqual(decision.selected_route, "path_b_clean_scan")
         self.assertEqual(decision.runtime_route, "rendered_multimodal")
 
-    def test_scan_degraded_selects_preprocessed_multimodal(self):
+    def test_noisy_scan_selects_preprocessed_multimodal(self):
         decision = choose_route(
-            _profile(quality_class="scan_degraded", blur_score=50.0, noise_score=30.0)
+            _profile(quality_class="noisy_scan", blur_score=50.0, noise_score=30.0)
         )
-        self.assertEqual(decision.selected_route, "path_c_degraded_scan")
+        self.assertEqual(decision.selected_route, "path_c_noisy_scan")
         self.assertEqual(decision.runtime_route, "preprocessed_multimodal")
 
     def test_severe_scan_selects_review_first_path(self):
@@ -57,7 +57,7 @@ class ChooseRouteTests(unittest.TestCase):
         self.assertTrue(decision.review_first_bias)
 
     def test_route_is_exactly_one_of_valid_routes(self):
-        for quality in ("digital_clean", "scan_clean", "scan_degraded", "severe_scan"):
+        for quality in ("digital_clean", "scan_clean", "noisy_scan", "severe_scan"):
             decision = choose_route(_profile(quality_class=quality))
             self.assertIn(decision.selected_route, VALID_ROUTES)
 

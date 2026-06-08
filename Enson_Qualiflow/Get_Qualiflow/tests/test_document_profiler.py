@@ -31,41 +31,41 @@ class ClassifyProfileTests(unittest.TestCase):
         self.assertEqual(quality, "scan_clean")
         self.assertIn("no_text_layer", reasons)
 
-    def test_scan_degraded_when_blur_is_severe(self):
+    def test_noisy_scan_when_blur_is_severe(self):
         quality, _ = classify_profile(
             has_text_layer=False,
             blur_score=BLUR_DEGRADED_THRESHOLD - 10.0,
             noise_score=5.0,
             text_density=0.0,
         )
-        self.assertEqual(quality, "scan_degraded")
+        self.assertEqual(quality, "noisy_scan")
 
-    def test_scan_degraded_when_noise_is_severe(self):
+    def test_noisy_scan_when_noise_is_severe(self):
         quality, _ = classify_profile(
             has_text_layer=False,
             blur_score=300.0,
             noise_score=NOISE_DEGRADED_THRESHOLD + 10.0,
             text_density=0.0,
         )
-        self.assertIn(quality, {"scan_degraded", "severe_scan"})
+        self.assertIn(quality, {"noisy_scan", "severe_scan"})
 
-    def test_scan_degraded_when_both_moderate(self):
+    def test_noisy_scan_when_both_moderate(self):
         quality, _ = classify_profile(
             has_text_layer=False,
             blur_score=100.0,
             noise_score=18.0,
             text_density=0.0,
         )
-        self.assertEqual(quality, "scan_degraded")
+        self.assertEqual(quality, "noisy_scan")
 
-    def test_text_layer_but_degraded_image_still_degraded(self):
+    def test_text_layer_but_degraded_image_still_noisy(self):
         quality, _ = classify_profile(
             has_text_layer=True,
             blur_score=40.0,
             noise_score=30.0,
             text_density=0.2,
         )
-        self.assertIn(quality, {"scan_degraded", "severe_scan"})
+        self.assertIn(quality, {"noisy_scan", "severe_scan"})
 
     def test_severe_scan_when_blur_and_noise_extreme(self):
         quality, reasons = classify_profile(

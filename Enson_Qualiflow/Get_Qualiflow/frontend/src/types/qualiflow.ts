@@ -12,6 +12,8 @@ export type ValidationOutcome =
   | 'NOT_VALIDATED'
   | 'NEEDS_REVIEW'
 
+export type TraceabilityStatus = 'VERIFIED' | 'UNVERIFIED'
+
 export interface ValidationResult {
   is_compliant: boolean | null
   deviations: string[]
@@ -34,7 +36,19 @@ export interface GradeResolutionPayload {
 
 export interface ExtractedItem {
   item_id: string | null
+  pipe_id?: string | null
   heat_number: string | null
+  batch_number: string | null
+  lot_number?: string | null
+  colata_number?: string | null
+  cast_number?: string | null
+  charge_number?: string | null
+  coil_number?: string | null
+  certificate_number: string | null
+  order_number: string | null
+  traceability_identifier_type?: string | null
+  traceability_identifier_label?: string | null
+  traceability_identifier_value?: string | null
   grade: string | null
   weight_or_length: string | null
   mechanical_properties: MechanicalProperties | null
@@ -43,11 +57,27 @@ export interface ExtractedItem {
   needs_review?: boolean
   grade_resolution?: GradeResolutionPayload | null
   grade_provenance?: string | null
+  traceability_status?: TraceabilityStatus | null
+  traceability_confidence?: number | null
+  identifier_visibility_verified?: boolean | null
+  accepted_identifier_values?: Record<string, unknown>
+  raw_identifier_candidates?: Record<string, unknown>
 }
 
 export interface ExtractionResponse {
   supplier_name: string
   document_type: string
+  batch_number: string | null
+  lot_number?: string | null
+  colata_number?: string | null
+  cast_number?: string | null
+  charge_number?: string | null
+  coil_number?: string | null
+  certificate_number: string | null
+  order_number: string | null
+  traceability_identifier_type?: string | null
+  traceability_identifier_label?: string | null
+  traceability_identifier_value?: string | null
   certificate_date: string | null
   total_items_detected: number
   items: ExtractedItem[]
@@ -55,10 +85,16 @@ export interface ExtractionResponse {
   ai_analysis_remarks: string | null
   is_compliant: boolean | null
   outcome?: ValidationOutcome | null
+  status?: 'PROCESSING' | 'COMPLETED' | 'FAILED' | 'NEEDS_REVIEW' | null
   needs_review?: boolean
   review_reasons?: string[]
   confidence_breakdown?: Record<string, number> | null
   explanation?: Record<string, unknown> | null
+  traceability_status?: TraceabilityStatus | null
+  traceability_confidence?: number | null
+  identifier_visibility_verified?: boolean | null
+  accepted_identifier_values?: Record<string, unknown>
+  raw_identifier_candidates?: Record<string, unknown>
 }
 
 export interface HealthResponse {
