@@ -1,0 +1,86 @@
+{
+    "supplier_name": "TOSÇELİK Profil ve Sac",
+    "document_type": "Mill Test Certificate",
+    "certificate_date": "29.09.2020",
+    "items": [
+        {
+            "item_id": "22",
+            "heat_number": "104517",
+            "grade": "GRADE S235JRH",
+            "weight_or_length": "120X120X5,00X12000",
+            "mechanical_properties": {
+                "yield_strength_mpa": 331,
+                "tensile_strength_mpa": 449,
+                "elongation_percentage": 33.7
+            }
+        },
+        {
+            "item_id": "23",
+            "heat_number": "104517",
+            "grade": "S235JRH",
+            "weight_or_length": "120X120X5,00X12000",
+            "mechanical_properties": {
+                "yield_strength_mpa": 331,
+                "tensile_strength_mpa": 449,
+                "elongation_percentage": 33.7
+            }
+        },
+        {
+            "item_id": "24",
+            "heat_number": "203970",
+            "grade": "S235JRH",
+            "weight_or_length": "50X50X3,00X6000",
+            "mechanical_properties": {
+                "yield_strength_mpa": 291,
+                "tensile_strength_mpa": 385,
+                "elongation_percentage": 30.4
+            }
+        },
+        {
+            "item_id": "25",
+            "heat_number": "203970",
+            "grade": "S235JRH",
+            "weight_or_length": "50X50X3,00X6000",
+            "mechanical_properties": {
+                "yield_strength_mpa": 291,
+                "tensile_strength_mpa": 385,
+                "elongation_percentage": 30.4
+            }
+        },
+        {
+            "item_id": "26",
+            "heat_number": "2012202664",
+            "grade": "S235JRH",
+            "weight_or_length": "50X50X1,90X6000",
+            "mechanical_properties": {
+                "yield_strength_mpa": 319,
+                "tensile_strength_mpa": 423,
+                "elongation_percentage": 41.7
+            }
+        },
+        {
+            "item_id": "27",
+            "heat_number": "2012202664",
+            "grade": "S235JRH",
+            "weight_or_length": "50X50X1,90X6000",
+            "mechanical_properties": {
+                "yield_strength_mpa": 319,
+                "tensile_strength_mpa": 423,
+                "elongation_percentage": 41.7
+            }
+        },
+        {
+            "item_id": "28",
+            "heat_number": "2018105385",
+            "grade": "S235JRH",
+            "weight_or_length": "50X50X1,90X6000",
+            "mechanical_properties": {
+                "yield_strength_mpa": 299,
+                "tensile_strength_mpa": 396,
+                "elongation_percentage": 40.7
+            }
+        }
+    ],
+    "review_required": false,
+    "processing_decision": "auto_accept"
+}

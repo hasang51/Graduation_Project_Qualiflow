@@ -1,0 +1,64 @@
+{
+    "supplier_name": "NOKSEL BORU SANAYİ A.Ş.",
+    "document_type": "Mill Test Certificate",
+    "certificate_date": "27.04.2011",
+    "items": [
+        {
+            "item_id": "1",
+            "heat_number": "10115084",
+            "grade": "S195",
+            "weight_or_length": "126,9 x 2.60 mm",
+            "mechanical_properties": {
+                "yield_strength_mpa": 264,
+                "tensile_strength_mpa": 418,
+                "elongation_percentage": 34
+            }
+        },
+        {
+            "item_id": "2",
+            "heat_number": "10110701",
+            "grade": "S195",
+            "weight_or_length": "126,9 x 2.60 mm",
+            "mechanical_properties": {
+                "yield_strength_mpa": 282,
+                "tensile_strength_mpa": 422,
+                "elongation_percentage": 32
+            }
+        },
+        {
+            "item_id": "3",
+            "heat_number": null,
+            "grade": "S195",
+            "weight_or_length": "126,9 x 2.60 mm",
+            "mechanical_properties": {
+                "yield_strength_mpa": 258,
+                "tensile_strength_mpa": 421,
+                "elongation_percentage": 29
+            }
+        },
+        {
+            "item_id": "4",
+            "heat_number": null,
+            "grade": "S195",
+            "weight_or_length": "126,9 x 2.60 mm",
+            "mechanical_properties": {
+                "yield_strength_mpa": 257,
+                "tensile_strength_mpa": 424,
+                "elongation_percentage": 27
+            }
+        },
+        {
+            "item_id": "5",
+            "heat_number": null,
+            "grade": "S195",
+            "weight_or_length": "126,9 x 2.60 mm",
+            "mechanical_properties": {
+                "yield_strength_mpa": 263,
+                "tensile_strength_mpa": 423,
+                "elongation_percentage": 33
+            }
+        }
+    ],
+    "review_required": true,
+    "processing_decision": "manual_review"
+}

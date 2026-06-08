@@ -1,0 +1,842 @@
+"""Metric primitives and CLI evaluation for QualiFlow outputs.
+
+The importable helpers are used by :mod:`scripts.run_eval` and the unit tests.
+The CLI evaluates JSON predictions against a manually annotated gold subset
+indexed by ``data/gold/metadata.csv``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import sys
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from statistics import mean
+from typing import Any, Iterable
+
+NUMERIC_TOLERANCE = 1.0
+
+CRITICAL_FIELDS = (
+    "supplier_name",
+    "document_type",
+    "heat_numbers",
+    "grades",
+    "yield_strength_mpa",
+    "tensile_strength_mpa",
+)
+
+SIMPLE_FIELDS = ("supplier_name", "document_type", "certificate_date")
+LIST_STRING_FIELDS = ("heat_numbers", "grades")
+LIST_NUMERIC_FIELDS = ("yield_strength_mpa", "tensile_strength_mpa", "elongation_percentage")
+ALL_FIELDS = SIMPLE_FIELDS + LIST_STRING_FIELDS + LIST_NUMERIC_FIELDS
+
+ACADEMIC_TARGET_FIELDS = (
+    "supplier_name",
+    "document_type",
+    "certificate_date",
+    "item_id",
+    "heat_number",
+    "grade",
+    "weight_or_length",
+    "yield_strength_mpa",
+    "tensile_strength_mpa",
+    "elongation_percentage",
+    "compliance_outcome",
+    "review_required",
+    "review_reasons",
+)
+
+ACADEMIC_CRITICAL_FIELDS = (
+    "heat_number",
+    "grade",
+    "yield_strength_mpa",
+    "tensile_strength_mpa",
+    "elongation_percentage",
+    "compliance_outcome",
+    "review_required",
+)
+
+REQUIRED_FIELDS = ACADEMIC_CRITICAL_FIELDS
+
+
+@dataclass
+class FieldComparison:
+    field: str
+    equal: bool
+    gold: Any = None
+    predicted: Any = None
+
+
+@dataclass
+class DocumentEvaluation:
+    document_id: str
+    filename: str
+    mode: str | None = None
+    route_used: str | None = None
+    quality_class: str | None = None
+    field_hits: int = 0
+    field_total: int = 0
+    critical_hits: int = 0
+    critical_total: int = 0
+    compliance_correct: bool | None = None
+    review_required: bool | None = None
+    latency_ms: float | None = None
+    completeness: float | None = None
+    comparisons: list[FieldComparison] = field(default_factory=list)
+
+
+def _normalise_string(value: Any) -> str:
+    if value is None:
+        return ""
+    return " ".join(str(value).strip().lower().split())
+
+
+def _normalise_list_string(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        items = [str(v).strip() for v in value if v not in (None, "")]
+    else:
+        items = [chunk.strip() for chunk in str(value).split("|") if chunk.strip()]
+    return sorted({_normalise_string(item) for item in items if _normalise_string(item)})
+
+
+def _coerce_float(value: Any) -> float | None:
+    if value is None or value == "":
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalise_list_float(value: Any) -> list[float]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        raw = value
+    else:
+        raw = str(value).split("|")
+    cleaned: list[float] = []
+    for item in raw:
+        parsed = _coerce_float(item)
+        if parsed is not None:
+            cleaned.append(round(parsed, 2))
+    return sorted(cleaned)
+
+
+def _lists_equal_float(a: list[float], b: list[float], tolerance: float = NUMERIC_TOLERANCE) -> bool:
+    if len(a) != len(b):
+        return False
+    a_sorted, b_sorted = sorted(a), sorted(b)
+    return all(abs(x - y) <= tolerance for x, y in zip(a_sorted, b_sorted))
+
+
+def compare_field(field_name: str, gold_value: Any, predicted_value: Any) -> FieldComparison:
+    if field_name in SIMPLE_FIELDS:
+        eq = _normalise_string(gold_value) == _normalise_string(predicted_value)
+        return FieldComparison(field=field_name, equal=eq, gold=gold_value, predicted=predicted_value)
+    if field_name in LIST_STRING_FIELDS:
+        a = _normalise_list_string(gold_value)
+        b = _normalise_list_string(predicted_value)
+        return FieldComparison(field=field_name, equal=a == b, gold=a, predicted=b)
+    if field_name in LIST_NUMERIC_FIELDS:
+        a = _normalise_list_float(gold_value)
+        b = _normalise_list_float(predicted_value)
+        return FieldComparison(field=field_name, equal=_lists_equal_float(a, b), gold=a, predicted=b)
+    return FieldComparison(field=field_name, equal=gold_value == predicted_value, gold=gold_value, predicted=predicted_value)
+
+
+def _is_missing(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str):
+        return value.strip() == ""
+    if isinstance(value, (list, tuple, set, dict)):
+        return len(value) == 0
+    return False
+
+
+def _split_scalar_or_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    if isinstance(value, str) and "|" in value:
+        return [chunk.strip() for chunk in value.split("|")]
+    return [value]
+
+
+def _normalise_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    lowered = _normalise_string(value)
+    if lowered in {"true", "yes", "y", "1", "review", "needs_review", "manual_review"}:
+        return True
+    if lowered in {"false", "no", "n", "0", "auto_accept", "accepted", "pass"}:
+        return False
+    return None
+
+
+def _normalise_academic_value(value: Any) -> list[Any] | str | float | bool | None:
+    """Normalize a value for exact-match academic evaluation.
+
+    Strings use lowercase/trim/collapsed whitespace. Lists are normalized item by
+    item and sorted by representation so row order does not dominate evaluation.
+    Numeric values remain numeric, enabling tolerance-based comparison.
+    """
+
+    if _is_missing(value):
+        return None
+    parts = _split_scalar_or_list(value)
+    if len(parts) > 1:
+        normalized = [_normalise_academic_value(part) for part in parts]
+        return sorted([part for part in normalized if part is not None], key=lambda item: repr(item))
+    if isinstance(value, bool):
+        return value
+    numeric = _coerce_float(value)
+    if numeric is not None and not isinstance(value, bool):
+        return round(numeric, 4)
+    return _normalise_string(value)
+
+
+def _academic_equal(gold_value: Any, predicted_value: Any) -> bool:
+    if _is_missing(predicted_value):
+        return False
+
+    gold_parts = _split_scalar_or_list(gold_value)
+    pred_parts = _split_scalar_or_list(predicted_value)
+    if len(gold_parts) != len(pred_parts):
+        return False
+
+    gold_numeric = [_coerce_float(part) for part in gold_parts]
+    pred_numeric = [_coerce_float(part) for part in pred_parts]
+    if all(part is not None for part in gold_numeric) and all(part is not None for part in pred_numeric):
+        return _lists_equal_float(
+            [float(part) for part in gold_numeric if part is not None],
+            [float(part) for part in pred_numeric if part is not None],
+            tolerance=NUMERIC_TOLERANCE,
+        )
+
+    return _normalise_academic_value(gold_value) == _normalise_academic_value(predicted_value)
+
+
+def predicted_fields_from_extraction(extraction: dict) -> dict[str, Any]:
+    items = extraction.get("items") or []
+    heats = [item.get("heat_number") for item in items if item.get("heat_number")]
+    grades = [item.get("grade") for item in items if item.get("grade")]
+    yields: list[float] = []
+    tensiles: list[float] = []
+    elongs: list[float] = []
+    for item in items:
+        mp = item.get("mechanical_properties") or {}
+        if mp.get("yield_strength_mpa") is not None:
+            yields.append(float(mp["yield_strength_mpa"]))
+        if mp.get("tensile_strength_mpa") is not None:
+            tensiles.append(float(mp["tensile_strength_mpa"]))
+        if mp.get("elongation_percentage") is not None:
+            elongs.append(float(mp["elongation_percentage"]))
+    return {
+        "supplier_name": extraction.get("supplier_name"),
+        "document_type": extraction.get("document_type"),
+        "certificate_date": extraction.get("certificate_date"),
+        "is_compliant": extraction.get("is_compliant"),
+        "heat_numbers": heats,
+        "grades": grades,
+        "yield_strength_mpa": yields,
+        "tensile_strength_mpa": tensiles,
+        "elongation_percentage": elongs,
+    }
+
+
+def _unwrap_prediction(payload: dict[str, Any]) -> dict[str, Any]:
+    extraction = payload.get("extraction")
+    if isinstance(extraction, dict):
+        merged = dict(extraction)
+        for key, value in payload.items():
+            if key != "extraction" and key not in merged:
+                merged[key] = value
+        return merged
+    return payload
+
+
+def _extract_items(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    items = payload.get("items")
+    return items if isinstance(items, list) else []
+
+
+def _flatten_academic_fields(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return canonical academic fields from flat or QualiFlow-style JSON."""
+
+    data = _unwrap_prediction(payload)
+    items = _extract_items(data)
+
+    def first_present(*keys: str) -> Any:
+        for key in keys:
+            if key in data:
+                return data.get(key)
+        return None
+
+    def item_values(key: str) -> list[Any]:
+        direct_plural = data.get(f"{key}s")
+        if direct_plural is not None:
+            return _split_scalar_or_list(direct_plural)
+        direct = data.get(key)
+        if direct is not None:
+            return _split_scalar_or_list(direct)
+        return [item.get(key) for item in items if not _is_missing(item.get(key))]
+
+    def mechanical_values(key: str) -> list[Any]:
+        direct = data.get(key)
+        if direct is not None:
+            return _split_scalar_or_list(direct)
+        values: list[Any] = []
+        for item in items:
+            mp = item.get("mechanical_properties") if isinstance(item, dict) else None
+            if isinstance(mp, dict) and not _is_missing(mp.get(key)):
+                values.append(mp.get(key))
+        return values
+
+    compliance = first_present("compliance_outcome", "outcome", "is_compliant")
+    if isinstance(compliance, bool):
+        compliance = "compliant" if compliance else "non_compliant"
+
+    review_required = first_present("review_required", "needs_review")
+    review_bool = _normalise_bool(review_required)
+    review_required = review_bool if review_bool is not None else review_required
+
+    fields = {
+        "supplier_name": first_present("supplier_name"),
+        "document_type": first_present("document_type"),
+        "certificate_date": first_present("certificate_date"),
+        "item_id": item_values("item_id"),
+        "heat_number": item_values("heat_number"),
+        "grade": item_values("grade"),
+        "weight_or_length": item_values("weight_or_length"),
+        "yield_strength_mpa": mechanical_values("yield_strength_mpa"),
+        "tensile_strength_mpa": mechanical_values("tensile_strength_mpa"),
+        "elongation_percentage": mechanical_values("elongation_percentage"),
+        "compliance_outcome": compliance,
+        "review_required": review_required,
+        "review_reasons": first_present("review_reasons"),
+        "processing_decision": first_present("processing_decision"),
+        "latency_ms": first_present("latency_ms"),
+    }
+    if _is_missing(fields["processing_decision"]) and not _is_missing(review_required):
+        fields["processing_decision"] = "needs_review" if review_bool else "auto_accept"
+    return fields
+
+
+def evaluate_document(
+    *,
+    gold_record: dict,
+    per_document: dict,
+) -> DocumentEvaluation:
+    extraction = per_document.get("extraction") or {}
+    predicted = predicted_fields_from_extraction(extraction)
+
+    comparisons: list[FieldComparison] = []
+    field_hits = 0
+    field_total = 0
+    critical_hits = 0
+    critical_total = 0
+
+    for field_name in ALL_FIELDS:
+        comp = compare_field(field_name, gold_record.get(field_name), predicted.get(field_name))
+        comparisons.append(comp)
+        field_total += 1
+        if comp.equal:
+            field_hits += 1
+        if field_name in CRITICAL_FIELDS:
+            critical_total += 1
+            if comp.equal:
+                critical_hits += 1
+
+    # Compliance comparison
+    compliance_correct: bool | None = None
+    if gold_record.get("is_compliant") is not None:
+        gold_compliant = bool(gold_record.get("is_compliant"))
+        predicted_compliant = extraction.get("is_compliant")
+        if predicted_compliant is None:
+            compliance_correct = False
+        else:
+            compliance_correct = bool(predicted_compliant) == gold_compliant
+
+    # Completeness = fraction of critical fields where we produced *any* value
+    produced = 0
+    for field_name in CRITICAL_FIELDS:
+        value = predicted.get(field_name)
+        if isinstance(value, list):
+            if value:
+                produced += 1
+        else:
+            if value not in (None, ""):
+                produced += 1
+    completeness = produced / len(CRITICAL_FIELDS)
+
+    return DocumentEvaluation(
+        document_id=per_document.get("document_id") or gold_record.get("document_id"),
+        filename=per_document.get("filename") or gold_record.get("filename") or "",
+        mode=per_document.get("mode"),
+        route_used=per_document.get("route_used"),
+        quality_class=(per_document.get("profile") or {}).get("quality_class"),
+        field_hits=field_hits,
+        field_total=field_total,
+        critical_hits=critical_hits,
+        critical_total=critical_total,
+        compliance_correct=compliance_correct,
+        review_required=extraction.get("needs_review"),
+        latency_ms=per_document.get("latency_ms"),
+        completeness=round(completeness, 4),
+        comparisons=comparisons,
+    )
+
+
+def aggregate_metrics(evaluations: Iterable[DocumentEvaluation]) -> dict[str, float | int]:
+    evaluations = list(evaluations)
+    n = len(evaluations)
+    if n == 0:
+        return {
+            "n": 0,
+            "field_accuracy": 0.0,
+            "critical_field_accuracy": 0.0,
+            "compliance_decision_accuracy": 0.0,
+            "review_rate": 0.0,
+            "stp_rate": 0.0,
+            "average_latency_ms": 0.0,
+            "p95_latency_ms": 0.0,
+            "extraction_completeness": 0.0,
+        }
+    total_field = sum(ev.field_total for ev in evaluations) or 1
+    total_field_hits = sum(ev.field_hits for ev in evaluations)
+    total_critical = sum(ev.critical_total for ev in evaluations) or 1
+    total_critical_hits = sum(ev.critical_hits for ev in evaluations)
+    compliance_samples = [ev.compliance_correct for ev in evaluations if ev.compliance_correct is not None]
+    compliance_accuracy = (sum(1 for v in compliance_samples if v) / len(compliance_samples)) if compliance_samples else 0.0
+    review_samples = [ev.review_required for ev in evaluations if ev.review_required is not None]
+    review_rate = (sum(1 for v in review_samples if v) / len(review_samples)) if review_samples else 0.0
+    stp_rate = 1.0 - review_rate
+    latencies = [ev.latency_ms for ev in evaluations if ev.latency_ms is not None]
+    average_latency = mean(latencies) if latencies else 0.0
+    if latencies:
+        sorted_latencies = sorted(latencies)
+        idx = max(0, min(len(sorted_latencies) - 1, int(round(0.95 * (len(sorted_latencies) - 1)))))
+        p95_latency = sorted_latencies[idx]
+    else:
+        p95_latency = 0.0
+    completeness_samples = [ev.completeness for ev in evaluations if ev.completeness is not None]
+    avg_completeness = mean(completeness_samples) if completeness_samples else 0.0
+    return {
+        "n": n,
+        "field_accuracy": round(total_field_hits / total_field, 4),
+        "critical_field_accuracy": round(total_critical_hits / total_critical, 4),
+        "compliance_decision_accuracy": round(compliance_accuracy, 4),
+        "review_rate": round(review_rate, 4),
+        "stp_rate": round(stp_rate, 4),
+        "average_latency_ms": round(average_latency, 1),
+        "p95_latency_ms": round(p95_latency, 1),
+        "extraction_completeness": round(avg_completeness, 4),
+    }
+
+
+def _utc_ts() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    with path.open("r", encoding="utf-8-sig") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected JSON object: {path}")
+    return payload
+
+
+def _resolve_ground_truth_path(metadata_path: Path, value: str) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    candidates = [
+        Path.cwd() / path,
+        metadata_path.parent / path,
+        metadata_path.parent.parent / path,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return candidates[0]
+
+
+def _rate(numerator: int, denominator: int) -> float:
+    return round(numerator / denominator, 4) if denominator else 0.0
+
+
+def _write_rows(path: Path, fieldnames: list[str], rows: list[dict[str, Any]]) -> None:
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({key: row.get(key, "") for key in fieldnames})
+
+
+def _value_to_cell(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, dict)):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return str(value)
+
+
+def _average(values: list[float]) -> float:
+    return round(mean(values), 1) if values else 0.0
+
+
+def _evaluate_academic_document(
+    *,
+    metadata_row: dict[str, str],
+    gold_payload: dict[str, Any] | None,
+    prediction_payload: dict[str, Any] | None,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    doc_id = metadata_row.get("doc_id", "")
+    quality_bucket = metadata_row.get("quality_bucket", "")
+    gold_source = dict(gold_payload or {})
+    if _is_missing(gold_source.get("document_type")) and not _is_missing(metadata_row.get("document_type")):
+        gold_source["document_type"] = metadata_row.get("document_type")
+    gold_fields = _flatten_academic_fields(gold_source)
+    pred_fields = _flatten_academic_fields(prediction_payload or {})
+    prediction_missing = prediction_payload is None
+    gold_missing = gold_payload is None
+
+    field_rows: list[dict[str, Any]] = []
+    failure_rows: list[dict[str, Any]] = []
+
+    field_total = 0
+    field_hits = 0
+    critical_total = 0
+    critical_hits = 0
+    missing_required = 0
+    required_total = 0
+
+    for field_name in ACADEMIC_TARGET_FIELDS:
+        gold_value = gold_fields.get(field_name)
+        pred_value = pred_fields.get(field_name)
+        has_gold = not _is_missing(gold_value)
+        if has_gold:
+            field_total += 1
+            equal = False if prediction_missing else _academic_equal(gold_value, pred_value)
+            if equal:
+                field_hits += 1
+        else:
+            equal = None
+
+        if field_name in ACADEMIC_CRITICAL_FIELDS and has_gold:
+            critical_total += 1
+            if equal:
+                critical_hits += 1
+
+        if field_name in REQUIRED_FIELDS and has_gold:
+            required_total += 1
+            if _is_missing(pred_value):
+                missing_required += 1
+
+        field_rows.append(
+            {
+                "doc_id": doc_id,
+                "quality_bucket": quality_bucket,
+                "field": field_name,
+                "has_gold": has_gold,
+                "correct": "" if equal is None else bool(equal),
+                "gold_value": _value_to_cell(gold_value),
+                "predicted_value": _value_to_cell(pred_value),
+                "prediction_missing": prediction_missing or _is_missing(pred_value),
+            }
+        )
+
+        if has_gold and not equal:
+            reason = "missing_prediction_file" if prediction_missing else "missing_field" if _is_missing(pred_value) else "mismatch"
+            failure_rows.append(
+                {
+                    "doc_id": doc_id,
+                    "file_name": metadata_row.get("file_name", ""),
+                    "quality_bucket": quality_bucket,
+                    "field": field_name,
+                    "reason": reason,
+                    "gold_value": _value_to_cell(gold_value),
+                    "predicted_value": _value_to_cell(pred_value),
+                }
+            )
+
+    document_type_total = 0
+    document_type_hit = 0
+    if not _is_missing(gold_fields.get("document_type")):
+        document_type_total = 1
+        document_type_hit = int(not prediction_missing and _academic_equal(gold_fields.get("document_type"), pred_fields.get("document_type")))
+
+    processing_total = 0
+    processing_hit = 0
+    if not _is_missing(gold_fields.get("processing_decision")):
+        processing_total = 1
+        processing_hit = int(not prediction_missing and _academic_equal(gold_fields.get("processing_decision"), pred_fields.get("processing_decision")))
+
+    pred_review = _normalise_bool(pred_fields.get("review_required"))
+    gold_review = _normalise_bool(gold_fields.get("review_required"))
+    review_known = pred_review is not None and not prediction_missing
+    review_required_gold = gold_review is True
+    unsafe_auto_accept = int(review_required_gold and pred_review is False)
+
+    latency = _coerce_float(pred_fields.get("latency_ms")) if not prediction_missing else None
+
+    doc_row = {
+        "doc_id": doc_id,
+        "file_name": metadata_row.get("file_name", ""),
+        "quality_bucket": quality_bucket,
+        "gold_missing": gold_missing,
+        "prediction_missing": prediction_missing,
+        "field_hits": field_hits,
+        "field_total": field_total,
+        "critical_hits": critical_hits,
+        "critical_total": critical_total,
+        "document_type_hit": document_type_hit,
+        "document_type_total": document_type_total,
+        "processing_decision_hit": processing_hit,
+        "processing_decision_total": processing_total,
+        "review_known": review_known,
+        "review_required": bool(pred_review) if review_known else "",
+        "unsafe_auto_accept": unsafe_auto_accept,
+        "unsafe_auto_accept_total": int(review_required_gold),
+        "missing_required": missing_required,
+        "required_total": required_total,
+        "latency_ms": latency,
+    }
+    return doc_row, field_rows, failure_rows
+
+
+def _aggregate_academic(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    field_hits = sum(int(row["field_hits"]) for row in rows)
+    field_total = sum(int(row["field_total"]) for row in rows)
+    critical_hits = sum(int(row["critical_hits"]) for row in rows)
+    critical_total = sum(int(row["critical_total"]) for row in rows)
+    doc_type_hits = sum(int(row["document_type_hit"]) for row in rows)
+    doc_type_total = sum(int(row["document_type_total"]) for row in rows)
+    processing_hits = sum(int(row["processing_decision_hit"]) for row in rows)
+    processing_total = sum(int(row["processing_decision_total"]) for row in rows)
+    review_known = sum(1 for row in rows if row["review_known"])
+    review_count = sum(1 for row in rows if row["review_known"] and row["review_required"] is True)
+    unsafe = sum(int(row["unsafe_auto_accept"]) for row in rows)
+    unsafe_total = sum(int(row["unsafe_auto_accept_total"]) for row in rows)
+    missing_required = sum(int(row["missing_required"]) for row in rows)
+    required_total = sum(int(row["required_total"]) for row in rows)
+    latencies = [float(row["latency_ms"]) for row in rows if row["latency_ms"] is not None]
+
+    return {
+        "n_documents": len(rows),
+        "field_accuracy": _rate(field_hits, field_total),
+        "critical_field_accuracy": _rate(critical_hits, critical_total),
+        "document_type_accuracy": _rate(doc_type_hits, doc_type_total),
+        "processing_decision_accuracy": _rate(processing_hits, processing_total),
+        "review_rate": _rate(review_count, review_known),
+        "unsafe_auto_accept_rate": _rate(unsafe, unsafe_total),
+        "missing_required_field_rate": _rate(missing_required, required_total),
+        "average_latency_ms": _average(latencies) if latencies else "",
+    }
+
+
+def _metrics_by_field(field_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for field_name in ACADEMIC_TARGET_FIELDS:
+        samples = [row for row in field_rows if row["field"] == field_name and row["has_gold"]]
+        correct = sum(1 for row in samples if row["correct"] is True)
+        missing_predictions = sum(1 for row in samples if row["prediction_missing"])
+        rows.append(
+            {
+                "field": field_name,
+                "samples": len(samples),
+                "correct": correct,
+                "accuracy": _rate(correct, len(samples)),
+                "missing_predictions": missing_predictions,
+            }
+        )
+    return rows
+
+
+def _metrics_by_quality_bucket(doc_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    buckets = sorted({row.get("quality_bucket") or "unknown" for row in doc_rows})
+    rows: list[dict[str, Any]] = []
+    for bucket in buckets:
+        bucket_rows = [row for row in doc_rows if (row.get("quality_bucket") or "unknown") == bucket]
+        aggregate = _aggregate_academic(bucket_rows)
+        aggregate["quality_bucket"] = bucket
+        rows.append(aggregate)
+    return rows
+
+
+def _write_eval_report(
+    *,
+    path: Path,
+    metadata_path: Path,
+    predictions_dir: Path,
+    summary: dict[str, Any],
+    failure_count: int,
+) -> None:
+    lines = [
+        "# QualiFlow Evaluation Report",
+        "",
+        f"- metadata: `{metadata_path}`",
+        f"- predictions: `{predictions_dir}`",
+        f"- documents evaluated: {summary['n_documents']}",
+        "",
+        "## Metrics",
+        "",
+        "| metric | value |",
+        "| --- | --- |",
+    ]
+    for key, value in summary.items():
+        lines.append(f"| {key} | {value} |")
+    lines.extend(
+        [
+            "",
+            "## Method",
+            "",
+            "String fields are compared by exact match after lowercase conversion, whitespace trimming, and internal whitespace collapse. Numeric fields use a tolerance when both gold and predicted values are numeric. Missing prediction fields are counted as incorrect whenever a gold value exists.",
+            "",
+            "Processing decision accuracy is computed only when the gold annotation provides `processing_decision`, or a derivable `review_required` label. `unsafe_auto_accept_rate` measures gold review-required documents that the prediction marks as not requiring review.",
+            "",
+            "## No Fabricated Metrics",
+            "",
+            "This report only summarizes values computed from the provided metadata, ground truth JSON files, and prediction JSON files. Missing gold labels are skipped from metric denominators, and missing predictions are reported in `failure_cases.csv` instead of being filled with invented values.",
+            "",
+            f"Failure cases written: {failure_count}",
+        ]
+    )
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def run_academic_evaluation(*, metadata_path: Path, predictions_dir: Path, out_dir: Path) -> dict[str, Any]:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    doc_rows: list[dict[str, Any]] = []
+    field_rows: list[dict[str, Any]] = []
+    failure_rows: list[dict[str, Any]] = []
+
+    with metadata_path.open("r", encoding="utf-8-sig", newline="") as handle:
+        reader = csv.DictReader(handle)
+        required_columns = {
+            "doc_id",
+            "file_name",
+            "quality_bucket",
+            "document_type",
+            "pages",
+            "has_text_layer",
+            "ground_truth_path",
+        }
+        missing_columns = required_columns.difference(reader.fieldnames or [])
+        if missing_columns:
+            raise ValueError(f"metadata missing required columns: {', '.join(sorted(missing_columns))}")
+
+        for metadata_row in reader:
+            doc_id = metadata_row.get("doc_id", "").strip()
+            if not doc_id:
+                continue
+
+            gt_path_value = metadata_row.get("ground_truth_path", "").strip()
+            gt_path = _resolve_ground_truth_path(metadata_path, gt_path_value) if gt_path_value else Path("")
+            pred_path = predictions_dir / f"{doc_id}.json"
+
+            gold_payload: dict[str, Any] | None = None
+            prediction_payload: dict[str, Any] | None = None
+            if gt_path_value and gt_path.exists():
+                gold_payload = _read_json(gt_path)
+            else:
+                failure_rows.append(
+                    {
+                        "doc_id": doc_id,
+                        "file_name": metadata_row.get("file_name", ""),
+                        "quality_bucket": metadata_row.get("quality_bucket", ""),
+                        "field": "",
+                        "reason": "missing_ground_truth_file",
+                        "gold_value": gt_path_value,
+                        "predicted_value": "",
+                    }
+                )
+            if pred_path.exists():
+                prediction_payload = _read_json(pred_path)
+
+            doc_row, per_field_rows, per_failure_rows = _evaluate_academic_document(
+                metadata_row=metadata_row,
+                gold_payload=gold_payload,
+                prediction_payload=prediction_payload,
+            )
+            doc_rows.append(doc_row)
+            field_rows.extend(per_field_rows)
+            failure_rows.extend(per_failure_rows)
+
+    summary = _aggregate_academic(doc_rows)
+    by_bucket = _metrics_by_quality_bucket(doc_rows)
+    by_field = _metrics_by_field(field_rows)
+
+    _write_rows(out_dir / "metrics_summary.csv", list(summary.keys()), [summary])
+    _write_rows(
+        out_dir / "metrics_by_quality_bucket.csv",
+        ["quality_bucket", *summary.keys()],
+        by_bucket,
+    )
+    _write_rows(
+        out_dir / "metrics_by_field.csv",
+        ["field", "samples", "correct", "accuracy", "missing_predictions"],
+        by_field,
+    )
+    _write_rows(
+        out_dir / "failure_cases.csv",
+        ["doc_id", "file_name", "quality_bucket", "field", "reason", "gold_value", "predicted_value"],
+        failure_rows,
+    )
+    _write_eval_report(
+        path=out_dir / "eval_report.md",
+        metadata_path=metadata_path,
+        predictions_dir=predictions_dir,
+        summary=summary,
+        failure_count=len(failure_rows),
+    )
+    return summary
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Evaluate QualiFlow prediction JSON files against academic gold annotations.")
+    parser.add_argument("--metadata", default="data/gold/metadata.csv", help="Gold metadata CSV.")
+    parser.add_argument("--predictions", default="outputs/predictions/", help="Directory containing <doc_id>.json predictions.")
+    parser.add_argument("--out", default=None, help="Output directory. Defaults to outputs/eval_runs/<timestamp>/.")
+    args = parser.parse_args(argv)
+
+    metadata_path = Path(args.metadata)
+    predictions_dir = Path(args.predictions)
+    out_dir = Path(args.out) if args.out else Path("outputs") / "eval_runs" / _utc_ts()
+
+    if not metadata_path.exists():
+        print(f"[error] metadata not found: {metadata_path}", file=sys.stderr)
+        return 2
+    if not predictions_dir.exists():
+        print(f"[error] predictions directory not found: {predictions_dir}", file=sys.stderr)
+        return 2
+
+    try:
+        summary = run_academic_evaluation(
+            metadata_path=metadata_path,
+            predictions_dir=predictions_dir,
+            out_dir=out_dir,
+        )
+    except Exception as exc:
+        print(f"[error] evaluation failed: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"[ok] wrote evaluation outputs to {out_dir}")
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

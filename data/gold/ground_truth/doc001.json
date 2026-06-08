@@ -1,0 +1,20 @@
+{
+    "supplier_name": "NOVOFIL S.p.Α.",
+    "document_type": "Mill Test Certificate",
+    "certificate_date": "08/07/2024",
+    "items": [
+        {
+            "item_id": "1",
+            "heat_number": "410537",
+            "grade": "NOVOFIL SG2/NOVOBRONZE SG2",
+            "weight_or_length": "1.080 Kg",
+            "mechanical_properties": {
+                "yield_strength_mpa": 470,
+                "tensile_strength_mpa": 560,
+                "elongation_percentage": 26
+            }
+        }
+    ],
+    "review_required": false,
+    "processing_decision": "auto_accept"
+}

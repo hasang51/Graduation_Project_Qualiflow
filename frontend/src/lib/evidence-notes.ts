@@ -1,0 +1,148 @@
+import { formatDecisionLabel, formatNullable, resolveProcessingDecisionValue } from './format'
+import type { ExtractionResponse, ExtractedItem } from '../types/qualiflow'
+
+export interface EvidenceNoteSection {
+  title: string
+  lines: string[]
+}
+
+function itemRef(item: ExtractedItem, index: number): string {
+  return item.item_id || `row-${index + 1}`
+}
+
+function resolveCertificateDateSourceLabel(data: ExtractionResponse): string | null {
+  const tokens = data.extraction_finalization?.tokens ?? []
+  for (const token of tokens) {
+    if (token.startsWith('certificate_date:from_label:')) {
+      return token.slice('certificate_date:from_label:'.length)
+    }
+    if (token === 'certificate_date:from_metadata') {
+      return 'document metadata'
+    }
+  }
+
+  for (const trace of data.extraction_finalization?.traces ?? []) {
+    if (trace.step !== 'certificate_date') continue
+    const selectedLabel = typeof trace.selected_label === 'string' ? trace.selected_label : null
+    if (selectedLabel) return selectedLabel
+    if (trace.source === 'certificate_date') return 'document metadata'
+  }
+
+  if (!data.certificate_date) return null
+
+  const normalizedDate = data.certificate_date.trim().toLowerCase()
+  for (const entry of data.labeled_dates ?? []) {
+    if (entry.value.trim().toLowerCase() === normalizedDate && entry.label) {
+      return entry.label
+    }
+  }
+
+  return null
+}
+
+function buildCertificateDateNotes(data: ExtractionResponse): string[] {
+  if (!data.certificate_date) {
+    return ['Not extracted']
+  }
+
+  const sourceLabel = resolveCertificateDateSourceLabel(data)
+  if (sourceLabel) {
+    return [`${data.certificate_date} (from ${sourceLabel})`]
+  }
+
+  return [data.certificate_date]
+}
+
+function buildTraceabilityNotes(data: ExtractionResponse): string[] {
+  const lines: string[] = []
+
+  if (data.traceability_identifier_label || data.traceability_identifier_value) {
+    lines.push(
+      `Document: ${formatNullable(data.traceability_identifier_label, 'Identifier')} ${formatNullable(data.traceability_identifier_value)}`,
+    )
+  }
+
+  data.items.forEach((item, index) => {
+    if (!item.traceability_identifier_label && !item.traceability_identifier_value) return
+    lines.push(
+      `${itemRef(item, index)}: ${formatNullable(item.traceability_identifier_label, 'Identifier')} ${formatNullable(item.traceability_identifier_value)}`,
+    )
+  })
+
+  if (lines.length === 0) {
+    return ['Not extracted']
+  }
+
+  return lines
+}
+
+function buildGradeNotes(data: ExtractionResponse): string[] {
+  const lines = data.items
+    .map((item, index) => (item.grade ? `${itemRef(item, index)}: ${item.grade}` : null))
+    .filter((line): line is string => line !== null)
+
+  if (lines.length === 0) {
+    return ['Not extracted']
+  }
+
+  return lines
+}
+
+function buildValidationNotes(data: ExtractionResponse): string[] {
+  const lines: string[] = []
+
+  data.items.forEach((item, index) => {
+    const validation = item.validation
+    if (!validation) return
+
+    const outcome = validation.outcome ?? (validation.is_compliant === true
+      ? 'COMPLIANT'
+      : validation.is_compliant === false
+        ? 'NON_COMPLIANT'
+        : 'NOT_VALIDATED')
+    const ref = itemRef(item, index)
+    const deviations = validation.deviations ?? []
+
+    if (deviations.length === 0) {
+      lines.push(`${ref}: ${outcome}`)
+      return
+    }
+
+    lines.push(`${ref}: ${outcome} (${deviations.join('; ')})`)
+  })
+
+  if (data.outcome && lines.length === 0) {
+    lines.push(`Document: ${data.outcome}`)
+  }
+
+  if (lines.length === 0) {
+    return ['None recorded']
+  }
+
+  return lines
+}
+
+function buildDecisionNotes(data: ExtractionResponse): string[] {
+  const decision = resolveProcessingDecisionValue(data)
+  const lines = [formatDecisionLabel(decision)]
+
+  if (data.review_reasons && data.review_reasons.length > 0) {
+    lines.push(data.review_reasons.join(', '))
+  }
+
+  return lines
+}
+
+export function buildEvidenceNoteSections(data: ExtractionResponse): EvidenceNoteSection[] {
+  return [
+    { title: 'Certificate Date', lines: buildCertificateDateNotes(data) },
+    { title: 'Traceability Identifier', lines: buildTraceabilityNotes(data) },
+    { title: 'Grade', lines: buildGradeNotes(data) },
+    { title: 'Validation', lines: buildValidationNotes(data) },
+    { title: 'Decision', lines: buildDecisionNotes(data) },
+  ]
+}
+
+export function hasModelRemarks(data: ExtractionResponse): boolean {
+  return Boolean(data.ai_analysis_remarks?.trim())
+}
