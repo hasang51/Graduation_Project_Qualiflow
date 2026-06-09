@@ -343,7 +343,7 @@ class ReviewPolicyTests(unittest.TestCase):
         decision = apply_review_policy(extraction, profile=_clean_profile())
         self.assertNotIn("missing_critical_field:heat_number", decision.structured_reasons)
 
-    def test_missing_grade_emits_unresolved_grade_token(self):
+    def test_missing_grade_emits_missing_critical_field_token(self):
         item = ExtractedItem(
             item_id="1",
             heat_number="H1",
@@ -356,15 +356,16 @@ class ReviewPolicyTests(unittest.TestCase):
             ),
             validation=ValidationResult(
                 is_compliant=None,
-                deviations=["Unknown grade '(missing)' - manual review required."],
-                outcome="NEEDS_REVIEW",
+                deviations=["Grade is missing from the extracted row - manual review required."],
+                outcome="MISSING_CRITICAL_FIELD_GRADE",
             ),
             needs_review=True,
             row_confidence=0.6,
         )
         extraction = _make_extraction(items=[item], confidence_score=0.85, needs_review=True)
         decision = apply_review_policy(extraction, profile=_clean_profile())
-        self.assertIn("unresolved_grade", decision.structured_reasons)
+        self.assertIn("missing_critical_field:grade", decision.structured_reasons)
+        self.assertNotIn("unresolved_grade", decision.structured_reasons)
         self.assertNotIn("validation_conflict:row_non_compliant", decision.structured_reasons)
 
     def test_explicit_unmapped_grade_does_not_emit_unresolved_grade(self):
@@ -384,7 +385,7 @@ class ReviewPolicyTests(unittest.TestCase):
                 deviations=[
                     "Grade 'MYSTERY-GRADE' is explicitly stated but not mapped in the internal catalog - manual review required."
                 ],
-                outcome="UNSUPPORTED_SPEC_FAMILY",
+                outcome="EXPLICIT_UNMAPPED_GRADE",
             ),
             needs_review=True,
             row_confidence=0.6,
@@ -393,11 +394,12 @@ class ReviewPolicyTests(unittest.TestCase):
             items=[item],
             confidence_score=0.85,
             needs_review=True,
-            review_reasons=["unsupported_spec_family"],
+            review_reasons=["explicit_unmapped_grade"],
         )
         decision = apply_review_policy(extraction, profile=_clean_profile())
         self.assertNotIn("unresolved_grade", decision.structured_reasons)
-        self.assertIn("unsupported_spec_family", decision.structured_reasons)
+        self.assertIn("explicit_unmapped_grade", decision.structured_reasons)
+        self.assertNotIn("unsupported_spec_family", decision.structured_reasons)
 
     def test_unresolved_stainless_spec_emits_unresolved_spec_token(self):
         item = ExtractedItem(

@@ -107,6 +107,8 @@ function normalizeOutcome(value: unknown): ValidationOutcome | null {
     normalized === 'NON_COMPLIANT' ||
     normalized === 'UNRESOLVED_SPEC' ||
     normalized === 'UNSUPPORTED_SPEC_FAMILY' ||
+    normalized === 'EXPLICIT_UNMAPPED_GRADE' ||
+    normalized === 'MISSING_CRITICAL_FIELD_GRADE' ||
     normalized === 'NOT_VALIDATED' ||
     normalized === 'NEEDS_REVIEW'
   ) {

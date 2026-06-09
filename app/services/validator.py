@@ -14,6 +14,8 @@ import re
 from app.domain.grade_registry import GradeResolution, has_explicit_grade_value, resolve_grade
 from app.domain.outcome_taxonomy import (
     COMPLIANT,
+    EXPLICIT_UNMAPPED_GRADE,
+    MISSING_CRITICAL_FIELD_GRADE,
     NEEDS_REVIEW,
     NON_COMPLIANT,
     NOT_VALIDATED,
@@ -301,16 +303,16 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
         # Case 2: missing or unmapped grade -> review-safe outcome.
         if spec_resolution.status == "empty":
             deviations = [
-                f"Unknown grade '{item.grade or '(missing)'}' - manual review required."
+                "Grade is missing from the extracted row - manual review required."
             ]
             item.validation = ValidationResult(
                 is_compliant=None,
                 deviations=deviations,
-                outcome=NEEDS_REVIEW,
+                outcome=MISSING_CRITICAL_FIELD_GRADE,
                 rule_evidence=[
                     {
                         "rule": "spec_resolution.grade_registry",
-                        "decision": "unresolved",
+                        "decision": "missing_critical_field_grade",
                         "reason": spec_resolution.reason,
                         "candidate_spec_family": list(spec_resolution.candidates),
                     }
@@ -318,7 +320,7 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
             )
             item.needs_review = True
             item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - 0.2)
-            review_reasons.append(f"unresolved_grade:{grade_resolution.raw or ''}")
+            review_reasons.append("missing_critical_field:grade")
             suspicious_rows += 1
             continue
 
@@ -339,7 +341,7 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
                 item.validation = ValidationResult(
                     is_compliant=None,
                     deviations=deviations,
-                    outcome=UNSUPPORTED_SPEC_FAMILY,
+                    outcome=EXPLICIT_UNMAPPED_GRADE,
                     rule_evidence=[
                         {
                             "rule": "spec_resolution.grade_registry",
@@ -351,7 +353,7 @@ def validate_document(data: UniversalDocumentExtraction) -> UniversalDocumentExt
                 )
                 item.needs_review = True
                 item.row_confidence = max(0.05, min(item.row_confidence or 1.0, 1.0) - 0.1)
-                review_reasons.append("unsupported_spec_family")
+                review_reasons.append("explicit_unmapped_grade")
                 continue
 
             deviations = [

@@ -93,13 +93,15 @@ class ValidateDocumentNonCompliantRowTests(unittest.TestCase):
             flagged.validation.is_compliant,
             "missing grade must not flip is_compliant to False",
         )
-        self.assertEqual(flagged.validation.outcome, "NEEDS_REVIEW")
+        self.assertEqual(flagged.validation.outcome, "MISSING_CRITICAL_FIELD_GRADE")
         self.assertTrue(flagged.needs_review)
         self.assertTrue(
-            any("Unknown grade" in d for d in flagged.validation.deviations),
+            any("missing" in d.lower() for d in flagged.validation.deviations),
             flagged.validation.deviations,
         )
-        self.assertTrue(any("unresolved_grade:" in reason for reason in validated.review_reasons))
+        self.assertTrue(
+            any("missing_critical_field:grade" in reason for reason in validated.review_reasons)
+        )
         self.assertIsNone(validated.is_compliant)
 
     def test_explicit_unmapped_grade_does_not_emit_unresolved_grade(self):
@@ -110,8 +112,30 @@ class ValidateDocumentNonCompliantRowTests(unittest.TestCase):
 
         validated = validate_document(extraction)
         flagged = validated.items[0]
-        self.assertEqual(flagged.validation.outcome, "UNSUPPORTED_SPEC_FAMILY")
+        self.assertEqual(flagged.validation.outcome, "EXPLICIT_UNMAPPED_GRADE")
         self.assertFalse(any(reason.startswith("unresolved_grade:") for reason in validated.review_reasons))
+        self.assertTrue(any("explicit_unmapped_grade" in reason for reason in validated.review_reasons))
+
+    def test_s235jrh_validates_against_s235jr_spec(self):
+        item = _compliant_s235_item()
+        item.grade = "S235JRH"
+        extraction = _make_extraction([item])
+
+        validated = validate_document(extraction)
+        flagged = validated.items[0]
+        self.assertEqual(flagged.grade_resolution["canonical"], "S235JR")
+        self.assertTrue(flagged.validation.is_compliant)
+        self.assertEqual(flagged.validation.outcome, "COMPLIANT")
+
+    def test_tp304_recognized_but_unsupported_family(self):
+        item = _compliant_s235_item()
+        item.grade = "TP304"
+        extraction = _make_extraction([item])
+
+        validated = validate_document(extraction)
+        flagged = validated.items[0]
+        self.assertEqual(flagged.grade_resolution["canonical"], "TP304")
+        self.assertEqual(flagged.validation.outcome, "UNSUPPORTED_SPEC_FAMILY")
 
     def test_tp317l_resolves_without_unresolved_grade(self):
         item = _compliant_s235_item()

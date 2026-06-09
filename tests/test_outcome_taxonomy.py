@@ -18,6 +18,14 @@ class OutcomeTaxonomyTests(unittest.TestCase):
         outcome = aggregate_document_outcome(["UNSUPPORTED_SPEC_FAMILY"])
         self.assertEqual(outcome, "NEEDS_REVIEW")
 
+    def test_explicit_unmapped_grade_not_non_compliant(self):
+        outcome = aggregate_document_outcome(["EXPLICIT_UNMAPPED_GRADE"])
+        self.assertEqual(outcome, "NEEDS_REVIEW")
+
+    def test_missing_critical_field_grade_not_non_compliant(self):
+        outcome = aggregate_document_outcome(["MISSING_CRITICAL_FIELD_GRADE"])
+        self.assertEqual(outcome, "NEEDS_REVIEW")
+
     def test_true_violation_is_non_compliant(self):
         outcome = aggregate_document_outcome(["COMPLIANT", "NON_COMPLIANT"])
         self.assertEqual(outcome, "NON_COMPLIANT")

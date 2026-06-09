@@ -66,6 +66,10 @@ function complianceText(
       return { text: 'Spec unresolved - review', tone: 'warning' }
     case 'UNSUPPORTED_SPEC_FAMILY':
       return { text: 'Unsupported family - review', tone: 'warning' }
+    case 'EXPLICIT_UNMAPPED_GRADE':
+      return { text: 'Explicit grade not mapped', tone: 'warning' }
+    case 'MISSING_CRITICAL_FIELD_GRADE':
+      return { text: 'Missing grade', tone: 'warning' }
     case 'NOT_VALIDATED':
     case 'NOT_APPLICABLE':
       return { text: 'Not validated', tone: 'info' }

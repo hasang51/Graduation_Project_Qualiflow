@@ -414,6 +414,254 @@ def _group_verified(decisions: dict[str, IdentifierDecision], *, source: Any) ->
     return False
 
 
+_TRACEABILITY_BLOCK_REMARK = (
+    "Mechanical values were extracted, but traceability-critical identifiers could not be "
+    "verified with production-grade confidence. The system intentionally suppresses "
+    "ambiguous identifier candidates and routes the affected rows to human review."
+)
+
+
+def _remark_text(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _iter_raw_candidate_entries(
+    raw_candidates: dict[str, Any] | None,
+) -> list[tuple[str, str]]:
+    """Yield ``(field_name, value)`` pairs from a raw-candidates payload."""
+
+    if not isinstance(raw_candidates, dict):
+        return []
+    entries: list[tuple[str, str]] = []
+    skip_fields = {
+        "traceability_identifier_type",
+        "traceability_identifier_label",
+        "traceability_identifier_value",
+    }
+    for field_name, raw_entry in raw_candidates.items():
+        if field_name in skip_fields:
+            continue
+        if isinstance(raw_entry, list):
+            for candidate in raw_entry:
+                if isinstance(candidate, dict):
+                    value = _remark_text(candidate.get("value"))
+                else:
+                    value = _remark_text(candidate)
+                if value:
+                    entries.append((field_name, value))
+        else:
+            value = _remark_text(raw_entry)
+            if value:
+                entries.append((field_name, value))
+    return entries
+
+
+def _merge_raw_identifier_candidates(payload: dict[str, Any]) -> dict[str, Any]:
+    merged: dict[str, list[Any]] = {}
+    document_raw = payload.get("raw_identifier_candidates")
+    if isinstance(document_raw, dict):
+        for field_name, raw_entry in document_raw.items():
+            merged.setdefault(field_name, [])
+            if isinstance(raw_entry, list):
+                merged[field_name].extend(raw_entry)
+            elif raw_entry is not None:
+                merged[field_name].append(raw_entry)
+
+    items = payload.get("items")
+    if isinstance(items, list):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            item_raw = item.get("raw_identifier_candidates")
+            if not isinstance(item_raw, dict):
+                continue
+            for field_name, raw_entry in item_raw.items():
+                merged.setdefault(field_name, [])
+                if isinstance(raw_entry, list):
+                    merged[field_name].extend(raw_entry)
+                elif raw_entry is not None:
+                    merged[field_name].append(raw_entry)
+    return merged
+
+
+def format_secondary_identifier_candidates(
+    raw_candidates: dict[str, Any] | None,
+    *,
+    primary_value: str | None,
+    primary_type: str | None = None,
+) -> str:
+    """Format alternate identifier values, excluding the selected primary."""
+
+    primary_norm = _remark_text(primary_value).upper()
+    primary_type_norm = _remark_text(primary_type).lower()
+    seen: set[tuple[str, str]] = set()
+    formatted: list[str] = []
+    for field_name, value in _iter_raw_candidate_entries(raw_candidates):
+        if field_name.lower() == primary_type_norm:
+            continue
+        if value.upper() == primary_norm:
+            continue
+        key = (field_name, value.upper())
+        if key in seen:
+            continue
+        seen.add(key)
+        label = TRACEABILITY_LABEL_BY_FIELD.get(
+            field_name,
+            field_name.replace("_", " ").upper(),
+        )
+        formatted.append(f"{label} {value}")
+    return "; ".join(formatted)
+
+
+def _resolved_primary_traceability_fields(payload: dict[str, Any]) -> tuple[str | None, str | None, str | None]:
+    trace_type = _remark_text(payload.get("traceability_identifier_type")) or None
+    trace_label = _remark_text(payload.get("traceability_identifier_label")) or None
+    trace_value = _remark_text(payload.get("traceability_identifier_value")) or None
+    if trace_value:
+        return trace_type, trace_label, trace_value
+
+    items = payload.get("items")
+    if isinstance(items, list):
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            item_type = _remark_text(item.get("traceability_identifier_type")) or None
+            item_label = _remark_text(item.get("traceability_identifier_label")) or None
+            item_value = _remark_text(item.get("traceability_identifier_value")) or None
+            if item_value:
+                return item_type, item_label, item_value
+    return trace_type, trace_label, trace_value or None
+
+
+def compose_traceability_remarks(
+    payload: dict[str, Any],
+    *,
+    heat_number_aliased: bool = False,
+    heat_alias_source_field: str | None = None,
+    existing_remarks: str | None = None,
+) -> str | None:
+    """Build user-facing remarks from the resolved canonical traceability identifier."""
+
+    from app.domain.identifier_verification import IDENTIFIER_OCR_USER_MESSAGE
+
+    existing = _remark_text(existing_remarks or payload.get("ai_analysis_remarks"))
+    ocr_suffix = IDENTIFIER_OCR_USER_MESSAGE if IDENTIFIER_OCR_USER_MESSAGE in existing else ""
+
+    review_reasons = list(payload.get("review_reasons") or [])
+    has_traceability_block = any(
+        reason in {TRACEABILITY_REVIEW_REASON, LEGACY_IDENTIFIER_REVIEW_REASON}
+        for reason in review_reasons
+    )
+
+    primary_type, primary_label, primary_value = _resolved_primary_traceability_fields(payload)
+    if not primary_value and heat_alias_source_field:
+        for field_name in TRACEABILITY_IDENTIFIER_PRIORITY:
+            if field_name == "heat_number":
+                continue
+            value = _remark_text(payload.get(field_name))
+            if value:
+                primary_type = field_name
+                primary_label = TRACEABILITY_LABEL_BY_FIELD.get(field_name, field_name)
+                primary_value = value
+                break
+        items = payload.get("items")
+        if not primary_value and isinstance(items, list):
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                for field_name in TRACEABILITY_IDENTIFIER_PRIORITY:
+                    if field_name == "heat_number":
+                        continue
+                    value = _remark_text(item.get(field_name))
+                    if value:
+                        primary_type = field_name
+                        primary_label = TRACEABILITY_LABEL_BY_FIELD.get(field_name, field_name)
+                        primary_value = value
+                        break
+                if primary_value:
+                    break
+
+    secondary = format_secondary_identifier_candidates(
+        _merge_raw_identifier_candidates(payload),
+        primary_value=primary_value,
+        primary_type=primary_type,
+    )
+
+    parts: list[str] = []
+    if has_traceability_block and not primary_value:
+        parts.append(_TRACEABILITY_BLOCK_REMARK)
+    elif heat_number_aliased and primary_value:
+        label = primary_label or TRACEABILITY_LABEL_BY_FIELD.get(
+            heat_alias_source_field or "",
+            "identifier",
+        )
+        parts.append(
+            "No field explicitly labeled as heat number was visible. "
+            f"Primary traceability identifier {label} {primary_value} was selected "
+            "and mapped to the canonical heat/batch field."
+        )
+    elif payload.get("status") == "AUTO_ACCEPT" or payload.get("processing_decision") == "auto_accept":
+        if primary_value:
+            label = primary_label or "identifier"
+            parts.append(
+                f"Primary traceability identifier {label} {primary_value} was verified "
+                "and required fields passed validation. Document is eligible for auto-accept."
+            )
+        else:
+            parts.append(
+                "Traceability identifier was verified and required fields passed validation. "
+                "Document is eligible for auto-accept."
+            )
+    elif payload.get("needs_review") and primary_value:
+        non_identifier_reasons = [
+            reason
+            for reason in review_reasons
+            if reason not in {TRACEABILITY_REVIEW_REASON, LEGACY_IDENTIFIER_REVIEW_REASON}
+        ]
+        if non_identifier_reasons:
+            label = primary_label or "identifier"
+            parts.append(
+                f"Primary traceability identifier {label} {primary_value} was selected. "
+                "Review remains required for non-identifier reasons: "
+                + ", ".join(non_identifier_reasons)
+                + "."
+            )
+    elif primary_value and not has_traceability_block:
+        label = primary_label or "identifier"
+        parts.append(f"Primary traceability identifier {label} {primary_value} was selected.")
+
+    if secondary:
+        parts.append(f"Secondary identifier candidates: {secondary}.")
+
+    if not parts:
+        return existing or None
+
+    composed = " ".join(parts).strip()
+    if ocr_suffix and ocr_suffix not in composed:
+        composed = f"{composed} {ocr_suffix}".strip()
+    return composed
+
+
+def apply_traceability_remarks(
+    payload: dict[str, Any],
+    *,
+    heat_number_aliased: bool = False,
+    heat_alias_source_field: str | None = None,
+) -> None:
+    """Replace conflicting identifier remarks with canonical traceability wording."""
+
+    composed = compose_traceability_remarks(
+        payload,
+        heat_number_aliased=heat_number_aliased,
+        heat_alias_source_field=heat_alias_source_field,
+        existing_remarks=_remark_text(payload.get("ai_analysis_remarks")) or None,
+    )
+    if composed:
+        payload["ai_analysis_remarks"] = composed
+
+
 def _resolved_traceability_identifier(
     decisions: dict[str, IdentifierDecision],
     *,
@@ -686,6 +934,9 @@ __all__ = [
     "TRACEABILITY_REVIEW_REASON",
     "TRACEABILITY_UNVERIFIED",
     "TRACEABILITY_VERIFIED",
+    "apply_traceability_remarks",
+    "compose_traceability_remarks",
+    "format_secondary_identifier_candidates",
     "sanitize_result_for_api_boundary",
     "sanitize_unverified_traceability_for_user",
     "validate_traceability",

@@ -125,6 +125,41 @@ class ResolveGradeUnknownTests(unittest.TestCase):
         resolution = resolve_grade("St 52-3")
         self.assertEqual(resolution.status, "unknown")
 
+    def test_s235jrh_hollow_section_alias(self):
+        resolution = resolve_grade("S235JRH")
+        self.assertEqual(resolution.status, "resolved")
+        self.assertEqual(resolution.canonical, "S235JR")
+
+    def test_grade_prefix_noise_s235jrh(self):
+        resolution = resolve_grade("GRADE S235JRH")
+        self.assertEqual(resolution.status, "resolved")
+        self.assertEqual(resolution.canonical, "S235JR")
+
+    def test_s275j0h_hollow_section_alias(self):
+        resolution = resolve_grade("S275J0H")
+        self.assertEqual(resolution.status, "resolved")
+        self.assertEqual(resolution.canonical, "S275JR")
+
+    def test_s355j2h_hollow_section_alias(self):
+        resolution = resolve_grade("S355J2H")
+        self.assertEqual(resolution.status, "resolved")
+        self.assertEqual(resolution.canonical, "S355J2")
+
+    def test_bare_s355_is_ambiguous(self):
+        resolution = resolve_grade("S355")
+        self.assertEqual(resolution.status, "ambiguous")
+        self.assertEqual(resolution.candidates, ("S355JR", "S355J2"))
+
+    def test_en_1_4550_maps_to_347(self):
+        resolution = resolve_grade("1.4550")
+        self.assertEqual(resolution.status, "resolved")
+        self.assertEqual(resolution.canonical, "347")
+
+    def test_en_1_4571_maps_to_316ti(self):
+        resolution = resolve_grade("1.4571")
+        self.assertEqual(resolution.status, "resolved")
+        self.assertEqual(resolution.canonical, "316Ti")
+
 
 if __name__ == "__main__":
     unittest.main()

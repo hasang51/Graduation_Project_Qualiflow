@@ -1170,31 +1170,6 @@ def run_multi_stage_extraction(
     else:
         extraction.status = "COMPLETED"
     sanitize_unverified_traceability_for_user(extraction)
-    has_traceability_block = any(
-        reason in {"traceability_unverified", "critical_identifier_unverified"}
-        for reason in extraction.review_reasons
-    )
-    if extraction.review_reasons and has_traceability_block:
-        extraction.ai_analysis_remarks = (
-            "Mechanical values were extracted, but traceability-critical identifiers could not be "
-            "verified with production-grade confidence. The system intentionally suppresses "
-            "ambiguous identifier candidates and routes the affected rows to human review."
-        )
-    elif extraction.needs_review and extraction.traceability_identifier_value:
-        non_identifier_reasons = [
-            reason
-            for reason in extraction.review_reasons
-            if reason not in {"traceability_unverified", "critical_identifier_unverified"}
-        ]
-        if non_identifier_reasons:
-            extraction.ai_analysis_remarks = (
-                "Traceability identifier was extracted as "
-                f"{(extraction.traceability_identifier_label or 'identifier')} "
-                f"{extraction.traceability_identifier_value}. "
-                "Review remains required for non-identifier reasons: "
-                + ", ".join(non_identifier_reasons)
-                + "."
-            )
     post_sanitize_confidence = normalize_confidence(
         extraction=extraction,
         preprocessing_meta=preprocessing_meta,

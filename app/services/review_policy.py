@@ -34,6 +34,8 @@ from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 from app.domain.outcome_taxonomy import (
+    EXPLICIT_UNMAPPED_GRADE,
+    MISSING_CRITICAL_FIELD_GRADE,
     NEEDS_REVIEW,
     NON_COMPLIANT,
     UNSUPPORTED_SPEC_FAMILY,
@@ -489,12 +491,16 @@ def _validation_conflict_tokens(extraction: UniversalDocumentExtraction) -> list
         outcome = (item.validation.outcome or "").upper()
         if outcome == NEEDS_REVIEW:
             joined = " ".join(item.validation.deviations).lower()
-            if "unknown grade" in joined and "explicitly stated but not mapped" not in joined:
+            if "unknown grade" in joined:
                 any_unknown_grade = True
             if "ambiguous grade" in joined:
                 any_ambiguous = True
         elif outcome == "AMBIGUOUS_GRADE":
             any_ambiguous = True
+        elif outcome == EXPLICIT_UNMAPPED_GRADE:
+            tokens.append("explicit_unmapped_grade")
+        elif outcome == MISSING_CRITICAL_FIELD_GRADE:
+            tokens.append("missing_critical_field:grade")
         elif outcome == UNRESOLVED_SPEC:
             any_unresolved = True
         elif outcome == UNSUPPORTED_SPEC_FAMILY:

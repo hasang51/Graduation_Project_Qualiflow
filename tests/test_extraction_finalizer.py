@@ -367,7 +367,7 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         remarks = payload["ai_analysis_remarks"]
         self.assertNotIn("No heat number is visible", remarks)
         self.assertIn("No field explicitly labeled as heat number was visible", remarks)
-        self.assertIn("COLATA/BATCH n° 410537", remarks)
+        self.assertIn("Primary traceability identifier COLATA/BATCH n° 410537", remarks)
         self.assertIn("mapped to the canonical heat/batch field", remarks)
 
     def test_heat_alias_remarks_use_generic_field_label_when_no_traceability_label(self):
@@ -381,7 +381,7 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         }
         reconcile_final_document_decision(payload)
         remarks = payload["ai_analysis_remarks"]
-        self.assertIn("LOT NO LOT-24-01", remarks)
+        self.assertIn("Primary traceability identifier LOT NO LOT-24-01", remarks)
 
     def test_nested_review_policy_decision_consistency_after_reconcile(self):
         payload = {

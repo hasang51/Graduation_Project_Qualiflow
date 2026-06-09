@@ -50,12 +50,12 @@ CANONICAL_GRADES: tuple[_CanonicalGrade, ...] = (
     _CanonicalGrade(
         canonical="S235JR",
         family_group="structural_carbon",
-        aliases=("S235JR", "S235 JR"),
+        aliases=("S235JR", "S235 JR", "S235", "S235JRH"),
     ),
     _CanonicalGrade(
         canonical="S275JR",
         family_group="structural_carbon",
-        aliases=("S275JR", "S275 JR"),
+        aliases=("S275JR", "S275 JR", "S275", "S275J0H"),
     ),
     _CanonicalGrade(
         canonical="S355JR",
@@ -65,7 +65,7 @@ CANONICAL_GRADES: tuple[_CanonicalGrade, ...] = (
     _CanonicalGrade(
         canonical="S355J2",
         family_group="structural_carbon",
-        aliases=("S355J2", "S355 J2"),
+        aliases=("S355J2", "S355 J2", "S355J2H"),
     ),
     _CanonicalGrade(
         canonical="S355J2+N",
@@ -202,8 +202,14 @@ CANONICAL_GRADES: tuple[_CanonicalGrade, ...] = (
     _CanonicalGrade(
         canonical="347",
         family_group="stainless_austenitic",
-        aliases=("347", "AISI 347", "SS 347"),
-        dual_with=("TP347",),
+        aliases=("347", "AISI 347", "SS 347", "1.4550", "14550"),
+        dual_with=("TP347", "1.4550"),
+    ),
+    _CanonicalGrade(
+        canonical="316Ti",
+        family_group="stainless_austenitic",
+        aliases=("316TI", "316Ti", "1.4571", "14571"),
+        dual_with=("1.4571",),
     ),
     _CanonicalGrade(
         canonical="347H",
@@ -375,6 +381,24 @@ def _strip_spec_prefix(normalized_token: str) -> str:
     return _ASTM_SPEC_PREFIX.sub("", normalized_token).strip()
 
 
+def _bare_s355_ambiguous(normalized_token: str) -> GradeResolution | None:
+    """Return an ambiguous resolution for bare ``S355`` without a sub-grade suffix."""
+
+    if _alias_key(normalized_token) != "S355":
+        return None
+    return GradeResolution(
+        raw=normalized_token,
+        normalized=normalized_token,
+        status="ambiguous",
+        canonical=None,
+        candidates=("S355JR", "S355J2"),
+        family_group=None,
+        dual_designation=False,
+        reason="bare S355 grade without sub-grade suffix",
+        confidence=0.4,
+    )
+
+
 def _match_single(normalized_token: str) -> _CanonicalGrade | None:
     """Look a single already-normalised grade token up in the alias index."""
 
@@ -513,7 +537,21 @@ def resolve_grade(raw: str | None) -> GradeResolution:
 
     # Single token path.
     if len(tokens) <= 1:
-        match = _match_single(tokens[0] if tokens else normalized)
+        single_token = tokens[0] if tokens else normalized
+        bare_s355 = _bare_s355_ambiguous(single_token)
+        if bare_s355 is not None:
+            return GradeResolution(
+                raw=str(raw),
+                normalized=normalized,
+                status=bare_s355.status,
+                canonical=bare_s355.canonical,
+                candidates=bare_s355.candidates,
+                family_group=bare_s355.family_group,
+                dual_designation=bare_s355.dual_designation,
+                reason=bare_s355.reason,
+                confidence=bare_s355.confidence,
+            )
+        match = _match_single(single_token)
         if match is None:
             contained = _contained_matches(tokens[0] if tokens else normalized)
             if contained:

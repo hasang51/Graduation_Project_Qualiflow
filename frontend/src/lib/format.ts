@@ -146,6 +146,8 @@ export function getComplianceStateFromOutcome(
       return 'non-compliant'
     case 'UNRESOLVED_SPEC':
     case 'UNSUPPORTED_SPEC_FAMILY':
+    case 'EXPLICIT_UNMAPPED_GRADE':
+    case 'MISSING_CRITICAL_FIELD_GRADE':
     case 'NEEDS_REVIEW':
       return 'needs-review'
     case 'NOT_VALIDATED':

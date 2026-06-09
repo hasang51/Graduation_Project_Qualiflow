@@ -8,7 +8,7 @@ from typing import Any
 
 from app.domain.field_mapping_registry import normalize_header
 from app.schemas.extraction import ExtractedItem, UniversalDocumentExtraction
-from app.services.traceability import TRACEABILITY_LABEL_BY_FIELD, TRACEABILITY_VERIFIED
+from app.services.traceability import TRACEABILITY_VERIFIED, apply_traceability_remarks
 
 # Certificate date label priority (normalized header form).
 _CERTIFICATE_DATE_PRIORITY: tuple[str, ...] = (
@@ -108,21 +108,6 @@ _CONFIDENCE_ONLY_REASONS: frozenset[str] = frozenset(
         "low_confidence",
         "overall_decision_confidence_below_threshold",
     }
-)
-
-_AUTO_ACCEPT_REMARKS = (
-    "Traceability identifier was verified and required fields passed validation. "
-    "Document is eligible for auto-accept."
-)
-
-_MISLEADING_NO_HEAT_REMARK_PHRASES: tuple[str, ...] = (
-    "no heat number",
-    "no heat no",
-    "without heat number",
-    "missing heat number",
-    "heat number is not visible",
-    "heat number was not visible",
-    "no field labeled as heat",
 )
 
 _BLOCKING_REVIEW_PREFIXES: tuple[str, ...] = (
@@ -598,31 +583,6 @@ def _alias_source_field_and_value(entry: dict[str, Any]) -> tuple[str, str] | No
     return None
 
 
-def _display_label_for_alias_source(entry: dict[str, Any], source_field: str, value: str) -> str:
-    explicit_label = _text(entry.get("traceability_identifier_label"))
-    trace_value = _text(entry.get("traceability_identifier_value"))
-    if explicit_label and trace_value == value:
-        return explicit_label
-    return TRACEABILITY_LABEL_BY_FIELD.get(
-        source_field,
-        source_field.replace("_", " ").upper(),
-    )
-
-
-def _heat_alias_remark(entry: dict[str, Any], source_field: str, value: str) -> str:
-    label = _display_label_for_alias_source(entry, source_field, value)
-    return (
-        "No field explicitly labeled as heat number was visible; however, "
-        f"{label} {value} was extracted as the primary traceability identifier and "
-        "mapped to the canonical heat/batch field."
-    )
-
-
-def _remarks_imply_no_heat_number(remarks: str) -> bool:
-    lowered = remarks.lower()
-    return any(phrase in lowered for phrase in _MISLEADING_NO_HEAT_REMARK_PHRASES)
-
-
 @dataclass(frozen=True)
 class HeatAliasInfo:
     entry: dict[str, Any]
@@ -637,25 +597,6 @@ def _apply_heat_number_alias(entry: dict[str, Any]) -> HeatAliasInfo | None:
     source_field, value = source
     entry["heat_number"] = value
     return HeatAliasInfo(entry=entry, source_field=source_field, value=value)
-
-
-def _update_remarks_for_heat_alias(result: dict[str, Any], alias_infos: list[HeatAliasInfo]) -> None:
-    if not alias_infos:
-        return
-
-    preferred = next(
-        (info for info in alias_infos if info.entry in (result.get("items") or [])),
-        alias_infos[0],
-    )
-    alias_remark = _heat_alias_remark(preferred.entry, preferred.source_field, preferred.value)
-    existing = _text(result.get("ai_analysis_remarks"))
-
-    if not existing or _remarks_imply_no_heat_number(existing):
-        result["ai_analysis_remarks"] = alias_remark
-        return
-
-    if alias_remark not in existing:
-        result["ai_analysis_remarks"] = f"{existing} {alias_remark}"
 
 
 def _apply_heat_number_aliases(result: dict[str, Any]) -> list[HeatAliasInfo]:
@@ -678,9 +619,6 @@ def _apply_heat_number_aliases(result: dict[str, Any]) -> list[HeatAliasInfo]:
             if isinstance(item, dict) and _text(item.get("heat_number")):
                 result["heat_number"] = item["heat_number"]
                 break
-
-    if alias_infos:
-        _update_remarks_for_heat_alias(result, alias_infos)
 
     return alias_infos
 
@@ -799,11 +737,7 @@ def _update_explanation_for_auto_accept(explanation: dict[str, Any]) -> None:
     _ensure_review_policy_matches_auto_accept({"explanation": explanation, "needs_review": False})
 
 
-def _apply_auto_accept_document_state(
-    result: dict[str, Any],
-    *,
-    preserve_heat_alias_remark: bool = False,
-) -> None:
+def _apply_auto_accept_document_state(result: dict[str, Any]) -> None:
     result["review_reasons"] = _clean_confidence_reasons(result.get("review_reasons"))
     result["needs_review"] = False
     result["review_required"] = False
@@ -812,11 +746,6 @@ def _apply_auto_accept_document_state(
     result["is_compliant"] = True
     result["outcome"] = "COMPLIANT"
     result["compliance_status"] = "COMPLIANT"
-    existing_remark = _text(result.get("ai_analysis_remarks"))
-    if preserve_heat_alias_remark and existing_remark:
-        result["ai_analysis_remarks"] = f"{existing_remark} {_AUTO_ACCEPT_REMARKS}"
-    else:
-        result["ai_analysis_remarks"] = _AUTO_ACCEPT_REMARKS
 
     explanation = result.get("explanation")
     if isinstance(explanation, dict):
@@ -832,7 +761,7 @@ def reconcile_final_document_decision(result: dict[str, Any]) -> dict[str, Any]:
     alias_infos = _apply_heat_number_aliases(result)
     reconciled = False
     if eligible_for_confidence_exempt_reconcile(result):
-        _apply_auto_accept_document_state(result, preserve_heat_alias_remark=bool(alias_infos))
+        _apply_auto_accept_document_state(result)
         reconciled = True
 
     trace = result.get("extraction_finalization")
@@ -846,6 +775,16 @@ def reconcile_final_document_decision(result: dict[str, Any]) -> dict[str, Any]:
     if reconcile_tokens:
         trace["reconcile_tokens"] = reconcile_tokens
         result["extraction_finalization"] = trace
+
+    preferred_alias = next(
+        (info for info in alias_infos if info.entry in (result.get("items") or [])),
+        alias_infos[0] if alias_infos else None,
+    )
+    apply_traceability_remarks(
+        result,
+        heat_number_aliased=bool(alias_infos),
+        heat_alias_source_field=preferred_alias.source_field if preferred_alias else None,
+    )
 
     _ensure_review_policy_matches_auto_accept(result)
 

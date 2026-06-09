@@ -7,6 +7,8 @@ from app.services.traceability import (
     TRACEABILITY_REVIEW_REASON,
     TRACEABILITY_UNVERIFIED,
     TRACEABILITY_VERIFIED,
+    apply_traceability_remarks,
+    compose_traceability_remarks,
     sanitize_unverified_traceability_for_user,
     validate_traceability,
 )
@@ -263,6 +265,43 @@ class TraceabilityValidationTests(unittest.TestCase):
         row = payload["items"][0]
         self.assertIsNone(row["batch_number"])
         self.assertIsNone(row["accepted_identifier_values"]["batch_number"])
+
+
+class ComposeTraceabilityRemarksTests(unittest.TestCase):
+    def test_primary_identifier_with_secondary_candidates(self):
+        payload = {
+            "traceability_identifier_type": "batch_number",
+            "traceability_identifier_label": "COLATA/BATCH n°",
+            "traceability_identifier_value": "410537",
+            "raw_identifier_candidates": {
+                "heat_number": [{"value": "410537", "reason": "low_identifier_confidence"}],
+                "certificate_number": "CERT-99",
+            },
+        }
+        remarks = compose_traceability_remarks(payload)
+        self.assertIn("Primary traceability identifier COLATA/BATCH n° 410537", remarks)
+        self.assertIn("Secondary identifier candidates: CERTIFICATE NUMBER CERT-99", remarks)
+        self.assertNotIn("HEAT NO 410537", remarks or "")
+
+    def test_apply_remarks_replaces_conflicting_llm_identifier_claim(self):
+        payload = {
+            "ai_analysis_remarks": "Heat number H-OLD was extracted from the certificate.",
+            "traceability_identifier_type": "batch_number",
+            "traceability_identifier_label": "COLATA/BATCH n°",
+            "traceability_identifier_value": "410537",
+        }
+        apply_traceability_remarks(payload)
+        remarks = payload["ai_analysis_remarks"]
+        self.assertIn("Primary traceability identifier COLATA/BATCH n° 410537", remarks)
+        self.assertNotIn("Heat number H-OLD", remarks)
+
+    def test_unverified_block_does_not_name_primary_identifier(self):
+        payload = {
+            "review_reasons": ["traceability_unverified"],
+            "traceability_identifier_value": None,
+        }
+        remarks = compose_traceability_remarks(payload)
+        self.assertIn("traceability-critical identifiers could not be verified", remarks)
 
 
 if __name__ == "__main__":

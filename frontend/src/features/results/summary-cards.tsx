@@ -36,6 +36,8 @@ function complianceLabel(
   if (outcome === 'NON_COMPLIANT') return 'Non-compliant'
   if (outcome === 'UNRESOLVED_SPEC') return 'Spec unresolved'
   if (outcome === 'UNSUPPORTED_SPEC_FAMILY') return 'Unsupported spec family'
+  if (outcome === 'EXPLICIT_UNMAPPED_GRADE') return 'Explicit grade not mapped'
+  if (outcome === 'MISSING_CRITICAL_FIELD_GRADE') return 'Missing grade'
   if (outcome === 'NEEDS_REVIEW') return 'Needs review'
   if (outcome === 'NOT_VALIDATED') return 'Not validated'
   if (isCompliant === true) return 'Compliant'

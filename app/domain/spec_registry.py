@@ -91,6 +91,9 @@ _INTENTIONALLY_UNRESOLVED: set[str] = {
     "TP321H",
     "TP347",
     "TP347H",
+    "316Ti",
+    "1.4550",
+    "1.4571",
 }
 
 
@@ -196,10 +199,17 @@ def get_spec(canonical: str) -> MaterialSpec | None:
     return _CARBON_SPECS.get(canonical)
 
 
+def has_deterministic_spec(canonical: str) -> bool:
+    """Return True when *canonical* has an explicit threshold entry."""
+
+    return canonical in _CARBON_SPECS
+
+
 __all__ = [
     "MaterialSpec",
     "SpecResolution",
     "resolve_spec",
     "known_spec_grades",
     "get_spec",
+    "has_deterministic_spec",
 ]
