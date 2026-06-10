@@ -92,6 +92,28 @@ class MechanicalTableMapperTests(unittest.TestCase):
         self.assertTrue(result.uncertain)
         self.assertIn("mechanical_table_alignment_uncertain", result.tokens)
 
+    def test_synthesizes_item_when_only_mechanical_table_rows_present(self):
+        item_payload = {
+            "mechanical_table_rows": [
+                {"property": "Proof Strength Rp0.2", "Results": 470},
+                {"property": "Tensile Strength Rm", "Results": 560},
+                {"property": "Elongation", "Results": 26},
+            ]
+        }
+
+        updated_rows, tokens, trace = apply_mechanical_table_mapping(
+            [],
+            item_payload=item_payload,
+            items_raw=[],
+        )
+
+        self.assertEqual(len(updated_rows), 1)
+        mp = updated_rows[0]["mechanical_properties"]
+        self.assertEqual(mp["yield_strength_mpa"], 470.0)
+        self.assertEqual(mp["tensile_strength_mpa"], 560.0)
+        self.assertEqual(mp["elongation_percentage"], 26.0)
+        self.assertTrue(trace.get("synthesized_item_from_mechanical_table"))
+
     def test_apply_mechanical_table_mapping_overwrites_item_row(self):
         rows = [
             {

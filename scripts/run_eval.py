@@ -1,7 +1,7 @@
 """Run QualiFlow gold-set evaluation.
 
 Workflow:
-1. Read ``data/gold/metadata.csv``.
+1. Read ``data/gold/metadata_20.csv`` (or ``--metadata`` override).
 2. Generate real predictions with an adapter when the extraction pipeline is
    callable and source PDFs are available.
 3. Save predictions to ``outputs/predictions/<doc_id>.json``.
@@ -221,7 +221,7 @@ def run(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Generate predictions and evaluate the QualiFlow gold set.")
-    parser.add_argument("--metadata", default="data/gold/metadata.csv")
+    parser.add_argument("--metadata", default="data/gold/metadata_20.csv")
     parser.add_argument(
         "--documents-root",
         default=None,

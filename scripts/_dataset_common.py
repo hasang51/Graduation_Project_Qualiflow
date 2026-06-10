@@ -16,7 +16,7 @@ DEFAULT_MANIFEST_DIR = Path("data/manifests")
 DEFAULT_GOLD_CANDIDATES_DIR = Path("data/gold_candidates")
 DEFAULT_GOLD_VERIFIED_DIR = Path("data/gold_verified")
 DEFAULT_BATCH_RUNS_DIR = Path("data/batch_runs")
-DEFAULT_EVAL_DIR = Path("data/eval_outputs")
+DEFAULT_EVAL_DIR = Path("outputs/eval_runs")
 
 
 @dataclass(frozen=True)

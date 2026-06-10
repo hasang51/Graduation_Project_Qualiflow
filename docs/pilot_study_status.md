@@ -131,10 +131,13 @@ scripts/promote_verified_gold.py
 data/gold_verified/annotations.{csv,jsonl}  # VERIFIED GOLD
         │
         ▼
-python -m scripts.run_eval --mode D --run-dir ... --gold data/gold_verified/annotations.jsonl
+python -m scripts.run_eval \
+    --metadata data/gold/metadata_20.csv \
+    --documents-root <pdf_root> \
+    --predictions outputs/predictions
         │
         ▼
-data/eval_outputs/...  # AUTHORITATIVE METRICS (no --provisional)
+outputs/eval_runs/<timestamp>/  # metrics_summary.csv + eval_report.md
 ```
 
 ### Reviewer instructions
@@ -144,7 +147,7 @@ data/eval_outputs/...  # AUTHORITATIVE METRICS (no --provisional)
 3. Fill the `verified_*` columns with the correct values.
 4. Set `review_status` to `VERIFIED` (or `ACCEPTED` / `OK`).
 5. Run `python -m scripts.promote_verified_gold`.
-6. Re-run evaluation: `python -m scripts.run_eval --mode D --run-dir ...`.
+6. Re-run evaluation: `python -m scripts.run_eval --metadata data/gold/metadata_20.csv --documents-root <pdf_root>`.
 
 Human-readable summary of the 3 live extractions: `data/gold_candidates/reviewer_pack.md`
 

@@ -5,6 +5,7 @@ Reads PDFs from ``data/eval_docs/``, optionally merges ``quality_bucket`` from
 
 - ``data/manifest_20.jsonl``
 - ``data/gold/metadata_20.csv``
+- ``data/gold/metadata.csv`` (backward-compatible copy of ``metadata_20.csv``)
 - ``data/final20_dataset_summary.json``
 
 Usage::
@@ -17,6 +18,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import shutil
 import sys
 from collections import Counter
 from pathlib import Path
@@ -215,6 +217,7 @@ def run(*, root: Path | None = None) -> dict:
     }
 
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    shutil.copy2(meta_out_path, meta_out_path.parent / "metadata.csv")
     return summary
 
 

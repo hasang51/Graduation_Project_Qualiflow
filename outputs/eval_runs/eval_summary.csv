@@ -1,0 +1,5 @@
+eval_dir,mode,provisional,documents_evaluated,n,field_accuracy,critical_field_accuracy,compliance_decision_accuracy,review_rate,stp_rate,average_latency_ms,p95_latency_ms,extraction_completeness
+20260610T102251Z,,,20,20,0.0,0.0,,0.0,,,,
+final20,,,20,20,0.1476,0.1696,,1.0,0.0,37662.7,,
+final20_full,,,20,20,0.6,0.6786,,1.0,0.0,37380.3,,
+smoke_test,,,20,20,0.0,0.0,,0.0,,,,

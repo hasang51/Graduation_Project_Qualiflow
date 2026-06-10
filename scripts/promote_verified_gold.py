@@ -16,8 +16,8 @@ the normalised gold schema, and writes:
 Rows where ``review_status`` is still ``PENDING_REVIEW`` or blank are silently
 skipped and reported.
 
-The output files can be fed directly into ``scripts/run_eval.py`` without
-``--provisional``.
+The output files can be fed into ``scripts/run_eval.py`` once converted to the
+gold metadata + per-document prediction layout used by the academic evaluator.
 """
 
 from __future__ import annotations
@@ -146,8 +146,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(f"[ok] gold written to: {args.output_dir}")
     print(
-        "[next] run: python -m scripts.run_eval --mode D "
-        f"--run-dir data/batch_runs/<ts> --gold {args.output_dir}/annotations.jsonl"
+        "[next] run: python -m scripts.run_eval "
+        f"--metadata data/gold/metadata_20.csv "
+        f"--predictions outputs/predictions"
     )
     return 0
 

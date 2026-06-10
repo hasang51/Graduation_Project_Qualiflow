@@ -15,6 +15,80 @@ Tesseract is kept strictly offline as a legacy cell-level OCR utility; it is nev
 
 ---
 
+## Sunum için Hızlı Başlatma
+
+### Canlı demo (web arayüzü)
+
+```bash
+# Terminal 1 — backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+
+# Terminal 2 — frontend
+cd frontend
+npm install
+copy .env.example .env
+npm run dev
+```
+
+Tarayıcı: `http://127.0.0.1:5173`
+
+**Demo akışı:** Kayıt ol → Giriş yap → PDF yükle → Sonuçları incele → Geçmiş → Detay sayfası → Kaynak PDF indir.
+
+### Akademik değerlendirme (hazır sonuçlar)
+
+20 belgelik gold set değerlendirmesi commit edilmiştir:
+
+- Rapor: [`outputs/eval_runs/final20/eval_report.md`](outputs/eval_runs/final20/eval_report.md)
+- Metrikler: [`outputs/eval_runs/final20/metrics_summary.csv`](outputs/eval_runs/final20/metrics_summary.csv)
+- Gold annotations: [`data/gold/ground_truth/`](data/gold/ground_truth/) (20 JSON dosyası)
+- Metadata index: [`data/gold/metadata_20.csv`](data/gold/metadata_20.csv)
+
+```mermaid
+flowchart LR
+  subgraph demo [CanliDemo]
+    A[uvicorn backend] --> B[npm run dev]
+    B --> C[PDF yukle]
+    C --> D[Sonuc ve gecmis]
+  end
+  subgraph eval [AkademikDegerlendirme]
+    E[metadata_20.csv] --> F[run_eval]
+    F --> G[outputs/eval_runs]
+    G --> H[eval_report.md]
+  end
+```
+
+---
+
+## Akademik Bağlam
+
+### Tez katkısı
+
+| Bileşen | Dosya | Katkı |
+| --- | --- | --- |
+| Document profiler | `app/services/document_profiler.py` | Kalite sınıfına göre belge karakterizasyonu |
+| Extraction router | `app/services/extraction_router.py` | Tek yol seçimi — maliyet ve doğruluk dengesi |
+| Deterministik validasyon | `app/services/validator.py` | Çelik grade spec'lerine karşı uyumluluk |
+| Review policy | `app/services/review_policy.py` | Yapılandırılmış, denetlenebilir review reason token'ları |
+
+**Sade mimari özeti (Word):** [docs/QualiFlow_Mimari_Genel_Bakis.docx](docs/QualiFlow_Mimari_Genel_Bakis.docx) · [Markdown](docs/QualiFlow_Mimari_Genel_Bakis.md)
+
+Detaylı mimari: [docs/runtime_architecture.md](docs/runtime_architecture.md)
+
+Pilot çalışma durumu: [docs/pilot_study_status.md](docs/pilot_study_status.md)
+
+Jüri özeti: [docs/jury_architecture_summary.md](docs/jury_architecture_summary.md)
+
+### Gold set
+
+- **20 Mill Test Certificate** PDF, dengeli kalite dağılımı
+- Ground truth: `data/gold/ground_truth/doc001.json` … `doc020.json`
+- Metadata index: `data/gold/metadata_20.csv`
+
+---
+
 ## 1. Runtime architecture
 
 ```
@@ -60,6 +134,8 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
+> **Not:** Tek bağımlılık kaynağı kök `requirements.txt` dosyasıdır.
+
 ### Environment loading
 
 The config module (`app/config.py`) loads `.env` files in this priority order:
@@ -92,7 +168,7 @@ If neither is provided the scripts fall back to `C:\Users\DELL\Downloads\Mill Te
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Endpoints (unchanged):
+Endpoints:
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `GET  /api/v1/auth/me`
@@ -114,6 +190,8 @@ npm run dev
 ```
 
 Frontend URL: `http://127.0.0.1:5173`
+
+API base URL (`.env`): `VITE_API_BASE_URL=http://127.0.0.1:8000`
 
 ---
 
@@ -145,13 +223,22 @@ python -m scripts.run_batch_extraction --subset data/two_pdf_manifest.jsonl --mo
 # 6) build the human-review pack (PREANNOTATED — NOT VERIFIED)
 python -m scripts.build_prefill_pack --run-dir data/batch_runs/<timestamp>
 
-# 7) run provisional evaluation (metrics are marked provisional until reviewers sign off)
-python -m scripts.run_eval --mode D --provisional \
-    --run-dir data/batch_runs/<timestamp> \
-    --gold data/gold_candidates/gold_candidates_prefill.jsonl
+# 7) generate predictions and evaluate the 20-document gold set
+python -m scripts.run_eval \
+    --metadata data/gold/metadata_20.csv \
+    --documents-root "C:\path\to\pdfs" \
+    --predictions outputs/predictions
+
+# Or evaluate existing predictions only
+python -m scripts.evaluate_outputs \
+    --metadata data/gold/metadata_20.csv \
+    --predictions outputs/predictions \
+    --out outputs/eval_runs/manual_run
 ```
 
-Folder layout (all under `data/`):
+> **Deprecated:** `scripts/generate_reviewer_pack.py` — use `scripts/build_prefill_pack.py` instead.
+
+Folder layout:
 
 ```
 data/
@@ -160,37 +247,49 @@ data/
 │   ├── documents_manifest.{jsonl,csv}
 │   ├── profile_summary.csv
 │   └── manifest.{jsonl,csv}
+├── gold/
+│   ├── metadata_20.csv
+│   ├── metadata.csv          # backward-compatible copy
+│   └── ground_truth/         # doc001.json … doc020.json
 ├── gold_candidates/
 │   ├── gold_candidates_manifest.{jsonl,csv}
 │   ├── gold_candidates_prefill.jsonl
-│   └── annotation_sheet.csv      # PREANNOTATED — NOT VERIFIED
+│   └── annotation_sheet.csv  # PREANNOTATED — NOT VERIFIED
 ├── gold_verified/
 │   └── (optional) annotations.{jsonl,csv}
-├── batch_runs/<timestamp>/
-│   ├── per_document/<document_id>.json
-│   ├── summary.csv
-│   ├── summary.json
-│   ├── errors.jsonl
-│   ├── usage.csv
-│   └── config.json
-└── eval_outputs/<timestamp>_mode_<mode>/
+└── batch_runs/<timestamp>/
+    ├── per_document/<document_id>.json
+    ├── summary.csv
+    ├── summary.json
+    ├── errors.jsonl
+    ├── usage.csv
+    └── config.json
+
+outputs/
+├── predictions/<doc_id>.json
+└── eval_runs/<timestamp>/
+    ├── metrics_summary.csv
+    ├── metrics_by_field.csv
+    ├── metrics_by_quality_bucket.csv
+    ├── failure_cases.csv
     ├── metrics.json
-    ├── per_document.csv
-    └── report.md
+    └── eval_report.md
 ```
 
 ### Experiment modes
 
+Extraction modes are selected on **`run_batch_extraction`**. Evaluation (`run_eval` / `evaluate_outputs`) is mode-agnostic — point it at the prediction JSON directory produced by each batch run.
+
 | Mode | Name | How to run | Notes |
 | --- | --- | --- | --- |
-| A | `legacy_ocr_offline_baseline` | `python -m scripts.run_eval --mode A` | **SKIPPED.** The existing Tesseract utility is cell-level OCR, not an end-to-end extractor. The harness prints the skip reason and exits cleanly. |
-| B | `multimodal_direct_no_routing` | `python -m scripts.run_batch_extraction --mode B --subset …` (forces `rendered_multimodal`) | Bypasses the profiler/router. |
-| C | `multimodal_preprocessed_fixed` | `python -m scripts.run_batch_extraction --mode C --subset …` (forces `preprocessed_multimodal`) | Always uses the full denoise/sharpen stack. |
+| A | `legacy_ocr_offline_baseline` | — | **SKIPPED.** The existing Tesseract utility is cell-level OCR, not an end-to-end extractor. |
+| B | `multimodal_direct_no_routing` | `python -m scripts.run_batch_extraction --mode B --subset …` | Bypasses the profiler/router. |
+| C | `multimodal_preprocessed_fixed` | `python -m scripts.run_batch_extraction --mode C --subset …` | Always uses the full denoise/sharpen stack. |
 | D | `routed_hybrid_proposed` | `python -m scripts.run_batch_extraction --mode D --subset …` (default) | The proposed thesis architecture. |
 
 ### What remains manual
 
-- **Verified gold.** The preannotated pack is a model-generated proposal; treating it as truth would leak model bias into the evaluation. A human must edit `annotation_sheet.csv`, move accepted rows into `data/gold_verified/annotations.(jsonl|csv)`, and then re-run `scripts.load_gold` + `scripts.run_eval` without `--provisional`.
+- **Verified gold.** The preannotated pack is a model-generated proposal; treating it as truth would leak model bias into the evaluation. A human must edit `annotation_sheet.csv`, move accepted rows into `data/gold_verified/annotations.(jsonl|csv)`, and then re-run `scripts.load_gold` + `scripts.run_eval`.
 - **Full 100-document live extraction.** The runner supports it, but live runs are intentionally restricted to the 20-document balanced subset during the thesis phase to keep API cost and rate-limit exposure predictable.
 
 ---
@@ -201,7 +300,8 @@ data/
 - Uploaded PDFs: `./data/storage/pdfs`
 - Preprocessing / table artifacts: `./data/storage/artifacts/<sha256>/`
 - Extraction smoke-test outputs: `./data/outputs/`
-- Dataset manifests / batch runs / eval outputs: see the tree above.
+- Dataset manifests / batch runs: see the tree above.
+- Evaluation outputs: `outputs/eval_runs/`
 
 ---
 
@@ -228,7 +328,8 @@ Runs Tesseract-based OCR against saved Stage 4 cell crops. **Not** part of the r
 ```bash
 python -m scripts.run_batch_extraction --help
 python -m scripts.run_eval --help
-python -m scripts.export_eval_summary --help
+python -m scripts.evaluate_outputs --help
+python -m scripts.export_eval_summary --eval-root outputs/eval_runs
 ```
 
 ---
@@ -265,10 +366,11 @@ the remaining `doc001` row-shape/heat issue is fixed.
 > Historical optimistic 20-document metrics were removed from this README
 > because the current evidence showed unresolved extraction and review-policy
 > issues. Regenerate full metrics only after the two-PDF smoke set is clean.
+> Committed eval results for the 20-doc gold set are in `outputs/eval_runs/final20/`.
 
 ---
 
-## 9. Tests  <!-- section kept for backward compat; see section 8 for live status -->
+## 9. Tests
 
 ```bash
 python -m pytest tests/ -q

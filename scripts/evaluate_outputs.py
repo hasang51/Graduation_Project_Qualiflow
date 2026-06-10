@@ -2,7 +2,7 @@
 
 The importable helpers are used by :mod:`scripts.run_eval` and the unit tests.
 The CLI evaluates JSON predictions against a manually annotated gold subset
-indexed by ``data/gold/metadata.csv``.
+indexed by ``data/gold/metadata_20.csv``.
 """
 
 from __future__ import annotations
@@ -802,12 +802,24 @@ def run_academic_evaluation(*, metadata_path: Path, predictions_dir: Path, out_d
         summary=summary,
         failure_count=len(failure_rows),
     )
+    metrics_payload = {
+        "documents_evaluated": summary.get("n_documents"),
+        "metadata_path": str(metadata_path),
+        "aggregate": {
+            "n": summary.get("n_documents"),
+            **{k: v for k, v in summary.items() if k != "n_documents"},
+        },
+    }
+    (out_dir / "metrics.json").write_text(
+        json.dumps(metrics_payload, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
     return summary
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Evaluate QualiFlow prediction JSON files against academic gold annotations.")
-    parser.add_argument("--metadata", default="data/gold/metadata.csv", help="Gold metadata CSV.")
+    parser.add_argument("--metadata", default="data/gold/metadata_20.csv", help="Gold metadata CSV.")
     parser.add_argument("--predictions", default="outputs/predictions/", help="Directory containing <doc_id>.json predictions.")
     parser.add_argument("--out", default=None, help="Output directory. Defaults to outputs/eval_runs/<timestamp>/.")
     args = parser.parse_args(argv)

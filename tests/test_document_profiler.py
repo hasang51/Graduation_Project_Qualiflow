@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 from app.services.document_profiler import (
+    profile_document,
     BLUR_DEGRADED_THRESHOLD,
     DIGITAL_TEXT_DENSITY_MIN,
     NOISE_DEGRADED_THRESHOLD,
@@ -85,6 +87,17 @@ class ClassifyProfileTests(unittest.TestCase):
             text_density=DIGITAL_TEXT_DENSITY_MIN / 2.0,
         )
         self.assertEqual(quality, "scan_clean")
+
+    def test_doc001_profiles_as_noisy_scan_not_severe_scan(self):
+        pdf_path = Path("data/eval_docs/doc001.pdf")
+        if not pdf_path.exists():
+            self.skipTest("doc001.pdf not found")
+
+        profile = profile_document(pdf_path)
+
+        self.assertNotEqual(profile.quality_class, "severe_scan")
+        self.assertEqual(profile.quality_class, "noisy_scan")
+        self.assertGreater(profile.blur_score, 25.0)
 
 
 if __name__ == "__main__":

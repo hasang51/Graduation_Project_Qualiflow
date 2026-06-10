@@ -491,7 +491,26 @@ def apply_mechanical_table_mapping(
 
     mapping = map_mechanical_table_rows(table_rows)
     if not rows:
-        return rows, mapping.tokens, mapping.trace
+        populated = [
+            value
+            for value in mapping.mechanical_properties.values()
+            if value is not None
+        ]
+        if populated:
+            rows = [
+                {
+                    "mechanical_properties": dict(mapping.mechanical_properties),
+                    "needs_review": mapping.uncertain,
+                    **(
+                        {"_mechanical_auxiliary": mapping.auxiliary}
+                        if mapping.auxiliary
+                        else {}
+                    ),
+                }
+            ]
+            mapping.trace["synthesized_item_from_mechanical_table"] = True
+        else:
+            return rows, mapping.tokens, mapping.trace
 
     target = rows[0]
     mechanical = target.get("mechanical_properties")

@@ -48,11 +48,23 @@ NOISE_MODERATE_THRESHOLD = 14.0
 BLUR_SEVERE_THRESHOLD = 25.0
 NOISE_SEVERE_THRESHOLD = 45.0
 
-PROFILE_RASTER_DPI = 200
-"""Lower DPI than the runtime extraction path; profiling does not need fine detail."""
-
 PROFILE_MAX_SAMPLE_PAGES = 2
 """Only rasterise the first ``N`` pages for blur/noise statistics."""
+
+_PROFILE_SMART_RESIZE_MAX_EDGE = 3000
+"""Matches :func:`app.services.preprocessing._pil_smart_resize` so blur scores align."""
+
+
+def _smart_resize(image: Image.Image, max_edge: int = _PROFILE_SMART_RESIZE_MAX_EDGE) -> Image.Image:
+    width, height = image.size
+    long_edge = max(width, height)
+    if long_edge <= max_edge:
+        return image
+    scale = max_edge / long_edge
+    return image.resize(
+        (max(1, int(width * scale)), max(1, int(height * scale))),
+        Image.Resampling.LANCZOS,
+    )
 
 
 @dataclass
@@ -152,14 +164,14 @@ def _sample_first_pages(pdf_path: Path, limit: int) -> list[np.ndarray]:
         poppler_kwargs["poppler_path"] = settings.poppler_path
     images: list[Image.Image] = convert_from_path(
         str(pdf_path),
-        dpi=PROFILE_RASTER_DPI,
+        dpi=settings.pdf_dpi,
         fmt="png",
         grayscale=True,
         first_page=1,
         last_page=max(1, limit),
         **poppler_kwargs,
     )
-    return [np.array(img.convert("L")) for img in images]
+    return [np.array(_smart_resize(img).convert("L")) for img in images]
 
 
 def _table_presence_hint(gray: np.ndarray) -> bool:

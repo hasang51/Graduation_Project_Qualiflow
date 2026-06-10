@@ -1,0 +1,211 @@
+doc_id,file_name,quality_bucket,field,reason,gold_value,predicted_value
+doc001,doc001.pdf,degraded_scan,supplier_name,missing_prediction_file,NOVOFIL S.p.Α.,
+doc001,doc001.pdf,degraded_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc001,doc001.pdf,degraded_scan,certificate_date,missing_prediction_file,08/07/2024,
+doc001,doc001.pdf,degraded_scan,item_id,missing_prediction_file,"[""1""]",[]
+doc001,doc001.pdf,degraded_scan,heat_number,missing_prediction_file,"[""410537""]",[]
+doc001,doc001.pdf,degraded_scan,grade,missing_prediction_file,"[""NOVOFIL SG2/NOVOBRONZE SG2""]",[]
+doc001,doc001.pdf,degraded_scan,weight_or_length,missing_prediction_file,"[""1.080 Kg""]",[]
+doc001,doc001.pdf,degraded_scan,yield_strength_mpa,missing_prediction_file,[470],[]
+doc001,doc001.pdf,degraded_scan,tensile_strength_mpa,missing_prediction_file,[560],[]
+doc001,doc001.pdf,degraded_scan,elongation_percentage,missing_prediction_file,[26],[]
+doc001,doc001.pdf,degraded_scan,review_required,missing_prediction_file,False,
+doc002,doc002.pdf,degraded_scan,supplier_name,missing_prediction_file,CHANDAN STEEL LIMITED,
+doc002,doc002.pdf,degraded_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc002,doc002.pdf,degraded_scan,certificate_date,missing_prediction_file,07.10.2024,
+doc002,doc002.pdf,degraded_scan,item_id,missing_prediction_file,"[""1""]",[]
+doc002,doc002.pdf,degraded_scan,heat_number,missing_prediction_file,"[""CH-22200""]",[]
+doc002,doc002.pdf,degraded_scan,grade,missing_prediction_file,"[""1.4541/321 1.4878/321H""]",[]
+doc002,doc002.pdf,degraded_scan,weight_or_length,missing_prediction_file,"[""2195 Kgs.""]",[]
+doc002,doc002.pdf,degraded_scan,yield_strength_mpa,missing_prediction_file,[335],[]
+doc002,doc002.pdf,degraded_scan,tensile_strength_mpa,missing_prediction_file,[638],[]
+doc002,doc002.pdf,degraded_scan,elongation_percentage,missing_prediction_file,[52],[]
+doc002,doc002.pdf,degraded_scan,review_required,missing_prediction_file,False,
+doc003,doc003.pdf,degraded_scan,supplier_name,missing_prediction_file,"ZHEJIANG TSINGSHAN STEEL PIPE CO.,LTD.",
+doc003,doc003.pdf,degraded_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc003,doc003.pdf,degraded_scan,certificate_date,missing_prediction_file,07-Jul-21,
+doc003,doc003.pdf,degraded_scan,item_id,missing_prediction_file,"[""1""]",[]
+doc003,doc003.pdf,degraded_scan,heat_number,missing_prediction_file,"[""210219AED2-01""]",[]
+doc003,doc003.pdf,degraded_scan,grade,missing_prediction_file,"[""TP317L""]",[]
+doc003,doc003.pdf,degraded_scan,weight_or_length,missing_prediction_file,"[""509 KGS / 22.963 M""]",[]
+doc003,doc003.pdf,degraded_scan,yield_strength_mpa,missing_prediction_file,[307],[]
+doc003,doc003.pdf,degraded_scan,tensile_strength_mpa,missing_prediction_file,[610],[]
+doc003,doc003.pdf,degraded_scan,elongation_percentage,missing_prediction_file,[54],[]
+doc003,doc003.pdf,degraded_scan,review_required,missing_prediction_file,False,
+doc004,doc004.pdf,severe_scan,supplier_name,missing_prediction_file,OSCULATI,
+doc004,doc004.pdf,severe_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc004,doc004.pdf,severe_scan,certificate_date,missing_prediction_file,2025.05.31,
+doc004,doc004.pdf,severe_scan,item_id,missing_prediction_file,"[""1""]",[]
+doc004,doc004.pdf,severe_scan,heat_number,missing_prediction_file,"[""0202""]",[]
+doc004,doc004.pdf,severe_scan,grade,missing_prediction_file,"[""AISI 316""]",[]
+doc004,doc004.pdf,severe_scan,yield_strength_mpa,missing_prediction_file,[309],[]
+doc004,doc004.pdf,severe_scan,tensile_strength_mpa,missing_prediction_file,[532],[]
+doc004,doc004.pdf,severe_scan,elongation_percentage,missing_prediction_file,[35],[]
+doc004,doc004.pdf,severe_scan,review_required,missing_prediction_file,False,
+doc005,doc005.pdf,severe_scan,supplier_name,missing_prediction_file,TOSÇELİK Profil ve Sac,
+doc005,doc005.pdf,severe_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc005,doc005.pdf,severe_scan,certificate_date,missing_prediction_file,29.09.2020,
+doc005,doc005.pdf,severe_scan,item_id,missing_prediction_file,"[""22"", ""23"", ""24"", ""25"", ""26"", ""27"", ""28""]",[]
+doc005,doc005.pdf,severe_scan,heat_number,missing_prediction_file,"[""104517"", ""104517"", ""203970"", ""203970"", ""2012202664"", ""2012202664"", ""2018105385""]",[]
+doc005,doc005.pdf,severe_scan,grade,missing_prediction_file,"[""GRADE S235JRH"", ""S235JRH"", ""S235JRH"", ""S235JRH"", ""S235JRH"", ""S235JRH"", ""S235JRH""]",[]
+doc005,doc005.pdf,severe_scan,weight_or_length,missing_prediction_file,"[""120X120X5,00X12000"", ""120X120X5,00X12000"", ""50X50X3,00X6000"", ""50X50X3,00X6000"", ""50X50X1,90X6000"", ""50X50X1,90X6000"", ""50X50X1,90X6000""]",[]
+doc005,doc005.pdf,severe_scan,yield_strength_mpa,missing_prediction_file,"[331, 331, 291, 291, 319, 319, 299]",[]
+doc005,doc005.pdf,severe_scan,tensile_strength_mpa,missing_prediction_file,"[449, 449, 385, 385, 423, 423, 396]",[]
+doc005,doc005.pdf,severe_scan,elongation_percentage,missing_prediction_file,"[33.7, 33.7, 30.4, 30.4, 41.7, 41.7, 40.7]",[]
+doc005,doc005.pdf,severe_scan,review_required,missing_prediction_file,False,
+doc006,doc006.pdf,degraded_scan,supplier_name,missing_prediction_file,CHANDAN STEEL LIMITED,
+doc006,doc006.pdf,degraded_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc006,doc006.pdf,degraded_scan,certificate_date,missing_prediction_file,19 01 2015,
+doc006,doc006.pdf,degraded_scan,item_id,missing_prediction_file,"[""6756""]",[]
+doc006,doc006.pdf,degraded_scan,heat_number,missing_prediction_file,"[""CH-1764""]",[]
+doc006,doc006.pdf,degraded_scan,grade,missing_prediction_file,"[""1.4404""]",[]
+doc006,doc006.pdf,degraded_scan,weight_or_length,missing_prediction_file,"[""3231 Kgs""]",[]
+doc006,doc006.pdf,degraded_scan,yield_strength_mpa,missing_prediction_file,[320],[]
+doc006,doc006.pdf,degraded_scan,tensile_strength_mpa,missing_prediction_file,[624],[]
+doc006,doc006.pdf,degraded_scan,elongation_percentage,missing_prediction_file,[52],[]
+doc006,doc006.pdf,degraded_scan,review_required,missing_prediction_file,False,
+doc007,doc007.pdf,severe_scan,supplier_name,missing_prediction_file,SHANXI TAIGANG STAINLESS STEEL CO LTD,
+doc007,doc007.pdf,severe_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc007,doc007.pdf,severe_scan,certificate_date,missing_prediction_file,2019-8-20,
+doc007,doc007.pdf,severe_scan,item_id,missing_prediction_file,"[""1"", ""2""]",[]
+doc007,doc007.pdf,severe_scan,heat_number,missing_prediction_file,"[""A2902540"", ""A2902540""]",[]
+doc007,doc007.pdf,severe_scan,grade,missing_prediction_file,"[""1.4401/1.4404/316/316L"", ""1.4401/1.4404/316/316L""]",[]
+doc007,doc007.pdf,severe_scan,weight_or_length,missing_prediction_file,"[""10300 Kg"", ""9781 Kg""]",[]
+doc007,doc007.pdf,severe_scan,yield_strength_mpa,missing_prediction_file,"[283, 283]",[]
+doc007,doc007.pdf,severe_scan,tensile_strength_mpa,missing_prediction_file,"[620, 620]",[]
+doc007,doc007.pdf,severe_scan,elongation_percentage,missing_prediction_file,"[60, 60]",[]
+doc007,doc007.pdf,severe_scan,review_required,missing_prediction_file,False,
+doc008,doc008.pdf,severe_scan,supplier_name,missing_prediction_file,NOKSEL BORU SANAYİ A.Ş.,
+doc008,doc008.pdf,severe_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc008,doc008.pdf,severe_scan,certificate_date,missing_prediction_file,27.04.2011,
+doc008,doc008.pdf,severe_scan,item_id,missing_prediction_file,"[""1"", ""2"", ""3"", ""4"", ""5""]",[]
+doc008,doc008.pdf,severe_scan,heat_number,missing_prediction_file,"[""10115084"", ""10110701""]",[]
+doc008,doc008.pdf,severe_scan,grade,missing_prediction_file,"[""S195"", ""S195"", ""S195"", ""S195"", ""S195""]",[]
+doc008,doc008.pdf,severe_scan,weight_or_length,missing_prediction_file,"[""126,9 x 2.60 mm"", ""126,9 x 2.60 mm"", ""126,9 x 2.60 mm"", ""126,9 x 2.60 mm"", ""126,9 x 2.60 mm""]",[]
+doc008,doc008.pdf,severe_scan,yield_strength_mpa,missing_prediction_file,"[264, 282, 258, 257, 263]",[]
+doc008,doc008.pdf,severe_scan,tensile_strength_mpa,missing_prediction_file,"[418, 422, 421, 424, 423]",[]
+doc008,doc008.pdf,severe_scan,elongation_percentage,missing_prediction_file,"[34, 32, 29, 27, 33]",[]
+doc008,doc008.pdf,severe_scan,review_required,missing_prediction_file,True,
+doc009,doc009.pdf,digital_pdf,supplier_name,missing_prediction_file,OSCULATI,
+doc009,doc009.pdf,digital_pdf,document_type,missing_prediction_file,Mill Test Certificate,
+doc009,doc009.pdf,digital_pdf,certificate_date,missing_prediction_file,2025.05.31,
+doc009,doc009.pdf,digital_pdf,item_id,missing_prediction_file,"[""1""]",[]
+doc009,doc009.pdf,digital_pdf,heat_number,missing_prediction_file,"[""0202""]",[]
+doc009,doc009.pdf,digital_pdf,grade,missing_prediction_file,"[""AISI 316""]",[]
+doc009,doc009.pdf,digital_pdf,yield_strength_mpa,missing_prediction_file,[309],[]
+doc009,doc009.pdf,digital_pdf,tensile_strength_mpa,missing_prediction_file,[532],[]
+doc009,doc009.pdf,digital_pdf,elongation_percentage,missing_prediction_file,[35],[]
+doc009,doc009.pdf,digital_pdf,review_required,missing_prediction_file,False,
+doc010,doc010.pdf,clean_scan,supplier_name,missing_prediction_file,Buderus Edelstahl GmbH,
+doc010,doc010.pdf,clean_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc010,doc010.pdf,clean_scan,certificate_date,missing_prediction_file,31.08.2022,
+doc010,doc010.pdf,clean_scan,item_id,missing_prediction_file,"[""1""]",[]
+doc010,doc010.pdf,clean_scan,heat_number,missing_prediction_file,"[""31335""]",[]
+doc010,doc010.pdf,clean_scan,grade,missing_prediction_file,"[""X65Cr13""]",[]
+doc010,doc010.pdf,clean_scan,weight_or_length,missing_prediction_file,"[""3,430 x 380,000 mm""]",[]
+doc010,doc010.pdf,clean_scan,tensile_strength_mpa,missing_prediction_file,[691.1],[]
+doc010,doc010.pdf,clean_scan,review_required,missing_prediction_file,True,
+doc011,doc011.pdf,clean_scan,supplier_name,missing_prediction_file,SN MAIA - SIDERURGIA NACIONAL S.A.,
+doc011,doc011.pdf,clean_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc011,doc011.pdf,clean_scan,certificate_date,missing_prediction_file,10/08/2022,
+doc011,doc011.pdf,clean_scan,item_id,missing_prediction_file,"[""1"", ""2"", ""3""]",[]
+doc011,doc011.pdf,clean_scan,heat_number,missing_prediction_file,"[""453335/4"", ""453337/2"", ""453341/2""]",[]
+doc011,doc011.pdf,clean_scan,grade,missing_prediction_file,"[""B 500 B"", ""B 500 B"", ""B 500 B""]",[]
+doc011,doc011.pdf,clean_scan,weight_or_length,missing_prediction_file,"[""6000"", ""6000"", ""6000""]",[]
+doc011,doc011.pdf,clean_scan,yield_strength_mpa,missing_prediction_file,"[588, 579, 584]",[]
+doc011,doc011.pdf,clean_scan,tensile_strength_mpa,missing_prediction_file,"[691, 684, 682]",[]
+doc011,doc011.pdf,clean_scan,elongation_percentage,missing_prediction_file,"[8.4, 9.1, 8.9]",[]
+doc011,doc011.pdf,clean_scan,review_required,missing_prediction_file,False,
+doc012,doc012.pdf,digital_pdf,supplier_name,missing_prediction_file,SANDVIK,
+doc012,doc012.pdf,digital_pdf,document_type,missing_prediction_file,Mill Test Certificate,
+doc012,doc012.pdf,digital_pdf,certificate_date,missing_prediction_file,2019-11-05,
+doc012,doc012.pdf,digital_pdf,item_id,missing_prediction_file,"[""1""]",[]
+doc012,doc012.pdf,digital_pdf,heat_number,missing_prediction_file,"[""552398""]",[]
+doc012,doc012.pdf,digital_pdf,grade,missing_prediction_file,"[""2RE69 / UNS S31050""]",[]
+doc012,doc012.pdf,digital_pdf,weight_or_length,missing_prediction_file,"[""45.0 Kg""]",[]
+doc012,doc012.pdf,digital_pdf,review_required,missing_prediction_file,False,
+doc013,doc013.pdf,clean_scan,supplier_name,missing_prediction_file,Heubach INTERNATIONAL,
+doc013,doc013.pdf,clean_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc013,doc013.pdf,clean_scan,certificate_date,missing_prediction_file,12.12.2015,
+doc013,doc013.pdf,clean_scan,item_id,missing_prediction_file,"[""01""]",[]
+doc013,doc013.pdf,clean_scan,heat_number,missing_prediction_file,"[""A 3221""]",[]
+doc013,doc013.pdf,clean_scan,grade,missing_prediction_file,"[""AISI 1018""]",[]
+doc013,doc013.pdf,clean_scan,weight_or_length,missing_prediction_file,"[""25.40 MM x 2 MM""]",[]
+doc013,doc013.pdf,clean_scan,yield_strength_mpa,missing_prediction_file,[302.14],[]
+doc013,doc013.pdf,clean_scan,tensile_strength_mpa,missing_prediction_file,[462.16],[]
+doc013,doc013.pdf,clean_scan,elongation_percentage,missing_prediction_file,[44.2],[]
+doc013,doc013.pdf,clean_scan,review_required,missing_prediction_file,False,
+doc014,doc014.pdf,digital_pdf,supplier_name,missing_prediction_file,ArcelorMittal South Africa Limited,
+doc014,doc014.pdf,digital_pdf,document_type,missing_prediction_file,Mill Test Certificate,
+doc014,doc014.pdf,digital_pdf,certificate_date,missing_prediction_file,2021-08-12,
+doc014,doc014.pdf,digital_pdf,item_id,missing_prediction_file,"[""1""]",[]
+doc014,doc014.pdf,digital_pdf,heat_number,missing_prediction_file,"[""9316704""]",[]
+doc014,doc014.pdf,digital_pdf,grade,missing_prediction_file,"[""51CrV4 (EN10089)""]",[]
+doc014,doc014.pdf,digital_pdf,weight_or_length,missing_prediction_file,"[""6105.0 mm""]",[]
+doc014,doc014.pdf,digital_pdf,yield_strength_mpa,missing_prediction_file,[864.0],[]
+doc014,doc014.pdf,digital_pdf,tensile_strength_mpa,missing_prediction_file,[1097.0],[]
+doc014,doc014.pdf,digital_pdf,elongation_percentage,missing_prediction_file,[18.7],[]
+doc014,doc014.pdf,digital_pdf,review_required,missing_prediction_file,False,
+doc015,doc015.pdf,digital_pdf,supplier_name,missing_prediction_file,ITW WELDING,
+doc015,doc015.pdf,digital_pdf,document_type,missing_prediction_file,Mill Test Certificate,
+doc015,doc015.pdf,digital_pdf,certificate_date,missing_prediction_file,16.12.2013,
+doc015,doc015.pdf,digital_pdf,item_id,missing_prediction_file,"[""1""]",[]
+doc015,doc015.pdf,digital_pdf,heat_number,missing_prediction_file,"[""123753""]",[]
+doc015,doc015.pdf,digital_pdf,grade,missing_prediction_file,"[""MEGAFIL 1100 M""]",[]
+doc015,doc015.pdf,digital_pdf,weight_or_length,missing_prediction_file,"[""1024 kg""]",[]
+doc015,doc015.pdf,digital_pdf,yield_strength_mpa,missing_prediction_file,[959],[]
+doc015,doc015.pdf,digital_pdf,tensile_strength_mpa,missing_prediction_file,[980],[]
+doc015,doc015.pdf,digital_pdf,elongation_percentage,missing_prediction_file,[14],[]
+doc015,doc015.pdf,digital_pdf,review_required,missing_prediction_file,False,
+doc016,doc016.pdf,digital_pdf,supplier_name,missing_prediction_file,Al Jazeera Steel Products Co. SAOG,
+doc016,doc016.pdf,digital_pdf,document_type,missing_prediction_file,Mill Test Certificate,
+doc016,doc016.pdf,digital_pdf,certificate_date,missing_prediction_file,12-APR-18,
+doc016,doc016.pdf,digital_pdf,item_id,missing_prediction_file,"[""1"", ""2"", ""3"", ""4"", ""5"", ""6"", ""7"", ""8"", ""9""]",[]
+doc016,doc016.pdf,digital_pdf,heat_number,missing_prediction_file,"[""T1712328"", ""M1711232"", ""M1804110"", ""M1803107"", ""M1803414"", ""M1802409"", ""M1802105"", ""M1803107"", ""M1803414""]",[]
+doc016,doc016.pdf,digital_pdf,grade,missing_prediction_file,"[""BS 1387/1985"", ""BS 1387/1985"", ""BS 1387/1985"", ""BS 1387/1985"", ""BS 1387/1985"", ""BS 1387/1985"", ""BS 1387/1985"", ""BS 1387/1985"", ""BS 1387/1985""]",[]
+doc016,doc016.pdf,digital_pdf,weight_or_length,missing_prediction_file,"[""21.3 x 1.90 mm"", ""33.7 x 3.20 mm"", ""48.3 x 3.20 mm"", ""76.1 x 3.60 mm"", ""88.9 x 4.00 mm"", ""114.3 x 4.50 mm"", ""60.3 x 2.40 mm"", ""76.1 x 2.40 mm"", ""88.9 x 4.00 mm""]",[]
+doc016,doc016.pdf,digital_pdf,yield_strength_mpa,missing_prediction_file,"[331, 310, 300, 300, 320, 323, 289, 283, 320]",[]
+doc016,doc016.pdf,digital_pdf,tensile_strength_mpa,missing_prediction_file,"[416, 438, 435, 436, 435, 442, 407, 412, 435]",[]
+doc016,doc016.pdf,digital_pdf,elongation_percentage,missing_prediction_file,"[31, 39, 39, 39, 37, 35, 37, 39, 37]",[]
+doc016,doc016.pdf,digital_pdf,review_required,missing_prediction_file,False,
+doc017,doc017.pdf,degraded_scan,supplier_name,missing_prediction_file,ArcelorMittal Nippon Steel India Limited,
+doc017,doc017.pdf,degraded_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc017,doc017.pdf,degraded_scan,certificate_date,missing_prediction_file,24.09.2021,
+doc017,doc017.pdf,degraded_scan,item_id,missing_prediction_file,"[""10"", ""10""]",[]
+doc017,doc017.pdf,degraded_scan,heat_number,missing_prediction_file,"[""21103692"", ""21103692""]",[]
+doc017,doc017.pdf,degraded_scan,grade,missing_prediction_file,"[""IS_1079_ISH270D_2017"", ""IS_1079_ISH270D_2017""]",[]
+doc017,doc017.pdf,degraded_scan,weight_or_length,missing_prediction_file,"[""1.600 x 1250 x 2500"", ""1.600 x 1250 x 2500""]",[]
+doc017,doc017.pdf,degraded_scan,yield_strength_mpa,missing_prediction_file,"[310, 305]",[]
+doc017,doc017.pdf,degraded_scan,tensile_strength_mpa,missing_prediction_file,"[369, 361]",[]
+doc017,doc017.pdf,degraded_scan,elongation_percentage,missing_prediction_file,"[32, 33]",[]
+doc017,doc017.pdf,degraded_scan,review_required,missing_prediction_file,False,
+doc018,doc018.pdf,degraded_scan,supplier_name,missing_prediction_file,ArcelorMittal Belval & Differdange,
+doc018,doc018.pdf,degraded_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc018,doc018.pdf,degraded_scan,certificate_date,missing_prediction_file,07.09.2016,
+doc018,doc018.pdf,degraded_scan,item_id,missing_prediction_file,"[""000010"", ""000010"", ""000010"", ""000010"", ""000010"", ""000010""]",[]
+doc018,doc018.pdf,degraded_scan,heat_number,missing_prediction_file,"[""IS-25045"", ""IY-25577"", ""IZ-25578"", ""IX-25579"", ""IW-25580"", ""IV-25581""]",[]
+doc018,doc018.pdf,degraded_scan,grade,missing_prediction_file,"[""S355GP"", ""S355GP"", ""S355GP"", ""S355GP"", ""S355GP"", ""S355GP""]",[]
+doc018,doc018.pdf,degraded_scan,weight_or_length,missing_prediction_file,"[""17.000 / 36.307To"", ""17.000 / 36.307To"", ""17.000 / 36.307To"", ""17.000 / 36.307To"", ""17.000 / 36.307To"", ""17.000 / 36.307To""]",[]
+doc018,doc018.pdf,degraded_scan,yield_strength_mpa,missing_prediction_file,"[427, 412, 409, 422, 444, 430]",[]
+doc018,doc018.pdf,degraded_scan,tensile_strength_mpa,missing_prediction_file,"[524, 523, 521, 526, 540, 521]",[]
+doc018,doc018.pdf,degraded_scan,elongation_percentage,missing_prediction_file,"[28.3, 28.5, 29.0, 27.4, 26.4, 28.4]",[]
+doc018,doc018.pdf,degraded_scan,review_required,missing_prediction_file,False,
+doc019,doc019.pdf,degraded_scan,supplier_name,missing_prediction_file,Konsa Conexiones S.A.,
+doc019,doc019.pdf,degraded_scan,document_type,missing_prediction_file,Mill Test Certificate,
+doc019,doc019.pdf,degraded_scan,certificate_date,missing_prediction_file,"MAY 18, 2015",
+doc019,doc019.pdf,degraded_scan,item_id,missing_prediction_file,"[""8"", ""23"", ""26"", ""27"", ""1""]",[]
+doc019,doc019.pdf,degraded_scan,heat_number,missing_prediction_file,"[""14304118"", ""15305792"", ""14303291"", ""14303895"", ""15305792""]",[]
+doc019,doc019.pdf,degraded_scan,grade,missing_prediction_file,"[""ASTM A234 Gr. WPB"", ""ASTM A234 Gr. WPB"", ""ASTM A234 Gr. WPB"", ""ASTM A234 Gr. WPB"", ""ASTM A234 Gr. WPB""]",[]
+doc019,doc019.pdf,degraded_scan,weight_or_length,missing_prediction_file,"[""2-1/2 45 ELBOW LR STD"", ""6 45 ELBOW LR STD"", ""2-1/2 90 ELBOW LR XH"", ""90 ELBOW LR 3 STD"", ""90 ELBOW LR 4 STD""]",[]
+doc019,doc019.pdf,degraded_scan,yield_strength_mpa,missing_prediction_file,"[294.9, 315.9, 324.9, 350.9, 361.9]",[]
+doc019,doc019.pdf,degraded_scan,tensile_strength_mpa,missing_prediction_file,"[451.9, 437.9, 519.9, 568.9, 562.8]",[]
+doc019,doc019.pdf,degraded_scan,elongation_percentage,missing_prediction_file,"[36, 34, 35, 35, 35]",[]
+doc019,doc019.pdf,degraded_scan,review_required,missing_prediction_file,False,
+doc020,doc020.pdf,digital_pdf,supplier_name,missing_prediction_file,ERCİYES ÇELİK HALAT TEL SAN. TİC. A.Ş.,
+doc020,doc020.pdf,digital_pdf,document_type,missing_prediction_file,Mill Test Certificate,
+doc020,doc020.pdf,digital_pdf,certificate_date,missing_prediction_file,28.07.2025,
+doc020,doc020.pdf,digital_pdf,item_id,missing_prediction_file,"[""1""]",[]
+doc020,doc020.pdf,digital_pdf,grade,missing_prediction_file,"[""6x36 WS""]",[]
+doc020,doc020.pdf,digital_pdf,weight_or_length,missing_prediction_file,"[""1100 M""]",[]
+doc020,doc020.pdf,digital_pdf,tensile_strength_mpa,missing_prediction_file,[1960],[]
+doc020,doc020.pdf,digital_pdf,review_required,missing_prediction_file,False,

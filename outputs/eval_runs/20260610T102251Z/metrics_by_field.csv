@@ -1,0 +1,14 @@
+field,samples,correct,accuracy,missing_predictions
+supplier_name,20,0,0.0,20
+document_type,20,0,0.0,20
+certificate_date,20,0,0.0,20
+item_id,20,0,0.0,20
+heat_number,19,0,0.0,19
+grade,20,0,0.0,20
+weight_or_length,18,0,0.0,18
+yield_strength_mpa,17,0,0.0,17
+tensile_strength_mpa,19,0,0.0,19
+elongation_percentage,17,0,0.0,17
+compliance_outcome,0,0,0.0,0
+review_required,20,0,0.0,20
+review_reasons,0,0,0.0,0

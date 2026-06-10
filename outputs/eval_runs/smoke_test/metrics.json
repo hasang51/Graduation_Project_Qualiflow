@@ -1,0 +1,15 @@
+{
+  "documents_evaluated": 20,
+  "metadata_path": "data\\gold\\metadata_20.csv",
+  "aggregate": {
+    "n": 20,
+    "field_accuracy": 0.0,
+    "critical_field_accuracy": 0.0,
+    "document_type_accuracy": 0.0,
+    "processing_decision_accuracy": 0.0,
+    "review_rate": 0.0,
+    "unsafe_auto_accept_rate": 0.0,
+    "missing_required_field_rate": 1.0,
+    "average_latency_ms": ""
+  }
+}

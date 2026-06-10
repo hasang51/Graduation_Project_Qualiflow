@@ -137,13 +137,20 @@ Errors never abort the run — they are logged to `errors.jsonl` and the runner 
 ## 6. Evaluation
 
 ```bash
-python -m scripts.run_eval --mode D \
-    --run-dir data/batch_runs/<timestamp> \
-    --gold data/gold_candidates/gold_candidates_prefill.jsonl \
-    --provisional
+# Generate predictions and evaluate the 20-document gold set
+python -m scripts.run_eval \
+    --metadata data/gold/metadata_20.csv \
+    --documents-root "C:\path\to\pdfs" \
+    --predictions outputs/predictions
+
+# Evaluate existing predictions only
+python -m scripts.evaluate_outputs \
+    --metadata data/gold/metadata_20.csv \
+    --predictions outputs/predictions \
+    --out outputs/eval_runs/manual_run
 ```
 
-Metrics (in `metrics.json`):
+Metrics (in `outputs/eval_runs/<timestamp>/metrics_summary.csv` and `metrics.json`):
 
 | metric | definition |
 | --- | --- |
@@ -159,17 +166,19 @@ Field comparisons normalise strings (casefold + whitespace squash), lists (sort 
 
 ### Experiment-mode comparability
 
-| Mode | command | What it probes |
-| --- | --- | --- |
-| A | `scripts.run_eval --mode A` | Prints skip reason and exits 0. |
-| B | `scripts.run_batch_extraction --mode B` → `scripts.run_eval --mode B` | No routing — every doc runs with `rendered_multimodal`. |
-| C | `scripts.run_batch_extraction --mode C` → `scripts.run_eval --mode C` | Always runs the full preprocessed stack. |
-| D | `scripts.run_batch_extraction --mode D` → `scripts.run_eval --mode D` | The proposed routed hybrid. |
+Extraction modes are selected on **`run_batch_extraction`** (`--mode B/C/D`). Evaluation is mode-agnostic: point `run_eval` or `evaluate_outputs` at the prediction JSON directory produced by each batch run.
 
-For a head-to-head comparison, run B, C, and D with the **same subset**, then flatten the results:
+| Mode | extraction command | What it probes |
+| --- | --- | --- |
+| A | OCR offline baseline | **SKIPPED** — legacy Tesseract utility, not an end-to-end extractor. |
+| B | `scripts.run_batch_extraction --mode B` | No routing — every doc runs with `rendered_multimodal`. |
+| C | `scripts.run_batch_extraction --mode C` | Always runs the full preprocessed stack. |
+| D | `scripts.run_batch_extraction --mode D` | The proposed routed hybrid (default). |
+
+For a head-to-head comparison, run B, C, and D with the **same subset**, evaluate each prediction set, then flatten the results:
 
 ```bash
-python -m scripts.export_eval_summary
+python -m scripts.export_eval_summary --eval-root outputs/eval_runs
 ```
 
-`data/eval_outputs/eval_summary.md` contains one row per mode with all aggregate metrics side by side.
+`outputs/eval_runs/eval_summary.md` contains one row per evaluation run with aggregate metrics side by side.

@@ -981,11 +981,18 @@ def run_multi_stage_extraction(
             "traces": row_shape_traces,
         }
     mechanical_table_tokens: list[str] = []
+    pre_mechanical_count = len(items_dicts)
     items_dicts, mechanical_table_tokens, mechanical_table_trace = apply_mechanical_table_mapping(
         items_dicts,
         item_payload=item_payload if isinstance(item_payload, dict) else {},
         items_raw=[row for row in items_raw if isinstance(row, dict)],
     )
+    if pre_mechanical_count == 0 and len(items_dicts) == 1:
+        backfill_after_mechanical = backfill_single_item_context(items_dicts, metadata=metadata)
+        if backfill_after_mechanical.tokens:
+            items_dicts = backfill_after_mechanical.rows
+            row_shape_tokens.extend(backfill_after_mechanical.tokens)
+            row_shape_traces.append(backfill_after_mechanical.trace)
     if mechanical_table_tokens or mechanical_table_trace:
         preprocessing_meta["mechanical_table_mapping"] = {
             "tokens": mechanical_table_tokens,
