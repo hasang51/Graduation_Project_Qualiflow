@@ -54,6 +54,15 @@ PROFILE_MAX_SAMPLE_PAGES = 2
 _PROFILE_SMART_RESIZE_MAX_EDGE = 3000
 """Matches :func:`app.services.preprocessing._pil_smart_resize` so blur scores align."""
 
+_LARGE_RASTER_MIN_LONG_EDGE = 1800
+"""Longest pixel edge for an embedded image treated as a page-sized scan."""
+
+_LARGE_RASTER_MIN_AREA = 4_000_000
+"""Minimum pixel area for a page-sized raster (roughly A4 at ~200 dpi)."""
+
+_LARGE_RASTER_MIN_BYTES = 400_000
+"""Fallback when pixel dimensions are unavailable (logos/stamps are much smaller)."""
+
 
 def _smart_resize(image: Image.Image, max_edge: int = _PROFILE_SMART_RESIZE_MAX_EDGE) -> Image.Image:
     width, height = image.size
@@ -86,8 +95,77 @@ class DocumentProfile:
         return asdict(self)
 
 
-def _extract_text_stats(pdf_path: Path) -> tuple[int, float, bool, bool, bool]:
-    """Return ``(page_count, text_density, has_text_layer, is_noisy_ocr, has_images)``.
+def _image_pixel_size(img: Any) -> tuple[int | None, int | None]:
+    """Best-effort width/height for a pypdf embedded image."""
+
+    try:
+        pil = img.image
+        if pil is not None:
+            return int(pil.size[0]), int(pil.size[1])
+    except Exception:
+        pass
+
+    try:
+        ref = img.indirect_reference
+        obj = ref.get_object() if hasattr(ref, "get_object") else ref
+        width = obj.get("/Width")
+        height = obj.get("/Height")
+        if width is not None and height is not None:
+            return int(width), int(height)
+    except Exception:
+        pass
+
+    return None, None
+
+
+def _is_large_raster_image(img: Any) -> bool:
+    """True when an embedded image likely represents a scanned page, not a logo/stamp."""
+
+    width, height = _image_pixel_size(img)
+    if width and height:
+        long_edge = max(width, height)
+        if long_edge >= _LARGE_RASTER_MIN_LONG_EDGE and (width * height) >= _LARGE_RASTER_MIN_AREA:
+            return True
+
+    try:
+        data = img.data
+        if data and len(data) >= _LARGE_RASTER_MIN_BYTES:
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
+def _page_has_large_raster_image(page: Any) -> bool:
+    try:
+        return any(_is_large_raster_image(img) for _, img in page.images.items())
+    except Exception:
+        return False
+
+
+def _page_text_is_noisy_ocr(stripped: str) -> bool:
+    """Heuristic for corrupted / low-quality OCR text on a single page."""
+
+    chars = len(stripped)
+    if chars < 40:
+        return False
+
+    alnum = sum(1 for c in stripped if c.isalnum() or c.isspace())
+    common_syms = sum(1 for c in stripped if c in ".,-/():")
+    alnum_plus_common = alnum + common_syms
+    weird = sum(1 for c in stripped if c in "¦|\\_~[]{}<>^")
+    replacement_chars = stripped.count("\ufffd")
+
+    return (
+        (alnum_plus_common / chars < 0.92)
+        or (weird / chars > 0.02)
+        or (replacement_chars > 0)
+    )
+
+
+def _extract_text_stats(pdf_path: Path) -> tuple[int, float, bool, bool, bool, bool]:
+    """Return ``(page_count, text_density, has_text_layer, is_noisy_ocr, has_embedded_images, has_full_page_raster_image)``.
 
     ``text_density`` is a coarse metric: average characters per page divided by
     a reference size (2000 chars) and clamped to ``[0, 1]``. Any page emitting
@@ -98,64 +176,64 @@ def _extract_text_stats(pdf_path: Path) -> tuple[int, float, bool, bool, bool]:
         from pypdf import PdfReader  # local import keeps startup cheap
     except Exception as exc:  # pragma: no cover - dependency failure path
         logger.warning("pypdf unavailable (%s); text layer detection disabled.", exc)
-        return 0, 0.0, False, False, False
+        return 0, 0.0, False, False, False, False
 
     try:
         reader = PdfReader(str(pdf_path))
     except Exception as exc:
         logger.warning("pypdf failed to open %s: %s", pdf_path, exc)
-        return 0, 0.0, False, False, False
+        return 0, 0.0, False, False, False, False
 
     page_count = len(reader.pages)
     if page_count == 0:
-        return 0, 0.0, False, False, False
+        return 0, 0.0, False, False, False, False
 
     non_trivial_pages = 0
     total_chars = 0
     noisy_pages = 0
-    pages_with_images = 0
+    pages_with_embedded_images = 0
+    pages_with_large_raster = 0
 
     for page in reader.pages:
         try:
             text = page.extract_text() or ""
             # pypdf images access can sometimes be slow or fail on corrupted PDFs
-            has_images = len(page.images) > 0
+            has_embedded_images = len(page.images) > 0
+            has_large_raster = _page_has_large_raster_image(page)
         except Exception:
             text = ""
-            has_images = False
+            has_embedded_images = False
+            has_large_raster = False
 
         stripped = text.strip()
         chars = len(stripped)
         total_chars += chars
-        
+
         if chars >= 40:
             non_trivial_pages += 1
-            # Heuristic for noisy OCR: high ratio of symbols or low alnum ratio.
-            # Clean digital text typically has >98% alnum + common punctuation.
-            alnum = sum(1 for c in stripped if c.isalnum() or c.isspace())
-            common_syms = sum(1 for c in stripped if c in ".,-/():")
-            alnum_plus_common = alnum + common_syms
-            
-            weird = sum(1 for c in stripped if c in "¦|\\_~[]{}<>^")
-            replacement_chars = stripped.count("")
-            
-            # Thresholds for noisy/corrupted text layer:
-            # 1. Alnum+Common ratio < 92% (noisy)
-            # 2. Weird chars ratio > 2% (noisy)
-            # 3. Any replacement chars () found
-            if (alnum_plus_common / chars < 0.92) or (weird / chars > 0.02) or (replacement_chars > 0):
+            if _page_text_is_noisy_ocr(stripped):
                 noisy_pages += 1
-        
-        if has_images:
-            pages_with_images += 1
+
+        if has_embedded_images:
+            pages_with_embedded_images += 1
+        if has_large_raster:
+            pages_with_large_raster += 1
 
     avg_chars = total_chars / page_count
     text_density = max(0.0, min(1.0, avg_chars / 2000.0))
     has_text_layer = non_trivial_pages >= max(1, int(0.5 * page_count))
     is_noisy_ocr = noisy_pages >= max(1, int(0.5 * page_count))
-    has_images = pages_with_images >= max(1, int(0.5 * page_count))
-    
-    return page_count, text_density, has_text_layer, is_noisy_ocr, has_images
+    has_embedded_images = pages_with_embedded_images >= max(1, int(0.5 * page_count))
+    has_full_page_raster_image = pages_with_large_raster >= max(1, int(0.5 * page_count))
+
+    return (
+        page_count,
+        text_density,
+        has_text_layer,
+        is_noisy_ocr,
+        has_embedded_images,
+        has_full_page_raster_image,
+    )
 
 
 def _sample_first_pages(pdf_path: Path, limit: int) -> list[np.ndarray]:
@@ -208,7 +286,7 @@ def _classify(
     noise_score: float,
     text_density: float,
     is_noisy_ocr: bool = False,
-    has_images: bool = False,
+    has_full_page_raster_image: bool = False,
 ) -> tuple[QualityClass, list[str]]:
     reasons: list[str] = []
 
@@ -217,23 +295,24 @@ def _classify(
     is_noisy_hard = noise_score >= NOISE_DEGRADED_THRESHOLD
     is_noisy_moderate = noise_score >= NOISE_MODERATE_THRESHOLD
 
-    # doc008 guard: noisy OCR + images = likely noisy scan even if text layer exists.
-    if is_noisy_ocr and has_images:
+    # doc008 guard: corrupted OCR plus a page-sized raster is a noisy scan.
+    if is_noisy_ocr and has_full_page_raster_image:
         reasons.append("ocr_text_layer_corrupted")
         reasons.append("full_page_raster_image")
         reasons.append("low_identifier_legibility")
         return "noisy_scan", reasons
 
     if has_text_layer and text_density >= DIGITAL_TEXT_DENSITY_MIN and not (is_blurry_hard or is_noisy_hard):
-        if is_noisy_ocr or has_images:
-            # Presence of images or noisy text suggests it's not a pure digital document.
-            # Downgrade to noisy_scan if OCR is corrupted, otherwise scan_clean.
-            if is_noisy_ocr:
-                reasons.append("ocr_text_layer_corrupted")
-                return "noisy_scan", reasons
+        if is_noisy_ocr:
+            reasons.append("ocr_text_layer_corrupted")
+            return "noisy_scan", reasons
+        if has_full_page_raster_image:
+            # Text layer over a full-page raster is almost always OCR on a scan.
+            reasons.append("ocr_text_layer_corrupted")
             reasons.append("full_page_raster_image")
-            return "scan_clean", reasons
-            
+            reasons.append("low_identifier_legibility")
+            return "noisy_scan", reasons
+
         reasons.append(f"text_layer_present(text_density={text_density:.2f})")
         return "digital_clean", reasons
 
@@ -283,7 +362,7 @@ def classify_profile(
     noise_score: float,
     text_density: float,
     is_noisy_ocr: bool = False,
-    has_images: bool = False,
+    has_full_page_raster_image: bool = False,
 ) -> tuple[QualityClass, list[str]]:
     """Public helper so tests can exercise classification without PDF I/O."""
 
@@ -293,7 +372,7 @@ def classify_profile(
         noise_score=noise_score,
         text_density=text_density,
         is_noisy_ocr=is_noisy_ocr,
-        has_images=has_images,
+        has_full_page_raster_image=has_full_page_raster_image,
     )
 
 
@@ -310,7 +389,14 @@ def profile_document(pdf_path: str | Path, *, document_id: str | None = None) ->
 
     doc_id = document_id or path.stem
 
-    page_count, text_density, has_text_layer, is_noisy_ocr, has_images = _extract_text_stats(path)
+    (
+        page_count,
+        text_density,
+        has_text_layer,
+        is_noisy_ocr,
+        has_embedded_images,
+        has_full_page_raster_image,
+    ) = _extract_text_stats(path)
 
     # If pypdf failed (page_count == 0) we still try to rasterise to keep going.
     blur_score = 0.0
@@ -339,7 +425,7 @@ def profile_document(pdf_path: str | Path, *, document_id: str | None = None) ->
         noise_score=noise_score,
         text_density=text_density,
         is_noisy_ocr=is_noisy_ocr,
-        has_images=has_images,
+        has_full_page_raster_image=has_full_page_raster_image,
     )
 
     profile = DocumentProfile(
@@ -370,7 +456,9 @@ def profile_document(pdf_path: str | Path, *, document_id: str | None = None) ->
             "noise_score": round(noise_score, 2),
             "table_presence_hint": bool(table_presence),
             "is_noisy_ocr": bool(is_noisy_ocr),
-            "has_images": bool(has_images),
+            "has_embedded_images": bool(has_embedded_images),
+            "has_full_page_raster_image": bool(has_full_page_raster_image),
+            "has_images": bool(has_embedded_images),
             "ocr_likelihood": (
                 "low"
                 if quality_class == "digital_clean"

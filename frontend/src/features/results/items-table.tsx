@@ -13,23 +13,27 @@ import { Badge } from '../../components/ui/badge'
 import { Card } from '../../components/ui/card'
 import { Input } from '../../components/ui/input'
 import { renderCriticalIdentifier } from '../../lib/critical-identifiers'
-import { formatNullable, formatNumber, MISSING_VALUE } from '../../lib/format'
+import { formatMpaDisplay, formatNullable, formatNumber, MISSING_VALUE } from '../../lib/format'
+import { SIZE_WEIGHT_COLUMN_HEADER } from '../../lib/presentation-labels'
 import {
   isItemMechanicallyIncomplete,
   resolveItemRefCellValue,
   resolveItemRefColumnHeader,
 } from '../../lib/presentation-safety'
-import { formatReviewReason } from '../../lib/review-reason-labels'
+import { dedupeReasons, formatDisplayReviewReason } from '../../lib/presentation-safety'
 import type { ExtractedItem, GradeResolutionPayload, TraceabilityStatus, ValidationOutcome } from '../../types/qualiflow'
 
 const ALTERNATIVE_CLASSIFICATION_REASON = 'row_shape:alternative_classification_rows_collapsed'
 const ALTERNATIVE_CLASSIFICATION_NOTE =
   'This certificate lists multiple classification conditions. The table shows the primary extracted row; alternate classifications should be reviewed in the source document.'
 
+const DEFAULT_EMPTY_ITEMS_MESSAGE = 'No line items were detected in this document.'
+
 interface ItemsTableProps {
   items: ExtractedItem[]
   reviewReasons?: string[]
   explanation?: Record<string, unknown> | null
+  emptyMessage?: string
 }
 
 function isEmptyItemId(value: string | null): boolean {
@@ -106,7 +110,12 @@ function complianceText(
   }
 }
 
-export function ItemsTable({ items, reviewReasons = [], explanation = null }: ItemsTableProps) {
+export function ItemsTable({
+  items,
+  reviewReasons = [],
+  explanation = null,
+  emptyMessage = DEFAULT_EMPTY_ITEMS_MESSAGE,
+}: ItemsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
@@ -176,7 +185,7 @@ export function ItemsTable({ items, reviewReasons = [], explanation = null }: It
       const baseColumns: ColumnDef<RowShape>[] = [
       {
         accessorKey: 'heatNo',
-        header: 'Heat / Batch No.',
+        header: 'Traceability ID',
         cell: ({ row }) => formatNullable(row.original.heatNo),
       },
       ...(showItemIdColumn
@@ -195,18 +204,18 @@ export function ItemsTable({ items, reviewReasons = [], explanation = null }: It
       },
       {
         accessorKey: 'weightOrLength',
-        header: 'Weight/Length',
+        header: SIZE_WEIGHT_COLUMN_HEADER,
         cell: ({ row }) => formatNullable(row.original.weightOrLength),
       },
       {
         accessorKey: 'yieldMpa',
         header: 'Yield',
-        cell: ({ row }) => formatNumber(row.original.yieldMpa),
+        cell: ({ row }) => formatMpaDisplay(row.original.yieldMpa),
       },
       {
         accessorKey: 'tensileMpa',
         header: 'Tensile',
-        cell: ({ row }) => formatNumber(row.original.tensileMpa),
+        cell: ({ row }) => formatMpaDisplay(row.original.tensileMpa),
       },
       {
         id: 'compliance',
@@ -269,7 +278,7 @@ export function ItemsTable({ items, reviewReasons = [], explanation = null }: It
   if (items.length === 0) {
     return (
       <Card>
-        <p className="text-sm text-slate-300">No line items were detected in this document.</p>
+        <p className="text-sm text-slate-300">{emptyMessage}</p>
       </Card>
     )
   }
@@ -283,7 +292,7 @@ export function ItemsTable({ items, reviewReasons = [], explanation = null }: It
             <Input
               value={globalFilter}
               onChange={(event) => setGlobalFilter(event.target.value)}
-              placeholder="Search heat no, source ref, grade..."
+              placeholder="Search traceability ID, source ref, grade..."
               className="pl-9"
             />
           </div>
@@ -368,8 +377,8 @@ export function ItemsTable({ items, reviewReasons = [], explanation = null }: It
                             <span className="mr-2 text-slate-500">Validation deviations:</span>
                             {row.original.deviations.length > 0 ? (
                               <ul className="mt-2 list-disc space-y-1 pl-5">
-                                {row.original.deviations.map((deviation, idx) => (
-                                  <li key={`${key}-${idx}`}>{formatReviewReason(deviation)}</li>
+                                {dedupeReasons(row.original.deviations).map((deviation, idx) => (
+                                  <li key={`${key}-${idx}`}>{formatDisplayReviewReason(deviation)}</li>
                                 ))}
                               </ul>
                             ) : (

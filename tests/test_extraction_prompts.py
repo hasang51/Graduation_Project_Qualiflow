@@ -33,15 +33,13 @@ class ExtractionPromptTraceabilityTests(unittest.TestCase):
         self.assertIn("critical_identifier_unverified", METADATA_PROMPT)
 
     def test_item_prompt_requires_directly_readable_identifiers(self):
-        self.assertIn("STRICT IDENTIFIER TRACEABILITY RULE", ITEM_PROMPT)
-        self.assertIn("heat_number, batch_number, item_id, certificate_number, and order_number", ITEM_PROMPT)
-        self.assertIn("every character must be directly readable from the document image", ITEM_PROMPT)
-        self.assertIn("return null for that identifier", ITEM_PROMPT)
-        self.assertIn("Identifiers must not be inferred from nearby rows", ITEM_PROMPT)
-        self.assertIn("Never complete a partially visible identifier sequence", ITEM_PROMPT)
-        self.assertIn("Do not use pattern completion for identifiers", ITEM_PROMPT)
-        self.assertIn("set needs_review to true for the row", ITEM_PROMPT)
-        self.assertIn("critical_identifier_unverified", ITEM_PROMPT)
+        self.assertIn("RULE 2 — STRICT NULL POLICY", ITEM_PROMPT)
+        self.assertIn("heat_number, item_id, batch_number, certificate_number, order_number", ITEM_PROMPT)
+        self.assertIn("return null", ITEM_PROMPT)
+        self.assertIn("Do not complete partial sequences", ITEM_PROMPT)
+        self.assertIn("Do not infer from adjacent rows", ITEM_PROMPT)
+        self.assertIn("set needs_review=true for the row", ITEM_PROMPT)
+        self.assertIn("RULE 6 — CRITICAL: DO NOT CONTRADICT YOUR OWN AUDIT", ITEM_PROMPT)
 
     def test_identifier_prompts_do_not_reintroduce_best_effort_language(self):
         combined = f"{METADATA_PROMPT} {ITEM_PROMPT}".lower()

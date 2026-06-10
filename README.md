@@ -334,39 +334,48 @@ python -m scripts.export_eval_summary --eval-root outputs/eval_runs
 
 ---
 
-## 8. Live-execution status (as of 2026-05-11)
+## 8. Current status and limitations
 
-The latest checked live evidence is the cost-limited smoke sequence over
-`doc001.pdf` and `doc002.pdf`. The combined two-PDF run
-`data/batch_runs/plan_step6_two_pdfs_final` confirmed `doc002` auto-accepts.
-The follow-up targeted run `data/batch_runs/plan_step6_doc001_final` confirmed
-the remaining `doc001` row-shape/heat issue is fixed.
+QualiFlow is a **research prototype** for graduation-project evaluation. It prioritizes **safe review routing** over blind automation: uncertain extraction, unsupported material/spec families, and unverified traceability identifiers are routed to human review rather than force-approved.
 
-| Step | Status | Notes |
+### Evaluation artifacts
+
+A preliminary 20-document gold-set evaluation is committed for academic reference:
+
+- Report: [`outputs/eval_runs/final20/eval_report.md`](outputs/eval_runs/final20/eval_report.md)
+- Metrics: [`outputs/eval_runs/final20/metrics_summary.csv`](outputs/eval_runs/final20/metrics_summary.csv)
+- Ground truth: [`data/gold/ground_truth/`](data/gold/ground_truth/) (20 JSON files)
+- Metadata index: [`data/gold/metadata_20.csv`](data/gold/metadata_20.csv)
+
+These results are **preliminary** and should be interpreted field-by-field. Deterministic validation applies only to supported grade/spec families; unsupported families are flagged for review instead of being fabricated.
+
+### Traceability model
+
+Traceability identifiers are stored in **specific canonical fields** (`heat_number`, `batch_number`, `lot_number`, `cast_number`, `colata_number`, `charge_number`, etc.). The UI may group them under a single “Traceability Identifier” label, but the backend preserves the identifier type whenever the source header allows it.
+
+### Engineering Extension for Difficult Scanned Tables
+
+For scanned, multi-page, watermark-heavy certificates, a production version would add cell-level table reconstruction, OCR per cell, cross-page row stitching, and supplier-specific template adapters. The current prototype safely routes such cases to human review instead of hallucinating line items or compliance decisions.
+
+### Presentation notes
+
+- **Human-in-the-loop review is intentional.** The system is designed to escalate ambiguous cases rather than silently accept them.
+- **Unknown or unsupported specs are not force-approved.** Unresolved spec families route to review.
+- For grades outside the internal deterministic validation catalog, the system does not fabricate compliance. It routes the result to human review. A production extension would add document-declared limit validation, where Actual values are compared against Minimum/Maximum limits explicitly printed in the certificate.
+- **Some fields may still require review**, including item references, supplier formatting, and grades outside the supported registry.
+- **This prototype is not a fully autonomous certification authority.** It assists extraction and compliance checking; final approval remains a human responsibility.
+- **Security and deployment settings are prototype-level** unless production hardening (auth secrets, HTTPS, rate limits, audit logging) is added separately.
+
+### Smoke-test evidence
+
+The latest checked live evidence is a cost-limited two-PDF smoke sequence (`doc001.pdf`, `doc002.pdf`) under `data/batch_runs/plan_step6_*`. These runs validate the extraction pipeline end-to-end but do **not** constitute a full benchmark claim.
+
+| Area | Status | Notes |
 | --- | --- | --- |
-| Two-PDF manifest | **DONE** | `data/two_pdf_manifest.jsonl` limits live verification to `doc001` and `doc002`. |
-| Cost-limited Mode D run | **DONE** | `2 / 2` docs processed via `preprocessed_multimodal`; no other PDFs were called. |
-| Batch reporting contract | **UPDATED** | `summary.csv` and `usage.csv` are expected to carry structured reasons and token usage on new runs. |
-| Row-shape normalization | **UPDATED** | Vertical mechanical-property rows can be collapsed into one item-centric product row. |
-| Grade/spec coverage | **UPDATED** | Observed `SG2` and `321/321H` aliases are covered by deterministic validation rules. |
-| Full 20-doc benchmark | **PENDING** | Should be run only after the two-PDF smoke set passes with acceptable review reasons. |
-| Verified gold | **PENDING** | Ground-truth files exist, but final thesis metrics should be regenerated from verified results. |
-
-### Current Two-PDF Snapshot
-
-| metric | value | notes |
-| --- | --- | --- |
-| doc001_latest_status | COMPLETED | `data/batch_runs/plan_step6_doc001_final`; `1 / 1` item, no missing critical fields |
-| doc001_latest_review_required | false | Confidence `0.91`, `review_rate=0.0` in the targeted run |
-| doc002_latest_status | COMPLETED | `data/batch_runs/plan_step6_two_pdfs_final`; extraction complete and auto-accepted |
-| batch_errors | 0 | Runtime completed successfully in the latest smoke runs |
-| latest_doc001_estimated_cost_usd | 0.049527 | From `usage.csv` |
-
-> [!NOTE]
-> Historical optimistic 20-document metrics were removed from this README
-> because the current evidence showed unresolved extraction and review-policy
-> issues. Regenerate full metrics only after the two-PDF smoke set is clean.
-> Committed eval results for the 20-doc gold set are in `outputs/eval_runs/final20/`.
+| Two-PDF smoke manifest | Available | `data/two_pdf_manifest.jsonl` |
+| Cost-limited Mode D runs | Available | See `data/batch_runs/plan_step6_*` |
+| Full 20-doc live re-run | Optional | Re-run when API budget allows; compare against committed eval artifacts |
+| Verified gold | Partial | Ground-truth files exist; treat preannotated packs as proposals until human-verified |
 
 ---
 
@@ -376,9 +385,15 @@ the remaining `doc001` row-shape/heat issue is fixed.
 python -m pytest tests/ -q
 ```
 
-Phase 2 adds `tests/test_document_profiler.py`, `tests/test_extraction_router.py`, `tests/test_review_policy.py`, `tests/test_evaluation_metrics.py`, and `tests/test_manifest_builder.py`. All existing tests remain green.
+Targeted suites for traceability and field mapping:
 
----
+```bash
+python -m pytest tests/test_field_mapping_registry.py tests/test_traceability.py -v
+```
+
+Install dependencies from `requirements.txt` before running the full suite. Some modules (e.g. auth/database integrations) require packages such as `sqlalchemy`, `python-jose`, and `bcrypt`; collection failures indicate missing dependencies rather than test regressions.
+
+Phase 2 adds profiler, router, review-policy, evaluation-metrics, and manifest-builder tests alongside the existing extraction and validation suites.
 
 ## 10. Internal modules (reference)
 

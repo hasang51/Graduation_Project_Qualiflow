@@ -1,7 +1,12 @@
 import { Card } from '../../components/ui/card'
-
+import {
+  dedupeReasons,
+  formatConfidenceBreakdownDisplay,
+  formatDisplayReviewReason,
+  formatValidationOutcome,
+  getReviewReasonDedupeKey,
+} from '../../lib/presentation-safety'
 import { formatReviewReason } from '../../lib/review-reason-labels'
-
 import type { ExtractionResponse } from '../../types/qualiflow'
 
 
@@ -18,7 +23,7 @@ interface ExplanationPanelProps {
 
 const CONFIDENCE_LABELS: Record<string, string> = {
 
-  extraction_confidence: 'Extraction confidence',
+  extraction_confidence: 'Document extraction confidence',
 
   normalization_confidence: 'Normalization confidence',
 
@@ -56,13 +61,19 @@ function renderMappedList(values: unknown[] | undefined, empty: string) {
 
       {values.map((value, idx) => (
 
-        <li key={idx}>{formatReviewReason(String(value))}</li>
+        <li key={idx}>{formatDisplayReviewReason(String(value))}</li>
 
       ))}
 
     </ul>
 
   )
+
+}
+
+function toReasonStrings(values: unknown[] | undefined): string[] {
+
+  return (values ?? []).map((value) => String(value))
 
 }
 
@@ -88,9 +99,9 @@ export function ReviewerFocusStrip({ data }: { data: ExtractionResponse }) {
 
       <ul className="list-disc space-y-1 pl-5 text-sm leading-relaxed text-amber-50">
 
-        {reviewerFocus.map((value, idx) => (
+        {dedupeReasons(toReasonStrings(reviewerFocus)).map((value, idx) => (
 
-          <li key={idx}>{formatReviewReason(String(value))}</li>
+          <li key={idx}>{formatDisplayReviewReason(value)}</li>
 
         ))}
 
@@ -116,15 +127,31 @@ export function ExplanationPanel({ data, showReviewerFocus = true }: Explanation
 
   const confidence = data.confidence_breakdown ?? ((explanation.confidence_breakdown ?? {}) as Record<string, number>)
 
-  const topLevelReasons = data.review_reasons ?? []
+  const topLevelReasons = dedupeReasons(data.review_reasons ?? [])
 
-  const structuredReasons = (review.review_reasons as unknown[] | undefined) ?? []
+  const topLevelReasonKeys = new Set(topLevelReasons.map(getReviewReasonDedupeKey))
 
-  const structuredOnlyReasons = structuredReasons.filter(
+  const evidenceGaps = dedupeReasons(toReasonStrings(review.evidence_gaps as unknown[] | undefined))
 
-    (reason) => !topLevelReasons.includes(String(reason)),
+  const evidenceGapKeys = new Set(evidenceGaps.map(getReviewReasonDedupeKey))
 
-  )
+  const structuredReasons = dedupeReasons(toReasonStrings(review.review_reasons as unknown[] | undefined))
+
+  const structuredOnlyReasons = structuredReasons.filter((reason) => {
+
+    const key = getReviewReasonDedupeKey(reason)
+
+    return !topLevelReasonKeys.has(key) && !evidenceGapKeys.has(key)
+
+  })
+
+  const reviewSignalsEmptyMessage =
+
+    evidenceGaps.length > 0
+
+      ? 'Primary review drivers are listed below.'
+
+      : 'No additional structured review signals.'
 
 
 
@@ -142,7 +169,7 @@ export function ExplanationPanel({ data, showReviewerFocus = true }: Explanation
 
           <p className="text-xs uppercase tracking-wider text-slate-400">Validation Outcome</p>
 
-          <p className="text-sm text-slate-200">Outcome: {String(data.outcome ?? 'NOT_VALIDATED')}</p>
+          <p className="text-sm text-slate-200">Outcome: {formatValidationOutcome(data.outcome)}</p>
 
           {renderMappedList(topLevelReasons, 'No review reasons recorded.')}
 
@@ -158,13 +185,13 @@ export function ExplanationPanel({ data, showReviewerFocus = true }: Explanation
 
             structuredOnlyReasons.length > 0 ? structuredOnlyReasons : undefined,
 
-            'No additional structured review signals.',
+            reviewSignalsEmptyMessage,
 
           )}
 
           <p className="text-xs uppercase tracking-wider text-slate-500">Evidence Gaps</p>
 
-          {renderMappedList(review.evidence_gaps as unknown[] | undefined, 'No major evidence gaps flagged.')}
+          {renderMappedList(evidenceGaps, 'No major evidence gaps flagged.')}
 
         </Card>
 
@@ -184,7 +211,7 @@ export function ExplanationPanel({ data, showReviewerFocus = true }: Explanation
 
                   <span>{formatConfidenceKey(key)}</span>
 
-                  <span>{Math.round(Number(value) * 100)}%</span>
+                  <span>{formatConfidenceBreakdownDisplay(key, Number(value), data)}</span>
 
                 </li>
 

@@ -3,12 +3,19 @@ import { useMemo, useState } from 'react'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { buildEvidenceNoteSections } from '../../lib/evidence-notes'
-import { getRoutingDecisionLabel, getSpecificationCheckLabel } from '../../lib/format'
-import { formatReviewReason } from '../../lib/review-reason-labels'
+import {
+  dedupeReasons,
+  formatDisplayReviewReason,
+  getNoDeviationsMessage,
+  hasNoReliableLineItems,
+} from '../../lib/presentation-safety'
 import type { ExtractionResponse, ExtractedItem } from '../../types/qualiflow'
 
 const ITEM_IDENTIFIER_LINE_PATTERN =
   /secondary identifier|identifier candidate|candidate identifier|\bitem\s*id\b|\bpipe\s*coil\s*id\b/i
+
+const MODEL_REMARKS_FALLBACK =
+  'Model remarks unavailable because no reliable line items were extracted.'
 
 function hasExplicitPipeOrItemIdentifiers(items: ExtractedItem[]): boolean {
   return items.some((item) => {
@@ -60,22 +67,22 @@ export function SecondaryPanels({ data }: SecondaryPanelsProps) {
   }, [data.ai_analysis_remarks, data.items])
 
   const allDeviations = useMemo(() => {
-    return data.items.flatMap((item, index) =>
-      (item.validation?.deviations ?? []).map((deviation) => ({
-        itemId: item.item_id || `row-${index + 1}`,
-        message: formatReviewReason(deviation),
-      })),
-    )
+    const seen = new Set<string>()
+    const result: { itemId: string; message: string }[] = []
+    data.items.forEach((item, index) => {
+      const itemId = item.item_id || `row-${index + 1}`
+      for (const deviation of dedupeReasons(item.validation?.deviations ?? [])) {
+        const message = formatDisplayReviewReason(deviation)
+        const key = `${itemId}::${message}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        result.push({ itemId, message })
+      }
+    })
+    return result
   }, [data.items])
 
-  const noDeviationsMessage = useMemo(() => {
-    const isCompliant = getSpecificationCheckLabel(data) === 'Compliant'
-    const needsReview = getRoutingDecisionLabel(data) === 'Needs human review'
-    if (isCompliant && needsReview) {
-      return 'No threshold deviations detected. Human review is required due to OCR or table-alignment uncertainty.'
-    }
-    return 'No deviations detected.'
-  }, [data])
+  const noDeviationsMessage = useMemo(() => getNoDeviationsMessage(data), [data])
 
   async function copyJson() {
     await navigator.clipboard.writeText(rawJson)
@@ -104,13 +111,13 @@ export function SecondaryPanels({ data }: SecondaryPanelsProps) {
           ))}
         </ul>
 
-        {sanitizedModelRemarks && (
+        {(sanitizedModelRemarks || hasNoReliableLineItems(data)) && (
           <details className="rounded-lg border border-slate-800 bg-slate-950/70">
             <summary className="cursor-pointer list-none px-3 py-2 text-xs uppercase tracking-wider text-slate-500">
               Model Remarks
             </summary>
             <p className="whitespace-pre-wrap border-t border-slate-800 px-3 py-2 text-sm leading-relaxed text-slate-400">
-              {sanitizedModelRemarks}
+              {sanitizedModelRemarks ?? MODEL_REMARKS_FALLBACK}
             </p>
           </details>
         )}

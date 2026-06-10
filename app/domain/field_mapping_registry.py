@@ -64,8 +64,8 @@ CANONICAL_FIELDS: dict[str, CanonicalFieldDefinition] = {
     ),
     "heat_number": CanonicalFieldDefinition(
         canonical_name="heat_number",
-        description="Heat/cast/melt reference number.",
-        business_meaning="Traceability key linking product to melting/casting batch.",
+        description="Heat/melt reference number.",
+        business_meaning="Traceability key linking product to melting batch.",
         category="row",
         value_type="string",
         units=None,
@@ -73,8 +73,7 @@ CANONICAL_FIELDS: dict[str, CanonicalFieldDefinition] = {
         supported_header_synonyms=(
             "HEAT NO",
             "HEAT NUMBER",
-            "CAST NO",
-            "CAST NUMBER",
+            "HEAT#",
             "MELT NO",
             "MELT NUMBER",
             "SCHMELZE NO",
@@ -87,25 +86,17 @@ CANONICAL_FIELDS: dict[str, CanonicalFieldDefinition] = {
     ),
     "batch_number": CanonicalFieldDefinition(
         canonical_name="batch_number",
-        description="Batch/lot reference number.",
-        business_meaning="Traceability key linking product to a production or shipment lot.",
+        description="Batch reference number.",
+        business_meaning="Traceability key linking product to a production batch.",
         category="metadata",
         value_type="string",
         units=None,
-        examples=("LOT-24-01", "BATCH-1009"),
+        examples=("BATCH-1009", "B-2024-01"),
         supported_header_synonyms=(
             "BATCH NO",
             "BATCH NUMBER",
             "BATCH N",
             "BATCH N°",
-            "LOT NO",
-            "LOT NUMBER",
-            "LOT",
-            "LOTTO",
-            "COLATA",
-            "COLATA/BATCH",
-            "N COLATA",
-            "N LOTTO",
         ),
     ),
     "lot_number": CanonicalFieldDefinition(
@@ -126,7 +117,7 @@ CANONICAL_FIELDS: dict[str, CanonicalFieldDefinition] = {
         value_type="string",
         units=None,
         examples=("410537", "COL-88"),
-        supported_header_synonyms=("COLATA", "N COLATA", "COLATA/BATCH", "COLATA NO", "COLATA N°"),
+        supported_header_synonyms=("COLATA", "N COLATA", "COLATA/BATCH", "COLATA NO", "COLATA N°", "COLATA NUMBER"),
     ),
     "cast_number": CanonicalFieldDefinition(
         canonical_name="cast_number",
@@ -240,6 +231,7 @@ def _normalize_for_matching(text: str) -> str:
     cleaned = re.sub(r"[_\-]+", " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
     cleaned = re.sub(r"\bRP\s*0[\.,]?\s*2\b", "RP0.2", cleaned)
+    cleaned = re.sub(r"\bHEAT\s*#\b", "HEAT NO", cleaned)
     cleaned = re.sub(r"\bA\s*%\b", "A%", cleaned)
     cleaned = re.sub(r"(?<=\w)\((.*?)\)", r" \1", cleaned)
     cleaned = re.sub(r"[^\w.%\s]+", "", cleaned)

@@ -241,7 +241,8 @@ class Doc008RegressionTests(unittest.TestCase):
         }
         self.assertEqual(raw_candidates["certificate_number"], "CERT-88B")
         self.assertEqual(raw_candidates["order_number"], "ORD-1009")
-        self.assertEqual(extraction.traceability_status, "UNVERIFIED")
+        self.assertEqual(extraction.traceability_status, "VERIFIED")
+        self.assertEqual(extraction.items[0].heat_number, "H123")
         self.assertIn("certificate_number", extraction.raw_identifier_candidates)
         self.assertIn("order_number", extraction.raw_identifier_candidates)
         self.assertIn("certificate_number", extraction.accepted_identifier_values)

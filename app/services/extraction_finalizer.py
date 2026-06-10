@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.domain.field_mapping_registry import normalize_header
+from app.domain.labeled_identifier_extractor import apply_labeled_identifiers
 from app.schemas.extraction import ExtractedItem, UniversalDocumentExtraction
 from app.services.traceability import TRACEABILITY_VERIFIED, apply_traceability_remarks
 
@@ -425,6 +426,10 @@ def finalize_extraction_fields(
     rows, assigned_ids = _assign_sequential_item_ids(rows)
     if assigned_ids:
         tokens.append("item_id_assigned:sequential")
+
+    labeled_tokens, labeled_traces = apply_labeled_identifiers(meta, rows)
+    tokens.extend(labeled_tokens)
+    traces.extend(labeled_traces)
 
     return FinalizationResult(metadata=meta, rows=rows, tokens=tokens, traces=traces)
 

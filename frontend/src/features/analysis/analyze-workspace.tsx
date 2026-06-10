@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { AlertTriangle, RefreshCw, ShieldCheck, Upload } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
@@ -53,12 +53,10 @@ export function AnalyzeWorkspace() {
     },
   })
 
-  const currentLoadingStep = useMemo(() => loadingSteps[loadingStepIndex] ?? loadingSteps[0], [loadingStepIndex])
-
   useEffect(() => {
     if (!mutation.isPending) return
     const timer = window.setInterval(() => {
-      setLoadingStepIndex((prev) => (prev + 1) % loadingSteps.length)
+      setLoadingStepIndex((prev) => Math.min(prev + 1, loadingSteps.length - 1))
     }, 1800)
     return () => window.clearInterval(timer)
   }, [mutation.isPending])
@@ -146,7 +144,7 @@ export function AnalyzeWorkspace() {
               )}
             </div>
           </Card>
-          <AnalysisProgress currentStep={mutation.isPending ? currentLoadingStep : loadingSteps[0]} active={mutation.isPending} />
+          <AnalysisProgress currentStepIndex={mutation.isPending ? loadingStepIndex : 0} active={mutation.isPending} />
         </div>
       )}
 

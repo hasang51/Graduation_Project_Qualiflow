@@ -40,6 +40,10 @@ function fieldAliases(field: string): string[] {
     heat_number: ['heat_number', 'heat_no', 'heat no', 'heat'],
     heat_no: ['heat_number', 'heat_no', 'heat no', 'heat'],
     batch_number: ['batch_number', 'batch_no', 'batch no', 'batch'],
+    lot_number: ['lot_number', 'lot_no', 'lot no', 'lot'],
+    colata_number: ['colata_number', 'colata', 'colata no'],
+    cast_number: ['cast_number', 'cast_no', 'cast no', 'cast'],
+    charge_number: ['charge_number', 'charge_no', 'charge no', 'charge'],
     item_id: ['item_id', 'pipe_id', 'item', 'pipe_coil_id', 'coil', 'pipe'],
     pipe_id: ['pipe_id', 'item_id', 'item', 'pipe_coil_id', 'coil', 'pipe'],
     pipe_coil_id: ['item_id', 'pipe_id', 'item', 'pipe_coil_id', 'coil', 'pipe'],
@@ -47,6 +51,57 @@ function fieldAliases(field: string): string[] {
     order_number: ['order_number', 'order', 'po'],
   }
   return aliases[field] ?? [field]
+}
+
+function readRawCandidateValue(entry: unknown): string | undefined {
+  if (typeof entry === 'string' && entry.trim()) {
+    return entry.trim()
+  }
+  if (Array.isArray(entry)) {
+    for (const item of entry) {
+      const nested = readRawCandidateValue(
+        typeof item === 'object' && item !== null
+          ? (item as Record<string, unknown>).value ?? (item as Record<string, unknown>).raw_candidate
+          : item,
+      )
+      if (nested) return nested
+    }
+    return undefined
+  }
+  if (entry && typeof entry === 'object') {
+    const record = entry as Record<string, unknown>
+    return readRawCandidateValue(record.value ?? record.raw_candidate)
+  }
+  return undefined
+}
+
+function readRawCandidate(
+  rawItem: Record<string, unknown>,
+  fields: string[],
+): string | undefined {
+  const candidates = asRecord(rawItem.raw_identifier_candidates)
+  if (!candidates) return undefined
+
+  for (const field of fields) {
+    for (const alias of fieldAliases(field)) {
+      const value = readRawCandidateValue(candidates[alias])
+      if (value) return value
+    }
+  }
+  return undefined
+}
+
+function formatSuppressedCandidate(
+  rawItem: Record<string, unknown>,
+  fields: string[],
+  reasons: string[],
+): string | undefined {
+  if (reasons.includes('critical_identifier_unverified')) {
+    return undefined
+  }
+  const candidate = readRawCandidate(rawItem, fields)
+  if (!candidate) return undefined
+  return `${candidate} (needs verification)`
 }
 
 function hasIdentifierBlockingReason(
@@ -132,11 +187,24 @@ export function renderCriticalIdentifier(
   const accepted =
     asRecord(rawItem.accepted_identifier_values) ??
     asRecord(rawItem.acceptedIdentifierValues)
+  const reasons = collectReasons(rawItem)
+
+  const fallbackFields = allowCrossFieldFallback
+    ? [
+        ...fields,
+        'heat_number',
+        'batch_number',
+        'colata_number',
+        'lot_number',
+        'cast_number',
+        'charge_number',
+      ]
+    : [...fields]
 
   if (allowTraceabilityShortcut && accepted && Object.prototype.hasOwnProperty.call(accepted, 'traceability_identifier_value')) {
     const value = accepted.traceability_identifier_value
     if (value === null || value === undefined || value === '' || value === '-') {
-      return missingValue
+      return formatSuppressedCandidate(rawItem, fallbackFields, reasons) ?? missingValue
     }
     return String(value)
   }
@@ -151,18 +219,6 @@ export function renderCriticalIdentifier(
   ) {
     return String(topTraceabilityValue)
   }
-
-  const fallbackFields = allowCrossFieldFallback
-    ? [
-        ...fields,
-        'heat_number',
-        'batch_number',
-        'colata_number',
-        'lot_number',
-        'cast_number',
-        'charge_number',
-      ]
-    : [...fields]
 
   if (accepted) {
     let sawExplicitEmptyFromAccepted = false
@@ -190,10 +246,13 @@ export function renderCriticalIdentifier(
     return missingValue
   }
 
-  const reasons = collectReasons(rawItem)
-  if (hasIdentifierBlockingReason(reasons, fallbackFields)) return missingValue
+  if (hasIdentifierBlockingReason(reasons, fallbackFields)) {
+    return formatSuppressedCandidate(rawItem, fallbackFields, reasons) ?? missingValue
+  }
 
-  if (rawItem.identifier_visibility_verified === false) return missingValue
+  if (rawItem.identifier_visibility_verified === false) {
+    return formatSuppressedCandidate(rawItem, fallbackFields, reasons) ?? missingValue
+  }
 
   for (const field of fallbackFields) {
     const value = readRawField(rawItem, field)
@@ -201,5 +260,5 @@ export function renderCriticalIdentifier(
       return String(value)
     }
   }
-  return missingValue
+  return formatSuppressedCandidate(rawItem, fallbackFields, reasons) ?? missingValue
 }

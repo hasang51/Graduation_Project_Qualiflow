@@ -9,6 +9,7 @@ from app.services.document_profiler import (
     DIGITAL_TEXT_DENSITY_MIN,
     NOISE_DEGRADED_THRESHOLD,
     classify_profile,
+    _page_text_is_noisy_ocr,
 )
 
 
@@ -87,6 +88,43 @@ class ClassifyProfileTests(unittest.TestCase):
             text_density=DIGITAL_TEXT_DENSITY_MIN / 2.0,
         )
         self.assertEqual(quality, "scan_clean")
+
+    def test_replacement_char_check_does_not_flag_clean_text(self):
+        clean_text = (
+            "Mill Test Certificate EN 10204 3.1 Supplier: Example Steel Co. "
+            "Heat number 12345678 Grade S355 Yield 355 MPa Tensile 510 MPa."
+        )
+        self.assertGreater(len(clean_text), 40)
+        # Python's str.count("") is len(text)+1 and must not be used for OCR checks.
+        self.assertGreater(clean_text.count(""), len(clean_text))
+        self.assertFalse(_page_text_is_noisy_ocr(clean_text))
+
+    def test_clean_text_layer_with_small_images_is_digital_clean(self):
+        quality, reasons = classify_profile(
+            has_text_layer=True,
+            blur_score=300.0,
+            noise_score=5.0,
+            text_density=0.35,
+            is_noisy_ocr=False,
+            has_full_page_raster_image=False,
+        )
+        self.assertEqual(quality, "digital_clean")
+        self.assertNotIn("full_page_raster_image", reasons)
+        self.assertNotIn("ocr_text_layer_corrupted", reasons)
+
+    def test_corrupted_ocr_and_large_raster_remains_noisy_scan(self):
+        quality, reasons = classify_profile(
+            has_text_layer=True,
+            blur_score=300.0,
+            noise_score=5.0,
+            text_density=0.35,
+            is_noisy_ocr=True,
+            has_full_page_raster_image=True,
+        )
+        self.assertEqual(quality, "noisy_scan")
+        self.assertIn("ocr_text_layer_corrupted", reasons)
+        self.assertIn("full_page_raster_image", reasons)
+        self.assertIn("low_identifier_legibility", reasons)
 
     def test_doc001_profiles_as_noisy_scan_not_severe_scan(self):
         pdf_path = Path("data/eval_docs/doc001.pdf")

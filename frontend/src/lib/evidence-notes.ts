@@ -1,5 +1,10 @@
 import { formatDecisionLabel, formatNullable, resolveProcessingDecisionValue } from './format'
-import { formatReviewReason } from './review-reason-labels'
+import {
+  dedupeExactStrings,
+  dedupeReasons,
+  formatDisplayReviewReason,
+  formatValidationOutcome,
+} from './presentation-safety'
 import type { ExtractionResponse, ExtractedItem } from '../types/qualiflow'
 
 export { formatReviewReason } from './review-reason-labels'
@@ -123,16 +128,19 @@ function buildValidationNotes(data: ExtractionResponse): string[] {
     const ref = itemRef(item, index)
     const deviations = validation.deviations ?? []
 
-    if (deviations.length === 0) {
-      lines.push(`${ref}: ${outcome}`)
+    const outcomeLabel = formatValidationOutcome(outcome)
+    const formattedDeviations = dedupeReasons(deviations).map(formatDisplayReviewReason)
+
+    if (formattedDeviations.length === 0) {
+      lines.push(`${ref}: ${outcomeLabel}`)
       return
     }
 
-    lines.push(`${ref}: ${outcome} (${deviations.map(formatReviewReason).join('; ')})`)
+    lines.push(`${ref}: ${outcomeLabel} (${formattedDeviations.join('; ')})`)
   })
 
   if (data.outcome && lines.length === 0) {
-    lines.push(`Document: ${data.outcome}`)
+    lines.push(`Document: ${formatValidationOutcome(data.outcome)}`)
   }
 
   if (lines.length === 0) {
@@ -147,19 +155,19 @@ function buildDecisionNotes(data: ExtractionResponse): string[] {
   const lines = [formatDecisionLabel(decision)]
 
   if (data.review_reasons && data.review_reasons.length > 0) {
-    lines.push(...data.review_reasons.map(formatReviewReason))
+    lines.push(...dedupeReasons(data.review_reasons).map(formatDisplayReviewReason))
   }
 
-  return lines
+  return dedupeExactStrings(lines)
 }
 
 export function buildEvidenceNoteSections(data: ExtractionResponse): EvidenceNoteSection[] {
   return [
-    { title: 'Certificate Date', lines: buildCertificateDateNotes(data) },
-    { title: 'Traceability Identifier', lines: buildTraceabilityNotes(data) },
-    { title: 'Product / Grade', lines: buildGradeNotes(data) },
-    { title: 'Validation', lines: buildValidationNotes(data) },
-    { title: 'Decision', lines: buildDecisionNotes(data) },
+    { title: 'Certificate Date', lines: dedupeExactStrings(buildCertificateDateNotes(data)) },
+    { title: 'Traceability Identifier', lines: dedupeExactStrings(buildTraceabilityNotes(data)) },
+    { title: 'Product / Grade', lines: dedupeExactStrings(buildGradeNotes(data)) },
+    { title: 'Validation', lines: dedupeExactStrings(buildValidationNotes(data)) },
+    { title: 'Decision', lines: dedupeExactStrings(buildDecisionNotes(data)) },
   ]
 }
 

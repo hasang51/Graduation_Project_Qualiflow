@@ -24,7 +24,12 @@ Without this layer, row semantics can drift as header variants change between do
 
 Core stabilized mappings:
 
-- `CAST NO`, `DOKUM NO`, `DÖKÜM NO`, `HEAT NO`, `MELT NO` -> `heat_number`
+- `HEAT NO`, `MELT NO`, `DOKUM NO`, `DÖKÜM NO`, `SCHMELZE NO` -> `heat_number`
+- `BATCH NO`, `BATCH NUMBER` -> `batch_number`
+- `LOT NO`, `LOT NUMBER` -> `lot_number`
+- `CAST NO`, `CAST NUMBER` -> `cast_number`
+- `COLATA`, `COLATA NO` -> `colata_number`
+- `CHARGE NO`, `CHARGE NUMBER` -> `charge_number`
 - `SIZE`, `EBAT`, `ITEM` -> `item_id`
 - `LENGTH`, `UZUNLUK`, `WEIGHT` -> `weight_or_length`
 - `YIELD TS`, `RE`, `RP0.2` -> `yield_strength_mpa`

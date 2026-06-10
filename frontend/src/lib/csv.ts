@@ -1,5 +1,6 @@
 import type { ExtractedItem } from '../types/qualiflow'
 import { renderCriticalIdentifier } from './critical-identifiers'
+import { SIZE_WEIGHT_COLUMN_HEADER } from './presentation-labels'
 
 function escapeCsv(value: string): string {
   const escaped = value.replace(/"/g, '""')
@@ -8,10 +9,10 @@ function escapeCsv(value: string): string {
 
 export function buildItemsCsv(items: ExtractedItem[]): string {
   const headers = [
-    'Heat / Batch No.',
+    'Traceability ID',
     'Item ID (Pipe/Coil)',
     'Grade',
-    'Weight/Length',
+    SIZE_WEIGHT_COLUMN_HEADER,
     'Yield',
     'Tensile',
     'Elongation',

@@ -33,7 +33,7 @@ export function HistoryPage() {
       <Card className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-100">Analysis History</h1>
-          <p className="text-sm text-slate-400">Reopen persisted runs after app restart.</p>
+          <p className="text-sm text-slate-400">Review saved extraction and compliance runs.</p>
         </div>
         <div className="relative w-full max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />

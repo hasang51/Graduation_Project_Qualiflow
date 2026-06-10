@@ -14,7 +14,7 @@ class SemanticNormalizationTests(unittest.TestCase):
         ]
         normalized = normalize_rows_semantics(rows)
         self.assertEqual(normalized[0].canonical_values["heat_number"], "H-01")
-        self.assertEqual(normalized[1].canonical_values["heat_number"], "C-02")
+        self.assertEqual(normalized[1].canonical_values["cast_number"], "C-02")
         self.assertEqual(normalized[2].canonical_values["heat_number"], "M-03")
 
     def test_composite_grade_tokenization(self):

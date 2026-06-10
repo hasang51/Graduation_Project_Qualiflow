@@ -72,3 +72,21 @@ const strictItemColumn = renderCriticalIdentifier(
 if (strictItemColumn !== '—') {
   throw new Error('Expected strict Item ID renderer to omit heat_number / traceability fallback.')
 }
+
+const castCandidateRendered = renderCriticalIdentifier(
+  {
+    accepted_identifier_values: { cast_number: null, traceability_identifier_value: null },
+    cast_number: null,
+    raw_identifier_candidates: {
+      cast_number: [{ value: '9316704', reason: 'low_identifier_confidence', accepted: false }],
+    },
+    traceability_identifier_type: 'cast_number',
+    identifier_visibility_verified: false,
+    review_reasons: ['traceability_unverified'],
+  },
+  ['cast_number'],
+)
+
+if (castCandidateRendered !== '9316704 (needs verification)') {
+  throw new Error('Expected suppressed cast_number candidate to render with needs verification label.')
+}

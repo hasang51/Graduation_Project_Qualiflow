@@ -27,6 +27,49 @@ export function formatNumber(
   }).format(value)
 }
 
+const PLAUSIBLE_MPA_MIN = 100
+const PLAUSIBLE_MPA_MAX = 2500
+
+function looksLikeThousandsGroupedMpa(value: number): number | null {
+  if (!(value > 0 && value < 50)) return null
+
+  const promoted = Math.round(value * 1000)
+  if (promoted < PLAUSIBLE_MPA_MIN || promoted > PLAUSIBLE_MPA_MAX) {
+    return null
+  }
+
+  const fractionalDigits = value.toFixed(4).split('.')[1] ?? ''
+  const hasThreeDigitFraction = fractionalDigits.replace(/0+$/, '').length === 3
+  const likelyDecimalMpa = value <= 10 && fractionalDigits.length > 0 && !hasThreeDigitFraction
+
+  if (likelyDecimalMpa && promoted > 500) {
+    return null
+  }
+
+  if (hasThreeDigitFraction) {
+    return promoted
+  }
+
+  return null
+}
+
+export function formatMpaDisplay(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return MISSING_VALUE
+  }
+
+  const promoted = looksLikeThousandsGroupedMpa(value)
+  if (promoted !== null) {
+    return String(promoted)
+  }
+
+  if (Number.isInteger(value) || Math.abs(value - Math.round(value)) < 1e-6) {
+    return String(Math.round(value))
+  }
+
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(value)
+}
+
 export const DEFAULT_REVIEW_CONFIDENCE_THRESHOLD = 0.75
 
 export function formatConfidence(score: number): string {

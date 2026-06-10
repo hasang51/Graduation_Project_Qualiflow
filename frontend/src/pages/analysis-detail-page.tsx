@@ -26,7 +26,6 @@ import {
 
   formatConfidence,
 
-  getConfidenceHelperText,
 
   getRoutingDecisionDisplayTone,
 
@@ -36,10 +35,10 @@ import {
 
 import {
 
+  getCompliantNeedsReviewNote,
+  getPresentationConfidenceHelperText,
   getPresentationSpecificationCheckDisplay,
-
   resolveDecisionConfidence,
-
 } from '../lib/presentation-safety'
 
 import { downloadDocument, getAnalysisById } from '../lib/api'
@@ -132,7 +131,7 @@ export function AnalysisDetailPage() {
 
   const routingDecision = extraction ? getRoutingDecisionLabel(extraction) : null
 
-  const confidenceHelper = extraction ? getConfidenceHelperText(extraction) : null
+  const confidenceHelper = extraction ? getPresentationConfidenceHelperText(extraction) : null
 
   const showCompliantNeedsReviewNote =
 
@@ -250,7 +249,7 @@ export function AnalysisDetailPage() {
 
               <div className="space-y-1">
 
-                <p className="text-xs uppercase tracking-wider text-slate-500">Specification check</p>
+                <p className="text-xs uppercase tracking-wider text-slate-500">Rule-based compliance check</p>
 
                 <Badge text={specificationDisplay.label} tone={specificationDisplay.tone} />
 
@@ -268,7 +267,7 @@ export function AnalysisDetailPage() {
 
               <div className="space-y-1">
 
-                <p className="text-xs uppercase tracking-wider text-slate-500">Routing decision</p>
+                <p className="text-xs uppercase tracking-wider text-slate-500">Final routing decision</p>
 
                 <Badge text={routingDecision} tone={getRoutingDecisionDisplayTone(routingDecision)} />
 
@@ -302,7 +301,7 @@ export function AnalysisDetailPage() {
 
               <p className="text-sm leading-relaxed text-slate-400">
 
-                Values appear compliant, but human review is required before automatic approval.
+                {getCompliantNeedsReviewNote(extraction!)}
 
               </p>
 
@@ -341,6 +340,8 @@ export function AnalysisDetailPage() {
             reviewReasons={extraction.review_reasons}
 
             explanation={extraction.explanation}
+
+            emptyMessage="No reliable line items were extracted. The document was routed to human review."
 
           />
 
