@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -26,6 +27,40 @@ from app.services.traceability import sanitize_result_for_api_boundary, sanitize
 
 logger = logging.getLogger("qualiflow.extract")
 router = APIRouter(prefix="/api/v1", tags=["extraction"])
+
+_REMARK_SUPPRESSED_PHRASE_PATTERN = re.compile(
+    r"secondary\s+identifier\s+candidates?|"
+    r"candidate\s+identifier|"
+    r"\bitem\s*id\b|"
+    r"\bpipe\s*coil\s*id\b",
+    re.IGNORECASE,
+)
+
+
+def _sanitize_ai_analysis_remarks_for_presentation(remarks: str | None) -> str | None:
+    """Strip unsupported secondary-identifier phrasing from API-facing remarks only."""
+    if remarks is None:
+        return None
+    text = remarks.strip()
+    if not text:
+        return None
+
+    kept_lines: list[str] = []
+    for raw_line in re.split(r"\r?\n", text):
+        line = raw_line.strip()
+        if not line:
+            continue
+        segments = re.split(r"(?<=\.)\s+", line)
+        kept_segments = [
+            segment.strip()
+            for segment in segments
+            if segment.strip() and not _REMARK_SUPPRESSED_PHRASE_PATTERN.search(segment)
+        ]
+        if kept_segments:
+            kept_lines.append(" ".join(kept_segments))
+
+    sanitized = "\n".join(kept_lines).strip()
+    return sanitized or None
 
 
 @router.post("/extract", response_model=UniversalDocumentExtraction)
@@ -148,6 +183,9 @@ async def extract_document(
                 db.commit()
 
         payload = sanitize_result_for_api_boundary(extraction)
+        payload["ai_analysis_remarks"] = _sanitize_ai_analysis_remarks_for_presentation(
+            payload.get("ai_analysis_remarks")
+        )
         if current_user and run:
             payload["analysis_id"] = run.id
         return payload

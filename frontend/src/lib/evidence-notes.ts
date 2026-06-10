@@ -1,13 +1,33 @@
 import { formatDecisionLabel, formatNullable, resolveProcessingDecisionValue } from './format'
+import { formatReviewReason } from './review-reason-labels'
 import type { ExtractionResponse, ExtractedItem } from '../types/qualiflow'
+
+export { formatReviewReason } from './review-reason-labels'
 
 export interface EvidenceNoteSection {
   title: string
   lines: string[]
 }
 
+const PLACEHOLDER_ITEM_IDS = new Set(['', '-', '—', 'n/a', 'na', 'none', 'null'])
+
+function isSequentialItemId(itemId: string, index: number): boolean {
+  const normalized = itemId.trim()
+  if (/^\d+$/.test(normalized)) {
+    return Number(normalized) === index + 1
+  }
+
+  const match = normalized.toLowerCase().match(/^(?:item|row)[-_ ]?(\d+)$/)
+  return match !== null && Number(match[1]) === index + 1
+}
+
 function itemRef(item: ExtractedItem, index: number): string {
-  return item.item_id || `row-${index + 1}`
+  const itemId = item.item_id?.trim()
+  if (!itemId || PLACEHOLDER_ITEM_IDS.has(itemId.toLowerCase()) || isSequentialItemId(itemId, index)) {
+    return `Row ${index + 1}`
+  }
+
+  return itemId
 }
 
 function resolveCertificateDateSourceLabel(data: ExtractionResponse): string | null {
@@ -108,7 +128,7 @@ function buildValidationNotes(data: ExtractionResponse): string[] {
       return
     }
 
-    lines.push(`${ref}: ${outcome} (${deviations.join('; ')})`)
+    lines.push(`${ref}: ${outcome} (${deviations.map(formatReviewReason).join('; ')})`)
   })
 
   if (data.outcome && lines.length === 0) {
@@ -127,7 +147,7 @@ function buildDecisionNotes(data: ExtractionResponse): string[] {
   const lines = [formatDecisionLabel(decision)]
 
   if (data.review_reasons && data.review_reasons.length > 0) {
-    lines.push(data.review_reasons.join(', '))
+    lines.push(...data.review_reasons.map(formatReviewReason))
   }
 
   return lines
@@ -137,7 +157,7 @@ export function buildEvidenceNoteSections(data: ExtractionResponse): EvidenceNot
   return [
     { title: 'Certificate Date', lines: buildCertificateDateNotes(data) },
     { title: 'Traceability Identifier', lines: buildTraceabilityNotes(data) },
-    { title: 'Grade', lines: buildGradeNotes(data) },
+    { title: 'Product / Grade', lines: buildGradeNotes(data) },
     { title: 'Validation', lines: buildValidationNotes(data) },
     { title: 'Decision', lines: buildDecisionNotes(data) },
   ]

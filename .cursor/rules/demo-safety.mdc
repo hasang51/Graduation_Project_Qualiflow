@@ -1,0 +1,18 @@
+---
+description: Demo safety rules for QualiFlow graduation presentation
+alwaysApply: true
+---
+
+# QualiFlow Demo Safety Rules
+
+- Do not rewrite the extraction pipeline unless explicitly requested.
+- Prefer small, reversible changes.
+- Preserve existing API response fields unless explicitly requested.
+- Do not remove raw JSON, confidence breakdown, route decision, or evidence notes.
+- Do not invent identifiers. If a field is not visible in the source document, display it as null, missing, or "not visible".
+- Separate validation result from automation decision:
+  - Validation result answers: do the extracted values satisfy the rules?
+  - Automation decision answers: can the system approve automatically or does it need human review?
+- Internal reason codes may remain in JSON, but the main UI must show human-readable labels.
+- Before changing multiple files, produce a short plan with target files.
+- After edits, run available typecheck/build/test commands.

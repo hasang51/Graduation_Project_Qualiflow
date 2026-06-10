@@ -34,17 +34,74 @@ export function formatConfidence(score: number): string {
   return `${Math.round(clamped * 100)}%`
 }
 
+export const EXTRACTION_CONFIDENCE_CAPTION =
+  'Reflects extraction and routing certainty, not automatic compliance approval.'
+
+const CONFIDENCE_REVIEW_HELPER_TEXT =
+  'Final confidence is reduced because the scan contains OCR, header, or table-alignment uncertainty.'
+
+export const LOW_SPEC_RESOLUTION_CONFIDENCE_THRESHOLD = 0.35
+
+export function resolveSpecResolutionConfidence(data: {
+  confidence_breakdown?: Record<string, number> | null
+  explanation?: Record<string, unknown> | null
+}): number | null {
+  const direct = data.confidence_breakdown?.spec_resolution_confidence
+  if (typeof direct === 'number') return direct
+
+  const explanation = data.explanation ?? {}
+  const nested = explanation.confidence_breakdown
+  if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+    const value = (nested as Record<string, number>).spec_resolution_confidence
+    if (typeof value === 'number') return value
+  }
+
+  return null
+}
+
+export type SpecificationCheckDisplay = {
+  label: string
+  reason?: string
+  tone: ComplianceState | 'needs-review'
+}
+
+export function getSpecificationCheckDisplay(data: {
+  outcome?: ValidationOutcome | null
+  is_compliant?: boolean | null
+  compliance_status?: string | null
+  confidence_breakdown?: Record<string, number> | null
+  explanation?: Record<string, unknown> | null
+}): SpecificationCheckDisplay {
+  const baseLabel = getSpecificationCheckLabel(data)
+  const specResolutionConfidence = resolveSpecResolutionConfidence(data)
+
+  if (
+    baseLabel === 'Unknown' &&
+    specResolutionConfidence !== null &&
+    specResolutionConfidence < LOW_SPEC_RESOLUTION_CONFIDENCE_THRESHOLD
+  ) {
+    return {
+      label: 'Not automated',
+      reason: 'Recognized grade/spec is not covered by deterministic validation rules.',
+      tone: 'not-validated',
+    }
+  }
+
+  return {
+    label: baseLabel,
+    tone: getSpecificationCheckTone(baseLabel),
+  }
+}
+
 export function getConfidenceHelperText(
   data: {
     confidence_score: number
     needs_review?: boolean
-    review_reasons?: string[]
   },
   threshold = DEFAULT_REVIEW_CONFIDENCE_THRESHOLD,
 ): string | null {
   if (data.needs_review === true) {
-    const reasons = (data.review_reasons ?? []).filter(Boolean)
-    return reasons.length > 0 ? reasons.join('; ') : 'Review required.'
+    return CONFIDENCE_REVIEW_HELPER_TEXT
   }
 
   if (data.needs_review === false && data.confidence_score < threshold) {
@@ -120,6 +177,82 @@ export function getDetailComplianceLabel(data: {
 
 export function getProcessingDecision(needsReview: boolean | undefined): ProcessingDecisionLabel {
   return needsReview ? 'NEEDS_REVIEW' : 'AUTO_ACCEPT'
+}
+
+export type SpecificationCheckLabel = 'Compliant' | 'Non-compliant' | 'Unknown'
+export type RoutingDecisionDisplayLabel =
+  | 'Needs human review'
+  | 'Auto-approved'
+  | 'Rejected'
+  | 'Unknown'
+
+export function getSpecificationCheckLabel(data: {
+  outcome?: ValidationOutcome | null
+  is_compliant?: boolean | null
+  compliance_status?: string | null
+}): SpecificationCheckLabel {
+  const outcome = data.outcome ?? null
+  if (outcome === 'COMPLIANT') return 'Compliant'
+  if (outcome === 'NON_COMPLIANT') return 'Non-compliant'
+
+  const complianceStatus = normalizeComplianceToken(data.compliance_status)
+  if (complianceStatus === 'COMPLIANT') return 'Compliant'
+  if (complianceStatus === 'NON_COMPLIANT') return 'Non-compliant'
+
+  if (data.is_compliant === true) return 'Compliant'
+  if (data.is_compliant === false) return 'Non-compliant'
+
+  return 'Unknown'
+}
+
+export function getRoutingDecisionLabel(data: {
+  needs_review?: boolean
+  processing_decision?: string | null
+  status?: string | null
+}): RoutingDecisionDisplayLabel {
+  const decision = normalizeDecisionToken(data.processing_decision)
+  const status = normalizeDecisionToken(data.status)
+
+  if (decision === 'reject' || decision === 'rejected' || status === 'failed' || status === 'rejected') {
+    return 'Rejected'
+  }
+
+  if (
+    data.needs_review === true ||
+    decision === 'needs_review' ||
+    decision === 'manual_review' ||
+    status === 'needs_review'
+  ) {
+    return 'Needs human review'
+  }
+
+  if (
+    data.needs_review === false ||
+    decision === 'auto_accept' ||
+    status === 'auto_accept' ||
+    status === 'completed'
+  ) {
+    return 'Auto-approved'
+  }
+
+  return 'Unknown'
+}
+
+export function getSpecificationCheckTone(
+  label: SpecificationCheckLabel,
+): ComplianceState | 'needs-review' {
+  if (label === 'Compliant') return 'compliant'
+  if (label === 'Non-compliant') return 'non-compliant'
+  return 'not-validated'
+}
+
+export function getRoutingDecisionDisplayTone(
+  label: RoutingDecisionDisplayLabel,
+): 'success' | 'warning' | 'danger' | 'info' {
+  if (label === 'Auto-approved') return 'success'
+  if (label === 'Needs human review') return 'warning'
+  if (label === 'Rejected') return 'danger'
+  return 'info'
 }
 
 export function getDetailComplianceTone(label: DetailComplianceLabel): ComplianceState {

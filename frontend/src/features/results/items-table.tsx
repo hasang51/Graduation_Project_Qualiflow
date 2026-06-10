@@ -14,10 +14,28 @@ import { Card } from '../../components/ui/card'
 import { Input } from '../../components/ui/input'
 import { renderCriticalIdentifier } from '../../lib/critical-identifiers'
 import { formatNullable, formatNumber, MISSING_VALUE } from '../../lib/format'
+import {
+  isItemMechanicallyIncomplete,
+  resolveItemRefCellValue,
+  resolveItemRefColumnHeader,
+} from '../../lib/presentation-safety'
+import { formatReviewReason } from '../../lib/review-reason-labels'
 import type { ExtractedItem, GradeResolutionPayload, TraceabilityStatus, ValidationOutcome } from '../../types/qualiflow'
+
+const ALTERNATIVE_CLASSIFICATION_REASON = 'row_shape:alternative_classification_rows_collapsed'
+const ALTERNATIVE_CLASSIFICATION_NOTE =
+  'This certificate lists multiple classification conditions. The table shows the primary extracted row; alternate classifications should be reviewed in the source document.'
 
 interface ItemsTableProps {
   items: ExtractedItem[]
+  reviewReasons?: string[]
+  explanation?: Record<string, unknown> | null
+}
+
+function isEmptyItemId(value: string | null): boolean {
+  if (value === null || value === undefined) return true
+  const trimmed = value.trim()
+  return trimmed === '' || trimmed === MISSING_VALUE || trimmed === '—'
 }
 
 interface RowShape {
@@ -44,7 +62,11 @@ function complianceText(
   outcome: ValidationOutcome | string | null,
   needsReview = false,
   traceabilityStatus?: TraceabilityStatus | null,
+  mechanicallyIncomplete = false,
 ): { text: string; tone: 'success' | 'danger' | 'warning' | 'info' } {
+  if (mechanicallyIncomplete) {
+    return { text: 'Needs review', tone: 'warning' }
+  }
   if ((outcome === 'COMPLIANT' || value === true) && traceabilityStatus !== 'VERIFIED') {
     return { text: 'Needs review', tone: 'warning' }
   }
@@ -84,14 +106,21 @@ function complianceText(
   }
 }
 
-export function ItemsTable({ items }: ItemsTableProps) {
+export function ItemsTable({ items, reviewReasons = [], explanation = null }: ItemsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
 
   const rows = useMemo<RowShape[]>(
     () =>
-      items.map((item, index) => ({
+      items.map((item, index) => {
+        const renderedItemId = renderCriticalIdentifier(
+          item,
+          ['item_id', 'pipe_id', 'pipe_coil_id'],
+          MISSING_VALUE,
+          { allowCrossFieldFallback: false, allowTraceabilityShortcut: false },
+        )
+        return {
         index,
         heatNo: renderCriticalIdentifier(item, [
           'traceability_identifier_value',
@@ -102,11 +131,12 @@ export function ItemsTable({ items }: ItemsTableProps) {
           'cast_number',
           'charge_number',
         ]),
-        itemId: renderCriticalIdentifier(
+        itemId: resolveItemRefCellValue(
           item,
-          ['item_id', 'pipe_id', 'pipe_coil_id'],
+          index,
+          renderedItemId === MISSING_VALUE ? null : renderedItemId,
+          explanation,
           MISSING_VALUE,
-          { allowCrossFieldFallback: false, allowTraceabilityShortcut: false },
         ),
         grade: item.grade,
         weightOrLength: item.weight_or_length,
@@ -121,25 +151,46 @@ export function ItemsTable({ items }: ItemsTableProps) {
         deviations: item.validation?.deviations ?? [],
         gradeResolution: item.grade_resolution ?? null,
         gradeProvenance: item.grade_provenance ?? null,
-      })),
-    [items],
+        }
+      }),
+    [items, explanation],
+  )
+
+  const showItemIdColumn = useMemo(
+    () => rows.some((row) => !isEmptyItemId(row.itemId)),
+    [rows],
+  )
+
+  const showAlternativeClassificationNote = useMemo(
+    () => reviewReasons.includes(ALTERNATIVE_CLASSIFICATION_REASON),
+    [reviewReasons],
+  )
+
+  const itemRefColumnHeader = useMemo(
+    () => resolveItemRefColumnHeader(items, explanation),
+    [items, explanation],
   )
 
   const columns = useMemo<ColumnDef<RowShape>[]>(
-    () => [
+    () => {
+      const baseColumns: ColumnDef<RowShape>[] = [
       {
         accessorKey: 'heatNo',
         header: 'Heat / Batch No.',
         cell: ({ row }) => formatNullable(row.original.heatNo),
       },
-      {
-        accessorKey: 'itemId',
-        header: 'Item ID (Pipe/Coil)',
-        cell: ({ row }) => formatNullable(row.original.itemId),
-      },
+      ...(showItemIdColumn
+        ? [
+            {
+              accessorKey: 'itemId',
+              header: itemRefColumnHeader,
+              cell: ({ row }) => formatNullable(row.original.itemId),
+            } as ColumnDef<RowShape>,
+          ]
+        : []),
       {
         accessorKey: 'grade',
-        header: 'Grade',
+        header: 'Product / Grade',
         cell: ({ row }) => formatNullable(row.original.grade),
       },
       {
@@ -161,11 +212,13 @@ export function ItemsTable({ items }: ItemsTableProps) {
         id: 'compliance',
         header: 'Row Status',
         cell: ({ row }) => {
+          const item = items[row.original.index]
           const state = complianceText(
             row.original.isCompliant,
             row.original.outcome,
             row.original.needsReview,
             row.original.traceabilityStatus,
+            isItemMechanicallyIncomplete(item, reviewReasons),
           )
           return <Badge text={state.text} tone={state.tone} />
         },
@@ -193,8 +246,11 @@ export function ItemsTable({ items }: ItemsTableProps) {
           )
         },
       },
-    ],
-    [expandedRows],
+    ]
+
+      return baseColumns
+    },
+    [expandedRows, itemRefColumnHeader, items, reviewReasons, showItemIdColumn],
   )
 
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -220,17 +276,22 @@ export function ItemsTable({ items }: ItemsTableProps) {
 
   return (
     <Card className="space-y-4 p-0">
-      <div className="flex items-center justify-between gap-4 border-b border-slate-800 p-4">
-        <div className="relative w-full max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-          <Input
-            value={globalFilter}
-            onChange={(event) => setGlobalFilter(event.target.value)}
-            placeholder="Search heat no, item id, grade..."
-            className="pl-9"
-          />
+      <div className="space-y-3 border-b border-slate-800 p-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Input
+              value={globalFilter}
+              onChange={(event) => setGlobalFilter(event.target.value)}
+              placeholder="Search heat no, source ref, grade..."
+              className="pl-9"
+            />
+          </div>
+          <p className="text-xs text-slate-400">{table.getRowModel().rows.length} rows</p>
         </div>
-        <p className="text-xs text-slate-400">{table.getRowModel().rows.length} rows</p>
+        {showAlternativeClassificationNote && (
+          <p className="text-xs leading-relaxed text-slate-500">{ALTERNATIVE_CLASSIFICATION_NOTE}</p>
+        )}
       </div>
 
       <div className="max-h-[520px] overflow-auto">
@@ -308,7 +369,7 @@ export function ItemsTable({ items }: ItemsTableProps) {
                             {row.original.deviations.length > 0 ? (
                               <ul className="mt-2 list-disc space-y-1 pl-5">
                                 {row.original.deviations.map((deviation, idx) => (
-                                  <li key={`${key}-${idx}`}>{deviation}</li>
+                                  <li key={`${key}-${idx}`}>{formatReviewReason(deviation)}</li>
                                 ))}
                               </ul>
                             ) : (

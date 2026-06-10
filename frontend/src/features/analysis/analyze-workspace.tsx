@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
 import { ItemsTable } from '../results/items-table'
+import { ExplanationPanel, ReviewerFocusStrip } from '../results/explanation-panel'
 import { SecondaryPanels } from '../results/secondary-panels'
 import { SummaryCards } from '../results/summary-cards'
 import { UploadDropzone } from '../upload/upload-dropzone'
@@ -163,8 +164,21 @@ export function AnalyzeWorkspace() {
             </div>
           </div>
           <SummaryCards data={result} />
-          <ItemsTable items={result.items} />
-          <SecondaryPanels data={result} />
+          <ItemsTable
+            items={result.items}
+            reviewReasons={result.review_reasons}
+            explanation={result.explanation}
+          />
+          <ReviewerFocusStrip data={result} />
+          <details className="rounded-lg border border-slate-800 bg-slate-950/70">
+            <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium text-slate-200">
+              Technical details
+            </summary>
+            <div className="space-y-6 border-t border-slate-800 p-4">
+              <ExplanationPanel data={result} showReviewerFocus={false} />
+              <SecondaryPanels data={result} />
+            </div>
+          </details>
         </div>
       )}
     </div>

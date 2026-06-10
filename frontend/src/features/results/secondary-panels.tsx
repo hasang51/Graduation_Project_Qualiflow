@@ -2,8 +2,33 @@ import { CheckCheck, Clipboard, Download, FileJson } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
-import { buildEvidenceNoteSections, hasModelRemarks } from '../../lib/evidence-notes'
-import type { ExtractionResponse } from '../../types/qualiflow'
+import { buildEvidenceNoteSections } from '../../lib/evidence-notes'
+import { getRoutingDecisionLabel, getSpecificationCheckLabel } from '../../lib/format'
+import { formatReviewReason } from '../../lib/review-reason-labels'
+import type { ExtractionResponse, ExtractedItem } from '../../types/qualiflow'
+
+const ITEM_IDENTIFIER_LINE_PATTERN =
+  /secondary identifier|identifier candidate|candidate identifier|\bitem\s*id\b|\bpipe\s*coil\s*id\b/i
+
+function hasExplicitPipeOrItemIdentifiers(items: ExtractedItem[]): boolean {
+  return items.some((item) => {
+    const record = item as ExtractedItem & { pipe_coil_id?: string | null }
+    return [item.item_id, item.pipe_id, record.pipe_coil_id].some(
+      (value) => typeof value === 'string' && value.trim() !== '',
+    )
+  })
+}
+
+export function sanitizeModelRemarks(text: string): string | null {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const filtered = lines.filter((line) => !ITEM_IDENTIFIER_LINE_PATTERN.test(line))
+  const sanitized = filtered.join('\n').trim()
+  return sanitized || null
+}
 
 interface SecondaryPanelsProps {
   data: ExtractionResponse
@@ -23,16 +48,34 @@ export function SecondaryPanels({ data }: SecondaryPanelsProps) {
   const [copied, setCopied] = useState(false)
   const rawJson = useMemo(() => JSON.stringify(data, null, 2), [data])
   const evidenceSections = useMemo(() => buildEvidenceNoteSections(data), [data])
-  const showModelRemarks = hasModelRemarks(data)
+  const sanitizedModelRemarks = useMemo(() => {
+    const raw = data.ai_analysis_remarks?.trim()
+    if (!raw) return null
+
+    if (hasExplicitPipeOrItemIdentifiers(data.items)) {
+      return raw
+    }
+
+    return sanitizeModelRemarks(raw)
+  }, [data.ai_analysis_remarks, data.items])
 
   const allDeviations = useMemo(() => {
     return data.items.flatMap((item, index) =>
       (item.validation?.deviations ?? []).map((deviation) => ({
         itemId: item.item_id || `row-${index + 1}`,
-        message: deviation,
+        message: formatReviewReason(deviation),
       })),
     )
   }, [data.items])
+
+  const noDeviationsMessage = useMemo(() => {
+    const isCompliant = getSpecificationCheckLabel(data) === 'Compliant'
+    const needsReview = getRoutingDecisionLabel(data) === 'Needs human review'
+    if (isCompliant && needsReview) {
+      return 'No threshold deviations detected. Human review is required due to OCR or table-alignment uncertainty.'
+    }
+    return 'No deviations detected.'
+  }, [data])
 
   async function copyJson() {
     await navigator.clipboard.writeText(rawJson)
@@ -61,13 +104,13 @@ export function SecondaryPanels({ data }: SecondaryPanelsProps) {
           ))}
         </ul>
 
-        {showModelRemarks && (
+        {sanitizedModelRemarks && (
           <details className="rounded-lg border border-slate-800 bg-slate-950/70">
             <summary className="cursor-pointer list-none px-3 py-2 text-xs uppercase tracking-wider text-slate-500">
               Model Remarks
             </summary>
             <p className="whitespace-pre-wrap border-t border-slate-800 px-3 py-2 text-sm leading-relaxed text-slate-400">
-              {data.ai_analysis_remarks}
+              {sanitizedModelRemarks}
             </p>
           </details>
         )}
@@ -85,7 +128,7 @@ export function SecondaryPanels({ data }: SecondaryPanelsProps) {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-slate-300">No deviations detected.</p>
+          <p className="text-sm text-slate-300">{noDeviationsMessage}</p>
         )}
       </Card>
 

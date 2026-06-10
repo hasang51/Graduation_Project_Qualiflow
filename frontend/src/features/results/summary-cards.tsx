@@ -1,118 +1,246 @@
 import { Badge } from '../../components/ui/badge'
+
 import { Card } from '../../components/ui/card'
+
 import {
+
   formatConfidence,
+
   formatNullable,
-  getComplianceStateFromOutcome,
+
   getConfidenceHelperText,
-  getDetailComplianceLabel,
-  getDetailComplianceTone,
-  formatDecisionLabel,
-  getProcessingDecisionTone,
-  resolveProcessingDecisionValue,
+
+  getRoutingDecisionDisplayTone,
+
+  getRoutingDecisionLabel,
+
+  getSpecificationCheckLabel,
+
 } from '../../lib/format'
-import type { ExtractionResponse, TraceabilityStatus } from '../../types/qualiflow'
+
+import {
+
+  getPresentationSpecificationCheckDisplay,
+
+  resolveDecisionConfidence,
+
+} from '../../lib/presentation-safety'
+
+import type { ExtractionResponse } from '../../types/qualiflow'
+
+
 
 interface SummaryCardsProps {
+
   data: ExtractionResponse
+
   variant?: 'default' | 'detail'
+
 }
+
+
 
 function confidenceTone(score: number): 'success' | 'warning' | 'danger' {
+
   if (score >= 0.85) return 'success'
+
   if (score >= 0.6) return 'warning'
+
   return 'danger'
+
 }
 
-function complianceLabel(
-  outcome: string | null | undefined,
-  isCompliant: boolean | null,
-  needsReview: boolean,
-  traceabilityStatus?: TraceabilityStatus | null,
-) {
-  if ((outcome === 'COMPLIANT' || isCompliant === true) && traceabilityStatus !== 'VERIFIED') return 'Needs review'
-  if (needsReview) return 'Needs review'
-  if (outcome === 'COMPLIANT') return 'Compliant'
-  if (outcome === 'NON_COMPLIANT') return 'Non-compliant'
-  if (outcome === 'UNRESOLVED_SPEC') return 'Spec unresolved'
-  if (outcome === 'UNSUPPORTED_SPEC_FAMILY') return 'Unsupported spec family'
-  if (outcome === 'EXPLICIT_UNMAPPED_GRADE') return 'Explicit grade not mapped'
-  if (outcome === 'MISSING_CRITICAL_FIELD_GRADE') return 'Missing grade'
-  if (outcome === 'NEEDS_REVIEW') return 'Needs review'
-  if (outcome === 'NOT_VALIDATED') return 'Not validated'
-  if (isCompliant === true) return 'Compliant'
-  if (isCompliant === false) return 'Non-compliant'
-  return 'Not validated'
-}
+
 
 export function SummaryCards({ data, variant = 'default' }: SummaryCardsProps) {
-  const needsReview = data.needs_review === true || data.status === 'NEEDS_REVIEW'
-  const complianceState = getComplianceStateFromOutcome(
-    data.outcome,
-    data.is_compliant,
-    needsReview,
-    data.traceability_status,
-  )
-  const detailComplianceLabel = getDetailComplianceLabel(data)
-  const processingDecision = resolveProcessingDecisionValue(data)
-  const traceabilityBlocksCompliance =
-    data.traceability_status !== 'VERIFIED' && data.review_reasons?.includes('traceability_unverified')
-  const confidenceHelper = getConfidenceHelperText(data)
 
-  const complianceCardValue =
-    variant === 'detail' ? (
-      <div className="space-y-3">
-        <Badge text={detailComplianceLabel} tone={getDetailComplianceTone(detailComplianceLabel)} />
-        <div className="space-y-1">
-          <p className="text-xs uppercase tracking-wider text-slate-500">Decision</p>
-          <Badge text={formatDecisionLabel(processingDecision)} tone={getProcessingDecisionTone(processingDecision)} />
-        </div>
-      </div>
-    ) : (
-      <Badge
-        text={complianceLabel(data.outcome, data.is_compliant, needsReview, data.traceability_status)}
-        tone={complianceState}
-      />
+  if (variant === 'detail') {
+
+    const metrics = [
+
+      { label: 'Supplier', value: formatNullable(data.supplier_name, 'Unknown') },
+
+      { label: 'Document Type', value: formatNullable(data.document_type, 'Unknown') },
+
+      { label: 'Certificate Date', value: formatNullable(data.certificate_date) },
+
+      { label: 'Line Items', value: String(data.total_items_detected) },
+
+    ]
+
+
+
+    return (
+
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+        {metrics.map((metric) => (
+
+          <Card key={metric.label} className="space-y-1">
+
+            <p className="text-xs uppercase tracking-wider text-slate-500">{metric.label}</p>
+
+            <p className="text-base font-semibold text-slate-100">{metric.value}</p>
+
+          </Card>
+
+        ))}
+
+      </section>
+
     )
 
+  }
+
+
+
+  const specificationCheck = getSpecificationCheckLabel(data)
+
+  const routingDecision = getRoutingDecisionLabel(data)
+
+  const specificationDisplay = getPresentationSpecificationCheckDisplay(data)
+
+  const showCompliantNeedsReviewNote =
+
+    specificationCheck === 'Compliant' && routingDecision === 'Needs human review'
+
+  const traceabilityBlocksCompliance =
+
+    data.traceability_status !== 'VERIFIED' && data.review_reasons?.includes('traceability_unverified')
+
+  const confidenceHelper = getConfidenceHelperText(data)
+
+
+
+  const validationCardValue = (
+
+    <div className="space-y-3">
+
+      <div className="space-y-1">
+
+        <p className="text-xs uppercase tracking-wider text-slate-500">Specification check</p>
+
+        <Badge text={specificationDisplay.label} tone={specificationDisplay.tone} />
+
+        {specificationDisplay.reason && (
+
+          <p className="text-xs font-normal leading-relaxed text-slate-400">
+
+            Reason: {specificationDisplay.reason}
+
+          </p>
+
+        )}
+
+      </div>
+
+      <div className="space-y-1">
+
+        <p className="text-xs uppercase tracking-wider text-slate-500">Routing decision</p>
+
+        <Badge text={routingDecision} tone={getRoutingDecisionDisplayTone(routingDecision)} />
+
+      </div>
+
+      {showCompliantNeedsReviewNote && (
+
+        <p className="text-xs font-normal leading-relaxed text-slate-400">
+
+          Values appear compliant, but human review is required before automatic approval.
+
+        </p>
+
+      )}
+
+    </div>
+
+  )
+
+
+
   const cards = [
+
     { label: 'Supplier Name', value: formatNullable(data.supplier_name, 'Unknown') },
+
     { label: 'Document Type', value: formatNullable(data.document_type, 'Unknown') },
+
     { label: 'Certificate Date', value: formatNullable(data.certificate_date) },
+
     { label: 'Total Items Detected', value: String(data.total_items_detected) },
+
     {
-      label: 'Confidence Score',
+
+      label: 'Decision Confidence',
+
       value: (
+
         <div className="space-y-2">
-          <Badge text={formatConfidence(data.confidence_score)} tone={confidenceTone(data.confidence_score)} />
+
+          <Badge
+            text={formatConfidence(resolveDecisionConfidence(data))}
+            tone={confidenceTone(resolveDecisionConfidence(data))}
+          />
+
           {confidenceHelper && (
+
             <p className="text-xs font-normal leading-relaxed text-slate-400">{confidenceHelper}</p>
+
           )}
+
         </div>
+
       ),
+
     },
+
     {
-      label: 'Compliance Status',
-      value: complianceCardValue,
+
+      label: 'Validation & Routing',
+
+      value: validationCardValue,
+
     },
+
   ]
 
+
+
   return (
+
     <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+
       {cards.map((card) => (
+
         <Card key={card.label} className="space-y-2">
+
           <p className="text-xs uppercase tracking-wider text-slate-400">{card.label}</p>
+
           <div className="text-base font-semibold text-slate-100">{card.value}</div>
+
         </Card>
+
       ))}
+
       {traceabilityBlocksCompliance && (
+
         <Card className="space-y-2 md:col-span-2 xl:col-span-3">
+
           <Badge
+
             text="Mechanical compliance passed, but traceability identifiers require human verification."
+
             tone="warning"
+
           />
+
         </Card>
+
       )}
+
     </section>
+
   )
+
 }
+
+
