@@ -79,6 +79,15 @@ TOKEN_FIELD_LABELS = {
     "grade": "grade",
     "elongation_percentage": "elongation",
 }
+SOFT_AUDIT_REVIEW_REASONS = frozenset(
+    {
+        "visual ambiguity detected in row",
+        "blurry/noisy document",
+        "ocr text layer corrupted",
+        "low identifier legibility",
+        "low-confidence rows detected",
+    }
+)
 TRACEABILITY_IDENTIFIER_GROUP_FIELDS = (
     "heat_number",
     "batch_number",
@@ -651,7 +660,18 @@ def _critical_identifier_unverified_tokens(
     return _dedupe_preserving_order(tokens)
 
 
+def _is_soft_audit_review_reason(reason: str) -> bool:
+    if reason in SOFT_AUDIT_REVIEW_REASONS:
+        return True
+    if reason.startswith("document_quality:"):
+        return True
+    lowered = _normalise_token(reason)
+    return "ocr" in lowered and "corrupt" in lowered
+
+
 def _is_blocking_review_reason(reason: str) -> bool:
+    if _is_soft_audit_review_reason(reason):
+        return False
     return (
         reason
         in {
@@ -659,8 +679,6 @@ def _is_blocking_review_reason(reason: str) -> bool:
             "unsupported_spec_family",
             "validation_conflict:row_non_compliant",
             "no_items_extracted",
-            "visual ambiguity detected in row",
-            "low-confidence rows detected",
             "extraction structure is incomplete",
             # Hallucination-audit gates: a document with fabricated cross-field
             # copies or OCR-confusable heat numbers must never auto-accept.
@@ -810,6 +828,19 @@ def apply_review_policy(
             for reason in combined
             if reason not in {"confidence_below_threshold", "confidence falls below threshold"}
         ]
+    else:
+        hard_structured = [reason for reason in structured if not _is_soft_audit_review_reason(reason)]
+        soft_audit_only = combined and all(_is_soft_audit_review_reason(reason) for reason in combined)
+        if (
+            soft_audit_only
+            and all_compliant
+            and not blocking_reasons
+            and not hard_structured
+            and not any(item.needs_review for item in extraction.items)
+            and final_confidence >= review_confidence_threshold
+        ):
+            needs_review = False
+            extraction.needs_review = False
 
     evidence_gaps = [
         reason

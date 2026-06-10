@@ -89,6 +89,25 @@ CANONICAL_GRADES: tuple[_CanonicalGrade, ...] = (
         family_group="welding_wire",
         aliases=("SG2", "NOVOFIL SG2", "NOVOBRONZE SG2"),
     ),
+    # Reinforcing steel / rebar (BS 4449 / EN 10080 family).
+    _CanonicalGrade(
+        canonical="B500B",
+        family_group="rebar",
+        aliases=(
+            "B 500 B",
+            "B500B",
+            "B 500B",
+            "B500 B",
+            "BST 500 B",
+            "BST500B",
+        ),
+    ),
+    # Demo-supported supplier wire-rod drawing grade (sanity validation only).
+    _CanonicalGrade(
+        canonical="SRCDRW02",
+        family_group="demo_supported_known_grade",
+        aliases=("SRCDRW02", "SRC DRW02", "SRC-DRW02"),
+    ),
     # Austenitic stainless (EN 10088-1 / AISI dual designation).
     _CanonicalGrade(
         canonical="1.4301",

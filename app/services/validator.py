@@ -193,7 +193,7 @@ def _validate_against_spec(item, spec: MaterialSpec, config) -> tuple[list[str],
         row_penalty += 0.04
 
     if mp.elongation_percentage is not None:
-        if mp.elongation_percentage < spec.min_elongation_pct:
+        if spec.min_elongation_pct > 0 and mp.elongation_percentage < spec.min_elongation_pct:
             deviations.append(
                 f"Elongation {mp.elongation_percentage:.1f}% below minimum {spec.min_elongation_pct:.1f}%"
             )
@@ -203,9 +203,25 @@ def _validate_against_spec(item, spec: MaterialSpec, config) -> tuple[list[str],
             item.needs_review = True
             row_suspicious = True
             row_penalty += 0.18
-    else:
+    elif spec.min_elongation_pct > 0:
         deviations.append("Elongation missing - cannot verify.")
         row_penalty += 0.04
+
+    if spec.canonical == "SRCDRW02":
+        if mp.yield_strength_mpa is not None and mp.yield_strength_mpa > 700.0:
+            deviations.append(
+                f"Yield {mp.yield_strength_mpa:.1f} MPa above sanity maximum 700.0 MPa"
+            )
+            hard_violation = True
+        if (
+            mp.yield_strength_mpa is not None
+            and mp.tensile_strength_mpa is not None
+            and mp.tensile_strength_mpa < mp.yield_strength_mpa
+        ):
+            deviations.append(
+                "Tensile strength is below yield strength - sanity check failed."
+            )
+            hard_violation = True
 
     return deviations, hard_violation, row_penalty, row_suspicious
 

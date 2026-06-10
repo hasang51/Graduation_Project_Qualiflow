@@ -55,6 +55,10 @@ _CARBON_SPECS: dict[str, MaterialSpec] = {
     # EN 10255-style S195 pipe baseline. Keep the wider 350-620 tensile band
     # aligned with the current project convention for supplier variance.
     "S195": MaterialSpec("S195", 195.0, 350.0, 620.0, 20.0),
+    # BS 4449 / EN 10080 B500B rebar minima (elongation optional when absent).
+    "B500B": MaterialSpec("B500B", 500.0, 540.0, 2000.0, 0.0),
+    # Demo-supported wire-rod grade: permissive sanity bands only.
+    "SRCDRW02": MaterialSpec("SRCDRW02", 150.0, 250.0, 900.0, 0.0),
     # Narrow thesis support for the observed 321/321H stainless MTCs. These
     # minima are intentionally conservative and only unlock deterministic
     # validation for the declared aliases below.

@@ -160,6 +160,21 @@ class ResolveGradeUnknownTests(unittest.TestCase):
         self.assertEqual(resolution.status, "resolved")
         self.assertEqual(resolution.canonical, "316Ti")
 
+    def test_b500b_aliases(self):
+        for raw in ("B 500 B", "B500B", "BST 500 B"):
+            with self.subTest(raw=raw):
+                resolution = resolve_grade(raw)
+                self.assertEqual(resolution.status, "resolved")
+                self.assertEqual(resolution.canonical, "B500B")
+                self.assertEqual(resolution.family_group, "rebar")
+
+    def test_srcdrw02_aliases(self):
+        for raw in ("SRCDRW02", "SRC DRW02", "SRC-DRW02"):
+            with self.subTest(raw=raw):
+                resolution = resolve_grade(raw)
+                self.assertEqual(resolution.status, "resolved")
+                self.assertEqual(resolution.canonical, "SRCDRW02")
+
 
 if __name__ == "__main__":
     unittest.main()

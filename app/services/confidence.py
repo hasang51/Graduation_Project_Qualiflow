@@ -61,7 +61,14 @@ def extraction_audit_excuses_missing_field(
 
 # When final confidence survives caps, preprocessing blur/noise is diagnostic only —
 # never force human review purely on raster quality signals.
-_DIAGNOSTIC_REVIEW_REASONS_ABOVE_CONFIDENCE_FLOOR = frozenset({"blurry/noisy document"})
+_DIAGNOSTIC_REVIEW_REASONS_ABOVE_CONFIDENCE_FLOOR = frozenset(
+    {
+        "blurry/noisy document",
+        "visual ambiguity detected in row",
+        "ocr text layer corrupted",
+        "low identifier legibility",
+    }
+)
 
 
 @dataclass
