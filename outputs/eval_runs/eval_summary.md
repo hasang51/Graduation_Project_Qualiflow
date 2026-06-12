@@ -1,11 +1,10 @@
 # QualiFlow evaluation summary
 
-One row per evaluation run. A `provisional: true` row means the gold file
-was a preannotated candidate pack and still requires human verification.
+Canonical evaluation runs for academic submission. Intermediate development runs have been removed from the repository.
 
-| eval_dir | mode | provisional | n | field_acc | crit_acc | compliance_acc | review_rate | stp_rate | avg_latency_ms | p95_latency_ms | completeness |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 20260610T102251Z | None | None | 20 | 0.0 | 0.0 |  | 0.0 |  |  |  |  |
-| final20 | None | None | 20 | 0.1476 | 0.1696 |  | 1.0 | 0.0 | 37662.7 |  |  |
-| final20_full | None | None | 20 | 0.6 | 0.6786 |  | 1.0 | 0.0 | 37380.3 |  |  |
-| smoke_test | None | None | 20 | 0.0 | 0.0 |  | 0.0 |  |  |  |  |
+| eval_dir | role | n | field_acc | crit_acc | review_rate | unsafe_auto_accept | missing_req_field | avg_latency_ms |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| final20 | historical / preliminary baseline | 20 | 0.1476 | 0.1696 | 1.0 | 0.0 | 0.75 | 37662.7 |
+| live_eval_20260612_1632 | **primary reference** | 20 | 0.619 | 0.6875 | 0.85 | 0.5 | 0.0446 | 38821.2 |
+
+See [README.md](../../README.md) for interpretation and [SUBMISSION_MANIFEST.md](../../SUBMISSION_MANIFEST.md) for ZIP delivery guidance.

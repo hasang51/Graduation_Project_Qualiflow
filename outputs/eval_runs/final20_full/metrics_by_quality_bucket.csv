@@ -1,5 +1,0 @@
-quality_bucket,n_documents,field_accuracy,critical_field_accuracy,document_type_accuracy,processing_decision_accuracy,review_rate,unsafe_auto_accept_rate,missing_required_field_rate,average_latency_ms
-clean_scan,3,0.6452,0.75,0.6667,0.0,1.0,0.0,0.0625,26317.1
-degraded_scan,7,0.6234,0.6905,1.0,0.0,1.0,0.0,0.0238,44396.7
-digital_pdf,6,0.5593,0.6333,0.3333,0.0,1.0,0.0,0.1333,34965.8
-severe_scan,4,0.5814,0.6667,0.75,0.0,1.0,0.0,0.0833,37020.6

@@ -1,174 +1,175 @@
 # QualiFlow
 
-Graduation-project research prototype of a **quality-aware hybrid CoA verification system** for industrial Certificates of Analysis and Mill Test Certificates.
-
-The system is not a productised SaaS. It is an academically scoped prototype that combines:
-
-- a lightweight **document profiler** that classifies each PDF as `digital_clean`, `scan_clean`, `noisy_scan`, or `severe_scan`;
-- an **explicit single-path router** that picks exactly one extraction strategy per document (no parallel OCR, no multi-agent arbitration);
-- a **multimodal extraction path** (Anthropic Claude) that runs two stages — metadata, then line items — with deterministic tool-use schemas;
-- **deterministic validation** against known steel-grade specs and suspicious-numeric bands;
-- an auditable **review policy** that emits structured reason tokens for every flagged document while treating document quality as diagnostic metadata rather than a standalone blocker;
-- a reproducible **dataset workflow** (discover, profile, manifest, gold candidates, batch extraction, evaluation) designed for ~100 PDFs.
-
-Tesseract is kept strictly offline as a legacy cell-level OCR utility; it is never imported by the runtime.
+Academic research prototype for quality-aware hybrid CoA/MTC verification.
 
 ---
 
-## Sunum için Hızlı Başlatma
+## A. Project Overview
 
-### Canlı demo (web arayüzü)
+QualiFlow is a **graduation-project research prototype**, not a productised SaaS. It ingests industrial **Certificates of Analysis (CoA)**, **Mill Test Certificates (MTC)**, and related inspection-certificate PDFs, then extracts:
+
+- document metadata and traceability identifiers,
+- mechanical properties and line-item fields,
+- compliance-related signals used for deterministic validation and review routing.
+
+The system combines **Claude multimodal extraction**, **deterministic grade/spec validation**, and an **auditable review policy** that separates validation outcomes from automation decisions.
+
+**Tesseract is not part of the runtime.** A legacy offline OCR probe (`scripts/check_ocr_backend.py`) remains in the repository for reproducibility of earlier cell-level experiments only; the live pipeline does not import or call it.
+
+Further architecture detail: [docs/runtime_architecture.md](docs/runtime_architecture.md) · [docs/jury_architecture_summary.md](docs/jury_architecture_summary.md)
+
+---
+
+## B. Architecture
+
+End-to-end processing flow:
+
+```
+PDF upload
+   │
+   ▼
+document profiler              (app/services/document_profiler.py)
+   │  quality_class ∈ {digital_clean, scan_clean, noisy_scan, severe_scan}
+   ▼
+extraction router              (app/services/extraction_router.py)
+   │  exactly one route per document
+   ▼
+preprocessing                  (app/services/preprocessing.py)
+   │  route-driven rasterisation and image variants
+   ▼
+Claude Stage A                 metadata extraction
+   ▼
+Claude Stage B                 line-item extraction
+   ▼
+normalization / finalization   (app/services/extraction_finalizer.py, semantic normalizers)
+   ▼
+grade / spec validation        (app/services/validator.py, app/domain/grade_registry.py, app/domain/spec_registry.py)
+   ▼
+traceability validation        (app/services/traceability.py)
+   ▼
+confidence normalization       (app/services/confidence.py)
+   ▼
+deterministic review policy    (app/services/review_policy.py)
+   ▼
+persistence + UI response      (FastAPI + React frontend)
+```
+
+The public API contract (`POST /api/v1/extract`, `UniversalDocumentExtraction` schema) is preserved. Route, profile, and review metadata are stored in internal `preprocessing_meta` for inspection without breaking the outward contract.
+
+---
+
+## C. Key Modules
+
+| Module | Path | Role |
+| --- | --- | --- |
+| Document profiler | `app/services/document_profiler.py` | Classifies PDF quality from text layer, blur, and noise signals |
+| Extraction router | `app/services/extraction_router.py` | Selects exactly one extraction route per document |
+| Preprocessing | `app/services/preprocessing.py` | Rasterises pages and builds route-aware image variants |
+| Extraction pipeline | `app/services/extraction_pipeline.py` | Claude Stage A/B tool-use extraction and orchestration |
+| Extraction finalizer | `app/services/extraction_finalizer.py` | Canonical field finalization and decision tokens |
+| Labeled identifier extractor | `app/domain/labeled_identifier_extractor.py` | Parses labeled traceability identifiers from headers |
+| Grade registry | `app/domain/grade_registry.py` | Known steel-grade aliases and normalization |
+| Spec registry | `app/domain/spec_registry.py` | Supported material/spec families for deterministic checks |
+| Validator | `app/services/validator.py` | Grade-aware compliance, suspicious numerics, heat-pattern checks |
+| Review policy | `app/services/review_policy.py` | Structured, auditable review reason tokens |
+| Frontend UI | `frontend/src/` | Upload, results, history, and analysis detail pages |
+| Evaluation runner | `scripts/run_eval.py` | Live extraction + gold-set evaluation harness |
+| Evaluation metrics | `scripts/evaluate_outputs.py` | Re-score existing prediction JSON against gold annotations |
+
+---
+
+## D. Latest Evaluation Results
+
+**Primary reference run:** [`outputs/eval_runs/live_eval_20260612_1632/`](outputs/eval_runs/live_eval_20260612_1632/)
+
+| Metric | Value |
+| --- | --- |
+| Documents processed | 20 / 20 |
+| Failed PDFs | 0 |
+| Field Accuracy | 61.9% |
+| Critical Field Accuracy | 68.8% |
+| Document Type Accuracy | 55.0% |
+| Processing Decision Accuracy | 10.0% |
+| Review Rate | 85.0% |
+| Unsafe Auto Accept Rate | 50.0% |
+| Missing Required Field Rate | 4.5% |
+| Average Latency | 38.8 sec |
+
+**Interpretation:** Compared with the earlier preliminary `final20` run, field extraction and missing-field completeness improved substantially. However, **unsafe auto-accept remains a known limitation**, especially for difficult or severe scans. The prototype should therefore be interpreted as a **human-in-the-loop verification assistant**, not a fully autonomous certification authority.
+
+Artifacts for this run:
+
+- Summary: [`metrics_summary.md`](outputs/eval_runs/live_eval_20260612_1632/metrics_summary.md)
+- Report: [`eval_report.md`](outputs/eval_runs/live_eval_20260612_1632/eval_report.md)
+- Predictions: `outputs/eval_runs/live_eval_20260612_1632/doc001.json` … `doc020.json`
+- Gold annotations: [`data/gold/ground_truth/`](data/gold/ground_truth/)
+- Metadata index: [`data/gold/metadata_20.csv`](data/gold/metadata_20.csv)
+
+---
+
+## E. Historical Evaluation
+
+**Preliminary / historical baseline:** [`outputs/eval_runs/final20/`](outputs/eval_runs/final20/)
+
+This run reflects an **older pipeline state** before the latest extraction and finalization improvements. It is retained for academic traceability only.
+
+| Metric | Value |
+| --- | --- |
+| Field Accuracy | 14.76% |
+| Critical Field Accuracy | 16.96% |
+| Review Rate | 100% |
+| Unsafe Auto Accept Rate | 0% |
+| Missing Required Field Rate | 75% |
+
+Report: [`outputs/eval_runs/final20/eval_report.md`](outputs/eval_runs/final20/eval_report.md)
+
+---
+
+## F. Known Limitations
+
+- **Not production SaaS.** Security, deployment, and operational hardening are prototype-level.
+- **Auto-accept calibration is not production-safe.** The latest run shows a 50% unsafe auto-accept rate on gold review-required documents.
+- **Severe scans** still need stricter review gates; quality class alone is diagnostic, not a standalone blocker.
+- **Exact-match evaluation** may penalize harmless formatting differences (date separators, Unicode variants, punctuation, supplier-name variants).
+- **Deterministic validation** covers only supported grade/spec families; unsupported material families route to human review.
+- **Final approval remains a human responsibility.** The system assists extraction and compliance checking; it does not replace a certification authority.
+
+---
+
+## G. Setup / Run
+
+### Backend
 
 ```bash
-# Terminal 1 — backend
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
 
-# Terminal 2 — frontend
+Configure API keys in a repo-root `.env` file (see `.env.example`). Never commit secrets.
+
+Validate Anthropic credentials without printing the key:
+
+```bash
+python -m scripts.check_anthropic_auth
+```
+
+### Frontend
+
+```bash
 cd frontend
 npm install
 copy .env.example .env
 npm run dev
 ```
 
-Tarayıcı: `http://127.0.0.1:5173`
+Open `http://127.0.0.1:5173`. Set `VITE_API_BASE_URL=http://127.0.0.1:8000` in `frontend/.env`.
 
-**Demo akışı:** Kayıt ol → Giriş yap → PDF yükle → Sonuçları incele → Geçmiş → Detay sayfası → Kaynak PDF indir.
+**Demo flow:** Register → Log in → Upload PDF → Inspect results → History → Detail page → Download source PDF.
 
-### Akademik değerlendirme (hazır sonuçlar)
+### API endpoints
 
-20 belgelik gold set değerlendirmesi commit edilmiştir:
-
-- Rapor: [`outputs/eval_runs/final20/eval_report.md`](outputs/eval_runs/final20/eval_report.md)
-- Metrikler: [`outputs/eval_runs/final20/metrics_summary.csv`](outputs/eval_runs/final20/metrics_summary.csv)
-- Gold annotations: [`data/gold/ground_truth/`](data/gold/ground_truth/) (20 JSON dosyası)
-- Metadata index: [`data/gold/metadata_20.csv`](data/gold/metadata_20.csv)
-
-```mermaid
-flowchart LR
-  subgraph demo [CanliDemo]
-    A[uvicorn backend] --> B[npm run dev]
-    B --> C[PDF yukle]
-    C --> D[Sonuc ve gecmis]
-  end
-  subgraph eval [AkademikDegerlendirme]
-    E[metadata_20.csv] --> F[run_eval]
-    F --> G[outputs/eval_runs]
-    G --> H[eval_report.md]
-  end
-```
-
----
-
-## Akademik Bağlam
-
-### Tez katkısı
-
-| Bileşen | Dosya | Katkı |
-| --- | --- | --- |
-| Document profiler | `app/services/document_profiler.py` | Kalite sınıfına göre belge karakterizasyonu |
-| Extraction router | `app/services/extraction_router.py` | Tek yol seçimi — maliyet ve doğruluk dengesi |
-| Deterministik validasyon | `app/services/validator.py` | Çelik grade spec'lerine karşı uyumluluk |
-| Review policy | `app/services/review_policy.py` | Yapılandırılmış, denetlenebilir review reason token'ları |
-
-**Sade mimari özeti (Word):** [docs/QualiFlow_Mimari_Genel_Bakis.docx](docs/QualiFlow_Mimari_Genel_Bakis.docx) · [Markdown](docs/QualiFlow_Mimari_Genel_Bakis.md)
-
-Detaylı mimari: [docs/runtime_architecture.md](docs/runtime_architecture.md)
-
-Pilot çalışma durumu: [docs/pilot_study_status.md](docs/pilot_study_status.md)
-
-Jüri özeti: [docs/jury_architecture_summary.md](docs/jury_architecture_summary.md)
-
-### Gold set
-
-- **20 Mill Test Certificate** PDF, dengeli kalite dağılımı
-- Ground truth: `data/gold/ground_truth/doc001.json` … `doc020.json`
-- Metadata index: `data/gold/metadata_20.csv`
-
----
-
-## 1. Runtime architecture
-
-```
-upload PDF
-   │
-   ▼
-document profiler          (app/services/document_profiler.py)
-   │  quality_class in {digital_clean, scan_clean, noisy_scan, severe_scan}
-   ▼
-extraction router          (app/services/extraction_router.py)
-   │  exactly one route in {native_multimodal, rendered_multimodal, preprocessed_multimodal}
-   ▼
-preprocess_pdf(route=…)    (app/services/preprocessing.py)
-   │  per-page rasterisation + route-driven variant stack
-   ▼
-run_multi_stage_extraction (app/services/extraction_pipeline.py)
-   │  Stage A metadata → Stage B item-centric line items (Claude tool use)
-   │  row-shape normalization collapses vertical mechanical-property tables
-   ▼
-validate_document          (app/services/validator.py)
-   │  grade-aware compliance + suspicious numerics + heat-pattern checks
-   ▼
-normalize_confidence       (app/services/confidence.py)
-   │  combines raw model confidence with quality + completeness signals
-   ▼
-apply_review_policy        (app/services/review_policy.py)
-   │  deterministic structured reason tokens (quality alone is not a gate)
-   ▼
-persist + respond with UniversalDocumentExtraction
-```
-
-See [docs/runtime_architecture.md](docs/runtime_architecture.md) for the profiler heuristics, the router decision table, and the full review-token catalogue.
-
-The public API contract (`POST /api/v1/extract` and the `UniversalDocumentExtraction` schema) is unchanged by Phase 2. The route/profile/review data is stored in the internal `preprocessing_meta` so downstream tooling can inspect it without breaking the outward contract.
-
----
-
-## 2. Setup
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-> **Not:** Tek bağımlılık kaynağı kök `requirements.txt` dosyasıdır.
-
-### Environment loading
-
-The config module (`app/config.py`) loads `.env` files in this priority order:
-
-1. **Repo-root `.env`** — the normal location; values here win.
-2. **`docs/.env`** — fallback used during development when the repo-root file is absent or has a stale key. Neither file is committed (both are gitignored).
-3. **Process environment** — values already in the shell always win over any file.
-
-To validate your Anthropic key without printing it:
-
-```bash
-python -m scripts.check_anthropic_auth
-# Expected:   OK: Anthropic auth succeeded. input_tokens=8 ...
-```
-
-### Dataset root
-
-The batch workflow expects a folder of Mill Test Certificate PDFs. The path can come from either:
-
-- `--dataset-root "C:\path\to\pdfs"` CLI flag, or
-- `QUALIFLOW_DATASET_ROOT` environment variable.
-
-If neither is provided the scripts fall back to `C:\Users\DELL\Downloads\Mill Test CertificateS\Mill Test CertificateS` (the repository's conventional development location).
-
----
-
-## 3. Run backend
-
-```bash
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-Endpoints:
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `GET  /api/v1/auth/me`
@@ -180,231 +181,86 @@ Endpoints:
 
 ---
 
-## 4. Run frontend
+## H. Evaluation Commands
+
+Full live re-run over the 20-document gold set (requires Anthropic API access and PDFs under `data/eval_docs/`):
 
 ```bash
-cd frontend
-npm install
-copy .env.example .env
-npm run dev
+python -m scripts.run_eval ^
+  --metadata data/gold/metadata_20.csv ^
+  --documents-root data/eval_docs ^
+  --predictions outputs/eval_runs/live_eval_20260612_1632 ^
+  --out outputs/eval_runs/live_eval_20260612_1632
 ```
 
-Frontend URL: `http://127.0.0.1:5173`
+Re-score **existing** prediction JSON without re-extracting:
 
-API base URL (`.env`): `VITE_API_BASE_URL=http://127.0.0.1:8000`
+```bash
+python -m scripts.evaluate_outputs ^
+  --metadata data/gold/metadata_20.csv ^
+  --predictions outputs/eval_runs/live_eval_20260612_1632 ^
+  --out outputs/eval_runs/live_eval_20260612_1632
+```
+
+On Unix shells, replace `^` with `\`.
+
+See also [docs/evaluation_protocol.md](docs/evaluation_protocol.md) and [docs/dataset_workflow.md](docs/dataset_workflow.md).
 
 ---
 
-## 5. Dataset workflow (Phase 2)
+## I. Repository Contents for ZIP Submission
 
-See [docs/dataset_workflow.md](docs/dataset_workflow.md) for the detailed schema and folder layout. Short version:
+### Include
 
-```bash
-# 1) discover all PDFs under the dataset root
-python -m scripts.discover_documents
+| Path | Notes |
+| --- | --- |
+| `app/` | Backend source |
+| `frontend/src/` | React UI source |
+| `frontend/package.json`, `frontend/package-lock.json` | Frontend dependencies |
+| `scripts/` | Batch, evaluation, and utility scripts |
+| `tests/` | Unit and regression tests |
+| `docs/` | Architecture and methodology notes |
+| `data/gold/` | Gold metadata and ground-truth JSON |
+| `data/eval_docs/` | Evaluation PDF dataset (20 documents) |
+| `outputs/eval_runs/live_eval_20260612_1632/` | Latest primary evaluation run |
+| `outputs/eval_runs/final20/` | Historical preliminary baseline |
+| `README.md`, `requirements.txt`, `.env.example` | Project entry points |
 
-# 2) profile every PDF (no API calls — purely deterministic)
-python -m scripts.profile_dataset
+See [SUBMISSION_MANIFEST.md](SUBMISSION_MANIFEST.md) for the full delivery checklist.
 
-# 3) build the canonical manifest (adds bucketing fields)
-python -m scripts.build_manifest
+### Exclude
 
-# 4) select a balanced 20-document gold candidate set
-python -m scripts.select_gold_candidates --n 20
-
-# 5) live batch extraction over the candidate subset (Mode D — routed hybrid)
-python -m scripts.run_batch_extraction --subset data/gold_candidates/gold_candidates_manifest.jsonl --mode D
-
-# Cost-limited smoke verification over exactly two PDFs
-$env:QUALIFLOW_MAX_LIVE_DOCS='2'
-$env:QUALIFLOW_BUDGET_USD='0.25'
-python -m scripts.run_batch_extraction --subset data/two_pdf_manifest.jsonl --mode D --inter-doc-sleep-s 0
-
-# 6) build the human-review pack (PREANNOTATED — NOT VERIFIED)
-python -m scripts.build_prefill_pack --run-dir data/batch_runs/<timestamp>
-
-# 7) generate predictions and evaluate the 20-document gold set
-python -m scripts.run_eval \
-    --metadata data/gold/metadata_20.csv \
-    --documents-root "C:\path\to\pdfs" \
-    --predictions outputs/predictions
-
-# Or evaluate existing predictions only
-python -m scripts.evaluate_outputs \
-    --metadata data/gold/metadata_20.csv \
-    --predictions outputs/predictions \
-    --out outputs/eval_runs/manual_run
-```
-
-> **Deprecated:** `scripts/generate_reviewer_pack.py` — use `scripts/build_prefill_pack.py` instead.
-
-Folder layout:
-
-```
-data/
-├── manifests/
-│   ├── documents_discovery.{jsonl,csv}
-│   ├── documents_manifest.{jsonl,csv}
-│   ├── profile_summary.csv
-│   └── manifest.{jsonl,csv}
-├── gold/
-│   ├── metadata_20.csv
-│   ├── metadata.csv          # backward-compatible copy
-│   └── ground_truth/         # doc001.json … doc020.json
-├── gold_candidates/
-│   ├── gold_candidates_manifest.{jsonl,csv}
-│   ├── gold_candidates_prefill.jsonl
-│   └── annotation_sheet.csv  # PREANNOTATED — NOT VERIFIED
-├── gold_verified/
-│   └── (optional) annotations.{jsonl,csv}
-└── batch_runs/<timestamp>/
-    ├── per_document/<document_id>.json
-    ├── summary.csv
-    ├── summary.json
-    ├── errors.jsonl
-    ├── usage.csv
-    └── config.json
-
-outputs/
-├── predictions/<doc_id>.json
-└── eval_runs/<timestamp>/
-    ├── metrics_summary.csv
-    ├── metrics_by_field.csv
-    ├── metrics_by_quality_bucket.csv
-    ├── failure_cases.csv
-    ├── metrics.json
-    └── eval_report.md
-```
-
-### Experiment modes
-
-Extraction modes are selected on **`run_batch_extraction`**. Evaluation (`run_eval` / `evaluate_outputs`) is mode-agnostic — point it at the prediction JSON directory produced by each batch run.
-
-| Mode | Name | How to run | Notes |
-| --- | --- | --- | --- |
-| A | `legacy_ocr_offline_baseline` | — | **SKIPPED.** The existing Tesseract utility is cell-level OCR, not an end-to-end extractor. |
-| B | `multimodal_direct_no_routing` | `python -m scripts.run_batch_extraction --mode B --subset …` | Bypasses the profiler/router. |
-| C | `multimodal_preprocessed_fixed` | `python -m scripts.run_batch_extraction --mode C --subset …` | Always uses the full denoise/sharpen stack. |
-| D | `routed_hybrid_proposed` | `python -m scripts.run_batch_extraction --mode D --subset …` (default) | The proposed thesis architecture. |
-
-### What remains manual
-
-- **Verified gold.** The preannotated pack is a model-generated proposal; treating it as truth would leak model bias into the evaluation. A human must edit `annotation_sheet.csv`, move accepted rows into `data/gold_verified/annotations.(jsonl|csv)`, and then re-run `scripts.load_gold` + `scripts.run_eval`.
-- **Full 100-document live extraction.** The runner supports it, but live runs are intentionally restricted to the 20-document balanced subset during the thesis phase to keep API cost and rate-limit exposure predictable.
+- `.env`, API keys, and any secret files
+- `.venv/`, `node_modules/`
+- `__pycache__/`, `.pytest_cache/`, `.mypy_cache/`
+- `dist/`, `build/`, `frontend/dist/`
+- `data/qualiflow.db` (local SQLite runtime database)
+- `data/storage/` (uploaded PDFs and preprocessing artifacts)
+- Debug and runtime logs (`debug-*.log`, `*.log`)
+- Local IDE folders (`.vscode/`, `.idea/`)
+- Personal machine paths and ephemeral development outputs
 
 ---
 
-## 6. Persistence locations
-
-- Database: `./data/qualiflow.db` (SQLite by default, override with `DATABASE_URL`)
-- Uploaded PDFs: `./data/storage/pdfs`
-- Preprocessing / table artifacts: `./data/storage/artifacts/<sha256>/`
-- Extraction smoke-test outputs: `./data/outputs/`
-- Dataset manifests / batch runs: see the tree above.
-- Evaluation outputs: `outputs/eval_runs/`
-
----
-
-## 7. Bundled evaluation scripts
-
-### HTTP extraction smoke test (requires backend running)
-
-```bash
-python -m scripts.evaluate_extraction
-```
-
-Summarises rows, confidence, missing yield counts, and suspicious numeric bands per document — useful for eyeballing a live backend.
-
-### OCR backend probe (legacy, offline only)
-
-```bash
-python -m scripts.check_ocr_backend  # optional
-```
-
-Runs Tesseract-based OCR against saved Stage 4 cell crops. **Not** part of the runtime. It remains in the repository only for reproducibility of earlier OCR experiments; installing Tesseract is optional.
-
-### Batch + eval harness
-
-```bash
-python -m scripts.run_batch_extraction --help
-python -m scripts.run_eval --help
-python -m scripts.evaluate_outputs --help
-python -m scripts.export_eval_summary --eval-root outputs/eval_runs
-```
-
----
-
-## 8. Current status and limitations
-
-QualiFlow is a **research prototype** for graduation-project evaluation. It prioritizes **safe review routing** over blind automation: uncertain extraction, unsupported material/spec families, and unverified traceability identifiers are routed to human review rather than force-approved.
-
-### Evaluation artifacts
-
-A preliminary 20-document gold-set evaluation is committed for academic reference:
-
-- Report: [`outputs/eval_runs/final20/eval_report.md`](outputs/eval_runs/final20/eval_report.md)
-- Metrics: [`outputs/eval_runs/final20/metrics_summary.csv`](outputs/eval_runs/final20/metrics_summary.csv)
-- Ground truth: [`data/gold/ground_truth/`](data/gold/ground_truth/) (20 JSON files)
-- Metadata index: [`data/gold/metadata_20.csv`](data/gold/metadata_20.csv)
-
-These results are **preliminary** and should be interpreted field-by-field. Deterministic validation applies only to supported grade/spec families; unsupported families are flagged for review instead of being fabricated.
-
-### Traceability model
-
-Traceability identifiers are stored in **specific canonical fields** (`heat_number`, `batch_number`, `lot_number`, `cast_number`, `colata_number`, `charge_number`, etc.). The UI may group them under a single “Traceability Identifier” label, but the backend preserves the identifier type whenever the source header allows it.
-
-### Engineering Extension for Difficult Scanned Tables
-
-For scanned, multi-page, watermark-heavy certificates, a production version would add cell-level table reconstruction, OCR per cell, cross-page row stitching, and supplier-specific template adapters. The current prototype safely routes such cases to human review instead of hallucinating line items or compliance decisions.
-
-### Presentation notes
-
-- **Human-in-the-loop review is intentional.** The system is designed to escalate ambiguous cases rather than silently accept them.
-- **Unknown or unsupported specs are not force-approved.** Unresolved spec families route to review.
-- For grades outside the internal deterministic validation catalog, the system does not fabricate compliance. It routes the result to human review. A production extension would add document-declared limit validation, where Actual values are compared against Minimum/Maximum limits explicitly printed in the certificate.
-- **Some fields may still require review**, including item references, supplier formatting, and grades outside the supported registry.
-- **This prototype is not a fully autonomous certification authority.** It assists extraction and compliance checking; final approval remains a human responsibility.
-- **Security and deployment settings are prototype-level** unless production hardening (auth secrets, HTTPS, rate limits, audit logging) is added separately.
-
-### Smoke-test evidence
-
-The latest checked live evidence is a cost-limited two-PDF smoke sequence (`doc001.pdf`, `doc002.pdf`) under `data/batch_runs/plan_step6_*`. These runs validate the extraction pipeline end-to-end but do **not** constitute a full benchmark claim.
-
-| Area | Status | Notes |
-| --- | --- | --- |
-| Two-PDF smoke manifest | Available | `data/two_pdf_manifest.jsonl` |
-| Cost-limited Mode D runs | Available | See `data/batch_runs/plan_step6_*` |
-| Full 20-doc live re-run | Optional | Re-run when API budget allows; compare against committed eval artifacts |
-| Verified gold | Partial | Ground-truth files exist; treat preannotated packs as proposals until human-verified |
-
----
-
-## 9. Tests
+## Tests
 
 ```bash
 python -m pytest tests/ -q
 ```
 
-Targeted suites for traceability and field mapping:
+Targeted suites:
 
 ```bash
 python -m pytest tests/test_field_mapping_registry.py tests/test_traceability.py -v
 ```
 
-Install dependencies from `requirements.txt` before running the full suite. Some modules (e.g. auth/database integrations) require packages such as `sqlalchemy`, `python-jose`, and `bcrypt`; collection failures indicate missing dependencies rather than test regressions.
+Install dependencies from `requirements.txt` before running the full suite.
 
-Phase 2 adds profiler, router, review-policy, evaluation-metrics, and manifest-builder tests alongside the existing extraction and validation suites.
+---
 
-## 10. Internal modules (reference)
+## Additional Documentation
 
-- **Document profiler** — `app/services/document_profiler.py` — text-layer + blur/noise → quality class. See [docs/runtime_architecture.md](docs/runtime_architecture.md).
-- **Extraction router** — `app/services/extraction_router.py` — picks exactly one route; supports `force_route` for experiment modes.
-- **Review policy** — `app/services/review_policy.py` — structured review reason tokens.
-- **Adaptive preprocessing** — `app/services/preprocessing.py` + `app/services/preprocessing_strategy.py` — rasterisation, variant stack, route-aware selection. Developer notes in [docs/preprocessing_strategy.md](docs/preprocessing_strategy.md).
-- **Multimodal extraction pipeline** — `app/services/extraction_pipeline.py` — Stage A / Stage B Claude tool-use, normalisation, validation, confidence, review policy.
-- **Row-shape normalizer** — `app/services/row_shape_normalizer.py` — collapses vertical mechanical-property tables and backfills single-item metadata context.
-- **Validation** — `app/services/validator.py` — `MATERIAL_SPECS` compliance, suspicious numeric bands, heat-pattern consistency.
-- **Confidence normalisation** — `app/services/confidence.py` — combines validator output, missing critical fields, blur/noise, and review threshold.
-- **Field registry** — `app/domain/field_mapping_registry.py` — canonical header normalisation. Developer notes in [docs/domain_schema.md](docs/domain_schema.md).
-- **Table geometry parser** — `app/services/table_parser.py`. Developer notes in [docs/table_parsing.md](docs/table_parsing.md).
-- **Legacy OCR (offline)** — `app/services/ocr_service.py` — isolated Tesseract probe; not imported by the runtime.
+- [docs/runtime_architecture.md](docs/runtime_architecture.md) — profiler heuristics, router table, review-token catalogue
+- [docs/dataset_workflow.md](docs/dataset_workflow.md) — manifest, gold-candidate, and batch workflow
+- [docs/review_taxonomy.md](docs/review_taxonomy.md) — structured review reason tokens
+- [docs/QualiFlow_Mimari_Genel_Bakis.md](docs/QualiFlow_Mimari_Genel_Bakis.md) — architecture overview (Turkish)
