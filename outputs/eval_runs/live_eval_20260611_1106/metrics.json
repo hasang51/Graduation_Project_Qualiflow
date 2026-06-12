@@ -1,0 +1,15 @@
+{
+  "documents_evaluated": 10,
+  "metadata_path": "outputs\\eval_runs\\live_eval_20260611_1106\\metadata_10.csv",
+  "aggregate": {
+    "n": 10,
+    "field_accuracy": 0.6415,
+    "critical_field_accuracy": 0.6897,
+    "document_type_accuracy": 0.6,
+    "processing_decision_accuracy": 0.0,
+    "review_rate": 0.9,
+    "unsafe_auto_accept_rate": 0.5,
+    "missing_required_field_rate": 0.069,
+    "average_latency_ms": 45740.5
+  }
+}

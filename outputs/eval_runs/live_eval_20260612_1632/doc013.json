@@ -1,0 +1,482 @@
+{
+  "document_id": "doc013",
+  "filename": "doc013.pdf",
+  "mode": "D",
+  "route_used": "native_multimodal",
+  "profile": {
+    "document_id": "doc013",
+    "filename": "doc013.pdf",
+    "page_count": 1,
+    "has_text_layer": true,
+    "text_density": 1.0,
+    "blur_score": 2103.72,
+    "noise_score": 8.32,
+    "table_presence_hint": true,
+    "quality_class": "digital_clean",
+    "reasons": [
+      "text_layer_present(text_density=1.00)"
+    ],
+    "profile_confidence": 0.95,
+    "metrics_summary": {
+      "has_extractable_text": true,
+      "text_density": 1.0,
+      "blur_score": 2103.72,
+      "noise_score": 8.32,
+      "table_presence_hint": true,
+      "is_noisy_ocr": false,
+      "has_embedded_images": true,
+      "has_full_page_raster_image": false,
+      "has_images": true,
+      "ocr_likelihood": "low"
+    }
+  },
+  "route_decision": {
+    "selected_route": "path_a_digital_pdf",
+    "runtime_route": "native_multimodal",
+    "route": "native_multimodal",
+    "quality_class": "digital_clean",
+    "reason_codes": [
+      "quality_class:digital_clean",
+      "text_layer_present",
+      "text_layer_present(text_density=1.00)"
+    ],
+    "reasons": [
+      "quality_class:digital_clean",
+      "text_layer_present",
+      "text_layer_present(text_density=1.00)"
+    ],
+    "triggering_features": {
+      "has_text_layer": true,
+      "text_density": 1.0,
+      "blur_score": 2103.72,
+      "noise_score": 8.32,
+      "page_count": 1,
+      "table_presence_hint": true
+    },
+    "expected_strategy": "digital images, minimal preprocessing",
+    "review_first_bias": false
+  },
+  "latency_ms": 27752.8,
+  "extraction": {
+    "supplier_name": "Heubach International",
+    "document_type": "Test Certificate",
+    "product_category": "PIPE",
+    "certificate_date": "12/12/2015",
+    "batch_number": null,
+    "lot_number": null,
+    "colata_number": null,
+    "cast_number": null,
+    "charge_number": null,
+    "coil_number": null,
+    "certificate_number": "108",
+    "order_number": "JDS 024",
+    "traceability_identifier_type": "heat_number",
+    "traceability_identifier_label": "HEAT NO",
+    "traceability_identifier_value": "A 3221",
+    "total_items_detected": 1,
+    "items": [
+      {
+        "item_id": "1",
+        "pipe_id": "1",
+        "heat_number": "A 3221",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "108",
+        "order_number": "JDS 024",
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "A 3221",
+        "grade": "AISI 1018",
+        "weight_or_length": "25.40 MM X 2 MM",
+        "mechanical_properties": {
+          "yield_strength_mpa": 302.14,
+          "tensile_strength_mpa": 462.16,
+          "elongation_percentage": 44.2
+        },
+        "validation": {
+          "is_compliant": null,
+          "deviations": [
+            "Grade 'AISI 1018' is explicitly stated but not mapped in the internal catalog - manual review required."
+          ],
+          "outcome": "EXPLICIT_UNMAPPED_GRADE",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.grade_registry",
+              "decision": "explicit_unmapped_grade",
+              "reason": "grade not in registry",
+              "candidate_spec_family": []
+            }
+          ]
+        },
+        "row_confidence": 0.85,
+        "needs_review": true,
+        "grade_resolution": {
+          "raw": "AISI 1018",
+          "normalized": "AISI 1018",
+          "status": "unknown",
+          "canonical": null,
+          "candidates": [],
+          "family_group": null,
+          "dual_designation": false,
+          "reason": "no alias matches the registry",
+          "confidence": 0.0,
+          "spec": {
+            "status": "unknown_grade",
+            "canonical": null,
+            "candidates": [],
+            "reason": "grade not in registry",
+            "spec": null
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "A 3221",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "1",
+          "pipe_id": "1",
+          "certificate_number": "108",
+          "order_number": "JDS 024",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "A 3221"
+        },
+        "raw_identifier_candidates": {}
+      }
+    ],
+    "confidence_score": 0.9199999999999999,
+    "raw_model_confidence": 0.95,
+    "ai_analysis_remarks": "No field explicitly labeled as heat number was visible. Primary traceability identifier HEAT NO A 3221 was selected and mapped to the canonical heat/batch field.",
+    "stage_b_extraction_audit": "Columns visible: ITEM (col 1), DESCRIPTION (col 2), QTY NOS (col 3), LOT NO (col 4), C% (col 5), Mn% (col 6), S% (col 7), P% (col 8), Ni% (col 9), Mo% (col 10), TENSILE ST. (MPa) (col 11), YIELD STRENGTH (MPa) (col 12), HARDNESS (HR B) (col 13), ELONGATION (col 14). No Item ID column present in this document.",
+    "is_compliant": null,
+    "outcome": "NEEDS_REVIEW",
+    "status": "NEEDS_REVIEW",
+    "needs_review": true,
+    "review_reasons": [
+      "explicit_unmapped_grade",
+      "unresolved grade or spec"
+    ],
+    "confidence_breakdown": {
+      "extraction_confidence": 0.95,
+      "normalization_confidence": 1.0,
+      "spec_resolution_confidence": 0.05,
+      "validation_confidence": 1.0,
+      "overall_decision_confidence": 0.92
+    },
+    "explanation": {
+      "document_profile": {
+        "document_id": "doc013",
+        "filename": "doc013.pdf",
+        "page_count": 1,
+        "has_text_layer": true,
+        "text_density": 1.0,
+        "blur_score": 2103.72,
+        "noise_score": 8.32,
+        "table_presence_hint": true,
+        "quality_class": "digital_clean",
+        "reasons": [
+          "text_layer_present(text_density=1.00)"
+        ],
+        "profile_confidence": 0.95,
+        "metrics_summary": {
+          "has_extractable_text": true,
+          "text_density": 1.0,
+          "blur_score": 2103.72,
+          "noise_score": 8.32,
+          "table_presence_hint": true,
+          "is_noisy_ocr": false,
+          "has_embedded_images": true,
+          "has_full_page_raster_image": false,
+          "has_images": true,
+          "ocr_likelihood": "low"
+        }
+      },
+      "route_decision": null,
+      "validation_outcome": {
+        "document_outcome": "NEEDS_REVIEW",
+        "review_required": true,
+        "review_reasons": [
+          "explicit_unmapped_grade",
+          "unresolved grade or spec"
+        ]
+      },
+      "traceability": {
+        "status": "VERIFIED",
+        "confidence": 0.95,
+        "accepted_identifier_values": {
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "certificate_number": "108",
+          "order_number": "JDS 024",
+          "heat_number": "A 3221",
+          "item_id": "1",
+          "pipe_id": "1",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "A 3221"
+        },
+        "raw_identifier_candidates": {
+          "batch_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            }
+          ],
+          "lot_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            }
+          ],
+          "colata_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            }
+          ],
+          "cast_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            }
+          ],
+          "charge_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            }
+          ],
+          "coil_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            }
+          ]
+        }
+      },
+      "review_policy": {
+        "decision": "review_required",
+        "review_required": true,
+        "needs_review": true,
+        "structured_reasons": [
+          "explicit_unmapped_grade"
+        ],
+        "review_reasons": [
+          "explicit_unmapped_grade"
+        ],
+        "blocking_errors": [],
+        "confidence_summary": {
+          "min_critical_field_confidence": 0.92,
+          "avg_field_confidence": 0.8067
+        },
+        "blocking_reasons": [],
+        "evidence_gaps": [],
+        "recommended_reviewer_focus": [],
+        "all_reasons": [
+          "explicit_unmapped_grade",
+          "unresolved grade or spec"
+        ]
+      },
+      "evidence_propagation_notes": [],
+      "unresolved_or_ambiguous": [
+        "unresolved grade or spec"
+      ],
+      "confidence_breakdown": {
+        "extraction_confidence": 0.95,
+        "normalization_confidence": 1.0,
+        "spec_resolution_confidence": 0.05,
+        "validation_confidence": 1.0,
+        "overall_decision_confidence": 0.92
+      },
+      "identifier_guard": null
+    },
+    "traceability_status": "VERIFIED",
+    "traceability_confidence": 0.95,
+    "identifier_visibility_verified": true,
+    "accepted_identifier_values": {
+      "batch_number": null,
+      "lot_number": null,
+      "colata_number": null,
+      "cast_number": null,
+      "charge_number": null,
+      "coil_number": null,
+      "certificate_number": "108",
+      "order_number": "JDS 024",
+      "heat_number": "A 3221",
+      "item_id": "1",
+      "pipe_id": "1",
+      "traceability_identifier_type": "heat_number",
+      "traceability_identifier_label": "HEAT NO",
+      "traceability_identifier_value": "A 3221"
+    },
+    "raw_identifier_candidates": {
+      "batch_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        }
+      ],
+      "lot_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        }
+      ],
+      "colata_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        }
+      ],
+      "cast_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        }
+      ],
+      "charge_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        }
+      ],
+      "coil_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        }
+      ]
+    },
+    "analysis_id": null
+  },
+  "review_policy": {
+    "decision": "review_required",
+    "review_required": true,
+    "needs_review": true,
+    "structured_reasons": [
+      "explicit_unmapped_grade"
+    ],
+    "review_reasons": [
+      "explicit_unmapped_grade"
+    ],
+    "blocking_errors": [],
+    "confidence_summary": {
+      "min_critical_field_confidence": 0.92,
+      "avg_field_confidence": 0.8067
+    },
+    "blocking_reasons": [],
+    "evidence_gaps": [],
+    "recommended_reviewer_focus": [],
+    "all_reasons": [
+      "explicit_unmapped_grade",
+      "unresolved grade or spec"
+    ]
+  },
+  "llm_usage": {
+    "stage_a_input_tokens": 4304,
+    "stage_a_output_tokens": 551,
+    "stage_b_input_tokens": 8330,
+    "stage_b_output_tokens": 507,
+    "total_input_tokens": 12634,
+    "total_output_tokens": 1058,
+    "pages_sent": 1
+  },
+  "page_selection": {
+    "total_pages": 1,
+    "selected_count": 1,
+    "selected_indices": [
+      0
+    ],
+    "pages_skipped": 0,
+    "reason": "all_1_pages_within_cap"
+  },
+  "preprocessing_summary": {
+    "page_count": 1,
+    "route_used": "native_multimodal",
+    "adaptive_preprocessing_summary": {
+      "condition_counts": {
+        "clean": 1,
+        "noisy": 0,
+        "blurry": 0,
+        "noisy_and_blurry": 0
+      },
+      "dominant_condition": "clean",
+      "strategy_version": "v1"
+    },
+    "confidence_assessment": {
+      "raw_model_confidence": 0.95,
+      "final_confidence": 0.9199999999999999,
+      "table_found": true,
+      "avg_blur_score": 2103.7202312338222,
+      "avg_noise_estimate": 8.315575167385195,
+      "noise_severity": "low",
+      "items_array_length": 1,
+      "raw_reported_total_items": 1,
+      "missing_critical_fields_rate": 0.0,
+      "suspicious_numeric_count": 0,
+      "row_count_inconsistent": false,
+      "document_understood": true,
+      "low_critical_identifier_confidence": false,
+      "ambiguous_null_critical_identifier": false,
+      "confidence_breakdown": {
+        "extraction_confidence": 0.95,
+        "normalization_confidence": 1.0,
+        "spec_resolution_confidence": 0.05,
+        "validation_confidence": 1.0,
+        "overall_decision_confidence": 0.92
+      }
+    }
+  }
+}

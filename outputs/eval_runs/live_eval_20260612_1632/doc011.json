@@ -1,0 +1,877 @@
+{
+  "document_id": "doc011",
+  "filename": "doc011.pdf",
+  "mode": "D",
+  "route_used": "preprocessed_multimodal",
+  "profile": {
+    "document_id": "doc011",
+    "filename": "doc011.pdf",
+    "page_count": 1,
+    "has_text_layer": true,
+    "text_density": 0.6065,
+    "blur_score": 2424.46,
+    "noise_score": 8.0,
+    "table_presence_hint": true,
+    "quality_class": "noisy_scan",
+    "reasons": [
+      "ocr_text_layer_corrupted",
+      "full_page_raster_image",
+      "low_identifier_legibility"
+    ],
+    "profile_confidence": 0.68,
+    "metrics_summary": {
+      "has_extractable_text": true,
+      "text_density": 0.6065,
+      "blur_score": 2424.46,
+      "noise_score": 8.0,
+      "table_presence_hint": true,
+      "is_noisy_ocr": false,
+      "has_embedded_images": true,
+      "has_full_page_raster_image": true,
+      "has_images": true,
+      "ocr_likelihood": "high"
+    }
+  },
+  "route_decision": {
+    "selected_route": "path_c_noisy_scan",
+    "runtime_route": "preprocessed_multimodal",
+    "route": "preprocessed_multimodal",
+    "quality_class": "noisy_scan",
+    "reason_codes": [
+      "quality_class:noisy_scan",
+      "text_layer_present",
+      "ocr_text_layer_corrupted",
+      "full_page_raster_image",
+      "low_identifier_legibility"
+    ],
+    "reasons": [
+      "quality_class:noisy_scan",
+      "text_layer_present",
+      "ocr_text_layer_corrupted",
+      "full_page_raster_image",
+      "low_identifier_legibility"
+    ],
+    "triggering_features": {
+      "has_text_layer": true,
+      "text_density": 0.6065,
+      "blur_score": 2424.46,
+      "noise_score": 8.0,
+      "page_count": 1,
+      "table_presence_hint": true
+    },
+    "expected_strategy": "denoise + adaptive binary + sharpen stack",
+    "review_first_bias": false
+  },
+  "latency_ms": 40191.3,
+  "extraction": {
+    "supplier_name": "MEGASA",
+    "document_type": "Inspection Certificate",
+    "product_category": "STRUCTURAL_STEEL",
+    "certificate_date": "10/06/2022",
+    "batch_number": null,
+    "lot_number": null,
+    "colata_number": null,
+    "cast_number": null,
+    "charge_number": null,
+    "coil_number": null,
+    "certificate_number": "FT2261651",
+    "order_number": "22/19963",
+    "traceability_identifier_type": "heat_number",
+    "traceability_identifier_label": "HEAT NO",
+    "traceability_identifier_value": "['4533354', '4533372', '453341/2']",
+    "total_items_detected": 3,
+    "items": [
+      {
+        "item_id": "1",
+        "pipe_id": "1",
+        "heat_number": "4533354",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "FT2261651",
+        "order_number": "22/19863",
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "4533354",
+        "grade": "B 500 B",
+        "weight_or_length": "6000",
+        "mechanical_properties": {
+          "yield_strength_mpa": 588.0,
+          "tensile_strength_mpa": 691.0,
+          "elongation_percentage": 8.4
+        },
+        "validation": {
+          "is_compliant": true,
+          "deviations": [],
+          "outcome": "COMPLIANT",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.family",
+              "decision": "resolved",
+              "matched_spec_family": "B500B",
+              "candidate_spec_family": [
+                "B500B"
+              ],
+              "evidence": {
+                "yield_strength_mpa": 588.0,
+                "tensile_strength_mpa": 691.0,
+                "elongation_percentage": 8.4
+              }
+            },
+            {
+              "rule": "deterministic_validator.threshold_check",
+              "decision": "pass"
+            }
+          ]
+        },
+        "row_confidence": 0.95,
+        "needs_review": false,
+        "grade_resolution": {
+          "raw": "B 500 B",
+          "normalized": "B 500 B",
+          "status": "resolved",
+          "canonical": "B500B",
+          "candidates": [
+            "B500B"
+          ],
+          "family_group": "rebar",
+          "dual_designation": false,
+          "reason": "single alias match",
+          "confidence": 1.0,
+          "spec": {
+            "status": "resolved",
+            "canonical": "B500B",
+            "candidates": [
+              "B500B"
+            ],
+            "reason": "carbon-steel spec resolved",
+            "spec": {
+              "canonical": "B500B",
+              "min_yield_mpa": 500.0,
+              "min_tensile_mpa": 540.0,
+              "max_tensile_mpa": 2000.0,
+              "min_elongation_pct": 0.0
+            }
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "4533354",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "1",
+          "pipe_id": "1",
+          "certificate_number": "FT2261651",
+          "order_number": "22/19863",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "4533354"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "2",
+        "pipe_id": "2",
+        "heat_number": "4533372",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "FT2261651",
+        "order_number": "22/19863",
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "4533372",
+        "grade": "B 500 B",
+        "weight_or_length": "6000",
+        "mechanical_properties": {
+          "yield_strength_mpa": 576.0,
+          "tensile_strength_mpa": 677.0,
+          "elongation_percentage": 10.0
+        },
+        "validation": {
+          "is_compliant": true,
+          "deviations": [],
+          "outcome": "COMPLIANT",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.family",
+              "decision": "resolved",
+              "matched_spec_family": "B500B",
+              "candidate_spec_family": [
+                "B500B"
+              ],
+              "evidence": {
+                "yield_strength_mpa": 576.0,
+                "tensile_strength_mpa": 677.0,
+                "elongation_percentage": 10.0
+              }
+            },
+            {
+              "rule": "deterministic_validator.threshold_check",
+              "decision": "pass"
+            }
+          ]
+        },
+        "row_confidence": 0.95,
+        "needs_review": false,
+        "grade_resolution": {
+          "raw": "B 500 B",
+          "normalized": "B 500 B",
+          "status": "resolved",
+          "canonical": "B500B",
+          "candidates": [
+            "B500B"
+          ],
+          "family_group": "rebar",
+          "dual_designation": false,
+          "reason": "single alias match",
+          "confidence": 1.0,
+          "spec": {
+            "status": "resolved",
+            "canonical": "B500B",
+            "candidates": [
+              "B500B"
+            ],
+            "reason": "carbon-steel spec resolved",
+            "spec": {
+              "canonical": "B500B",
+              "min_yield_mpa": 500.0,
+              "min_tensile_mpa": 540.0,
+              "max_tensile_mpa": 2000.0,
+              "min_elongation_pct": 0.0
+            }
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "4533372",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "2",
+          "pipe_id": "2",
+          "certificate_number": "FT2261651",
+          "order_number": "22/19863",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "4533372"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "3",
+        "pipe_id": "3",
+        "heat_number": "453341/2",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "FT2261651",
+        "order_number": "22/19863",
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "453341/2",
+        "grade": "B 500 B",
+        "weight_or_length": "6000",
+        "mechanical_properties": {
+          "yield_strength_mpa": 584.0,
+          "tensile_strength_mpa": 682.0,
+          "elongation_percentage": 8.9
+        },
+        "validation": {
+          "is_compliant": true,
+          "deviations": [],
+          "outcome": "COMPLIANT",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.family",
+              "decision": "resolved",
+              "matched_spec_family": "B500B",
+              "candidate_spec_family": [
+                "B500B"
+              ],
+              "evidence": {
+                "yield_strength_mpa": 584.0,
+                "tensile_strength_mpa": 682.0,
+                "elongation_percentage": 8.9
+              }
+            },
+            {
+              "rule": "deterministic_validator.threshold_check",
+              "decision": "pass"
+            }
+          ]
+        },
+        "row_confidence": 0.95,
+        "needs_review": false,
+        "grade_resolution": {
+          "raw": "B 500 B",
+          "normalized": "B 500 B",
+          "status": "resolved",
+          "canonical": "B500B",
+          "candidates": [
+            "B500B"
+          ],
+          "family_group": "rebar",
+          "dual_designation": false,
+          "reason": "single alias match",
+          "confidence": 1.0,
+          "spec": {
+            "status": "resolved",
+            "canonical": "B500B",
+            "candidates": [
+              "B500B"
+            ],
+            "reason": "carbon-steel spec resolved",
+            "spec": {
+              "canonical": "B500B",
+              "min_yield_mpa": 500.0,
+              "min_tensile_mpa": 540.0,
+              "max_tensile_mpa": 2000.0,
+              "min_elongation_pct": 0.0
+            }
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "453341/2",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "3",
+          "pipe_id": "3",
+          "certificate_number": "FT2261651",
+          "order_number": "22/19863",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "453341/2"
+        },
+        "raw_identifier_candidates": {}
+      }
+    ],
+    "confidence_score": 0.95,
+    "raw_model_confidence": 0.95,
+    "ai_analysis_remarks": "No field explicitly labeled as heat number was visible. Primary traceability identifier HEAT NO ['4533354', '4533372', '453341/2'] was selected and mapped to the canonical heat/batch field.",
+    "stage_b_extraction_audit": "Columns visible: N° (col 1), Ø (col 2), LENGTH (col 3), followed by chemical composition columns C, P, S, Mn, Cr, Ni, Cu, V, Mo, N, Ceq, Si (cols 4-15), then measurement columns h, c, tR (cols 16-18), and tensile test columns Rm, Re, Agt, Kg/m (cols 19-22), and BEND-REBEND (col 23). No Item ID, Article No, Position, or similar item reference column is present in this document.",
+    "is_compliant": true,
+    "outcome": "COMPLIANT",
+    "status": "COMPLETED",
+    "needs_review": false,
+    "review_reasons": [],
+    "confidence_breakdown": {
+      "extraction_confidence": 0.95,
+      "normalization_confidence": 1.0,
+      "spec_resolution_confidence": 1.0,
+      "validation_confidence": 1.0,
+      "overall_decision_confidence": 0.95
+    },
+    "explanation": {
+      "document_profile": {
+        "document_id": "doc011",
+        "filename": "doc011.pdf",
+        "page_count": 1,
+        "has_text_layer": true,
+        "text_density": 0.6065,
+        "blur_score": 2424.46,
+        "noise_score": 8.0,
+        "table_presence_hint": true,
+        "quality_class": "noisy_scan",
+        "reasons": [
+          "ocr_text_layer_corrupted",
+          "full_page_raster_image",
+          "low_identifier_legibility"
+        ],
+        "profile_confidence": 0.68,
+        "metrics_summary": {
+          "has_extractable_text": true,
+          "text_density": 0.6065,
+          "blur_score": 2424.46,
+          "noise_score": 8.0,
+          "table_presence_hint": true,
+          "is_noisy_ocr": false,
+          "has_embedded_images": true,
+          "has_full_page_raster_image": true,
+          "has_images": true,
+          "ocr_likelihood": "high"
+        }
+      },
+      "route_decision": null,
+      "validation_outcome": {
+        "document_outcome": "COMPLIANT",
+        "review_required": false,
+        "review_reasons": []
+      },
+      "traceability": {
+        "status": "VERIFIED",
+        "confidence": 0.95,
+        "accepted_identifier_values": {
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "certificate_number": "FT2261651",
+          "order_number": "22/19863",
+          "heat_number": [
+            "4533354",
+            "4533372",
+            "453341/2"
+          ],
+          "item_id": [
+            "1",
+            "2",
+            "3"
+          ],
+          "pipe_id": [
+            "1",
+            "2",
+            "3"
+          ],
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "['4533354', '4533372', '453341/2']"
+        },
+        "raw_identifier_candidates": {
+          "batch_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            }
+          ],
+          "lot_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            }
+          ],
+          "colata_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            }
+          ],
+          "cast_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            }
+          ],
+          "charge_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            }
+          ],
+          "coil_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            }
+          ]
+        }
+      },
+      "review_policy": {
+        "decision": "auto_accept",
+        "review_required": false,
+        "needs_review": false,
+        "structured_reasons": [],
+        "review_reasons": [],
+        "blocking_errors": [],
+        "confidence_summary": {
+          "min_critical_field_confidence": 0.95,
+          "avg_field_confidence": 0.975
+        },
+        "blocking_reasons": [],
+        "evidence_gaps": [],
+        "recommended_reviewer_focus": [],
+        "all_reasons": []
+      },
+      "evidence_propagation_notes": [],
+      "unresolved_or_ambiguous": [],
+      "confidence_breakdown": {
+        "extraction_confidence": 0.95,
+        "normalization_confidence": 1.0,
+        "spec_resolution_confidence": 1.0,
+        "validation_confidence": 1.0,
+        "overall_decision_confidence": 0.95
+      },
+      "identifier_guard": null
+    },
+    "traceability_status": "VERIFIED",
+    "traceability_confidence": 0.95,
+    "identifier_visibility_verified": true,
+    "accepted_identifier_values": {
+      "batch_number": null,
+      "lot_number": null,
+      "colata_number": null,
+      "cast_number": null,
+      "charge_number": null,
+      "coil_number": null,
+      "certificate_number": "FT2261651",
+      "order_number": "22/19863",
+      "heat_number": [
+        "4533354",
+        "4533372",
+        "453341/2"
+      ],
+      "item_id": [
+        "1",
+        "2",
+        "3"
+      ],
+      "pipe_id": [
+        "1",
+        "2",
+        "3"
+      ],
+      "traceability_identifier_type": "heat_number",
+      "traceability_identifier_label": "HEAT NO",
+      "traceability_identifier_value": "['4533354', '4533372', '453341/2']"
+    },
+    "raw_identifier_candidates": {
+      "batch_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        }
+      ],
+      "lot_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        }
+      ],
+      "colata_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        }
+      ],
+      "cast_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        }
+      ],
+      "charge_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        }
+      ],
+      "coil_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        }
+      ]
+    },
+    "analysis_id": null
+  },
+  "review_policy": {
+    "decision": "auto_accept",
+    "review_required": false,
+    "needs_review": false,
+    "structured_reasons": [],
+    "review_reasons": [],
+    "blocking_errors": [],
+    "confidence_summary": {
+      "min_critical_field_confidence": 0.95,
+      "avg_field_confidence": 0.975
+    },
+    "blocking_reasons": [],
+    "evidence_gaps": [],
+    "recommended_reviewer_focus": [],
+    "all_reasons": []
+  },
+  "llm_usage": {
+    "stage_a_input_tokens": 4346,
+    "stage_a_output_tokens": 534,
+    "stage_b_input_tokens": 11255,
+    "stage_b_output_tokens": 1049,
+    "total_input_tokens": 15601,
+    "total_output_tokens": 1583,
+    "pages_sent": 1
+  },
+  "page_selection": {
+    "total_pages": 1,
+    "selected_count": 1,
+    "selected_indices": [
+      0
+    ],
+    "pages_skipped": 0,
+    "reason": "all_1_pages_within_cap"
+  },
+  "preprocessing_summary": {
+    "page_count": 1,
+    "route_used": "preprocessed_multimodal",
+    "adaptive_preprocessing_summary": {
+      "condition_counts": {
+        "clean": 1,
+        "noisy": 0,
+        "blurry": 0,
+        "noisy_and_blurry": 0
+      },
+      "dominant_condition": "clean",
+      "strategy_version": "v1"
+    },
+    "confidence_assessment": {
+      "raw_model_confidence": 0.95,
+      "final_confidence": 0.95,
+      "table_found": true,
+      "avg_blur_score": 2424.4632986132074,
+      "avg_noise_estimate": 7.999642336469769,
+      "noise_severity": "low",
+      "items_array_length": 3,
+      "raw_reported_total_items": 3,
+      "missing_critical_fields_rate": 0.0,
+      "suspicious_numeric_count": 0,
+      "row_count_inconsistent": false,
+      "document_understood": true,
+      "low_critical_identifier_confidence": false,
+      "ambiguous_null_critical_identifier": false,
+      "confidence_breakdown": {
+        "extraction_confidence": 0.95,
+        "normalization_confidence": 1.0,
+        "spec_resolution_confidence": 1.0,
+        "validation_confidence": 1.0,
+        "overall_decision_confidence": 0.95
+      }
+    }
+  }
+}

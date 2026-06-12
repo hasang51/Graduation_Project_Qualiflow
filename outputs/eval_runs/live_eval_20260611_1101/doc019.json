@@ -1,0 +1,1875 @@
+{
+  "document_id": "doc019",
+  "filename": "doc019.pdf",
+  "mode": "D",
+  "route_used": "rendered_multimodal",
+  "profile": {
+    "document_id": "doc019",
+    "filename": "doc019.pdf",
+    "page_count": 7,
+    "has_text_layer": false,
+    "text_density": 0.0,
+    "blur_score": 284.95,
+    "noise_score": 4.85,
+    "table_presence_hint": true,
+    "quality_class": "scan_clean",
+    "reasons": [
+      "no_text_layer"
+    ],
+    "profile_confidence": 0.82,
+    "metrics_summary": {
+      "has_extractable_text": false,
+      "text_density": 0.0,
+      "blur_score": 284.95,
+      "noise_score": 4.85,
+      "table_presence_hint": true,
+      "is_noisy_ocr": false,
+      "has_embedded_images": true,
+      "has_full_page_raster_image": true,
+      "has_images": true,
+      "ocr_likelihood": "medium"
+    }
+  },
+  "route_decision": {
+    "selected_route": "path_b_clean_scan",
+    "runtime_route": "rendered_multimodal",
+    "route": "rendered_multimodal",
+    "quality_class": "scan_clean",
+    "reason_codes": [
+      "quality_class:scan_clean",
+      "no_text_layer",
+      "no_text_layer"
+    ],
+    "reasons": [
+      "quality_class:scan_clean",
+      "no_text_layer",
+      "no_text_layer"
+    ],
+    "triggering_features": {
+      "has_text_layer": false,
+      "text_density": 0.0,
+      "blur_score": 284.95,
+      "noise_score": 4.85,
+      "page_count": 7,
+      "table_presence_hint": true
+    },
+    "expected_strategy": "clean raster rendering with light variant fallback",
+    "review_first_bias": false
+  },
+  "latency_ms": 134453.1,
+  "extraction": {
+    "supplier_name": "Conexiones S.A.",
+    "document_type": "Mill Test Certificate",
+    "product_category": "PIPE",
+    "certificate_date": "MAY 18, 2015",
+    "batch_number": null,
+    "lot_number": null,
+    "colata_number": null,
+    "cast_number": null,
+    "charge_number": null,
+    "coil_number": null,
+    "certificate_number": "Q150518019-01",
+    "order_number": "RK1322",
+    "traceability_identifier_type": "heat_number",
+    "traceability_identifier_label": "HEAT NO",
+    "traceability_identifier_value": "['14304118', '15305792', '14303291', '14303895', '1436824V', '14303292', '14302857', '15305793']",
+    "total_items_detected": 9,
+    "items": [
+      {
+        "item_id": "5",
+        "pipe_id": "5",
+        "heat_number": "14304118",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "BGSAG141203001100",
+        "order_number": null,
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "14304118",
+        "grade": "45 ELBOW LR",
+        "weight_or_length": "2-1/2",
+        "mechanical_properties": {
+          "yield_strength_mpa": 427.75,
+          "tensile_strength_mpa": 655.4,
+          "elongation_percentage": 36.0
+        },
+        "validation": {
+          "is_compliant": null,
+          "deviations": [
+            "Grade '45 ELBOW LR' is explicitly stated but not mapped in the internal catalog - manual review required."
+          ],
+          "outcome": "EXPLICIT_UNMAPPED_GRADE",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.grade_registry",
+              "decision": "explicit_unmapped_grade",
+              "reason": "grade not in registry",
+              "candidate_spec_family": []
+            }
+          ]
+        },
+        "row_confidence": 0.85,
+        "needs_review": true,
+        "grade_resolution": {
+          "raw": "45 ELBOW LR",
+          "normalized": "45 ELBOW LR",
+          "status": "unknown",
+          "canonical": null,
+          "candidates": [],
+          "family_group": null,
+          "dual_designation": false,
+          "reason": "no alias matches the registry",
+          "confidence": 0.0,
+          "spec": {
+            "status": "unknown_grade",
+            "canonical": null,
+            "candidates": [],
+            "reason": "grade not in registry",
+            "spec": null
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "14304118",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "5",
+          "pipe_id": "5",
+          "certificate_number": "BGSAG141203001100",
+          "order_number": "RK1322",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "14304118"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "6",
+        "pipe_id": "6",
+        "heat_number": "15305792",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "BGSAG150326004500",
+        "order_number": null,
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "15305792",
+        "grade": "45 ELBOW LR",
+        "weight_or_length": "4",
+        "mechanical_properties": {
+          "yield_strength_mpa": 458.2,
+          "tensile_strength_mpa": 635.1,
+          "elongation_percentage": 34.0
+        },
+        "validation": {
+          "is_compliant": null,
+          "deviations": [
+            "Grade '45 ELBOW LR' is explicitly stated but not mapped in the internal catalog - manual review required."
+          ],
+          "outcome": "EXPLICIT_UNMAPPED_GRADE",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.grade_registry",
+              "decision": "explicit_unmapped_grade",
+              "reason": "grade not in registry",
+              "candidate_spec_family": []
+            }
+          ]
+        },
+        "row_confidence": 0.85,
+        "needs_review": true,
+        "grade_resolution": {
+          "raw": "45 ELBOW LR",
+          "normalized": "45 ELBOW LR",
+          "status": "unknown",
+          "canonical": null,
+          "candidates": [],
+          "family_group": null,
+          "dual_designation": false,
+          "reason": "no alias matches the registry",
+          "confidence": 0.0,
+          "spec": {
+            "status": "unknown_grade",
+            "canonical": null,
+            "candidates": [],
+            "reason": "grade not in registry",
+            "spec": null
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "15305792",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "6",
+          "pipe_id": "6",
+          "certificate_number": "BGSAG150326004500",
+          "order_number": "RK1322",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "15305792"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "26",
+        "pipe_id": "26",
+        "heat_number": "14303291",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "BGSAG141027002900",
+        "order_number": null,
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "14303291",
+        "grade": "90 ELBOW LR",
+        "weight_or_length": "2-1/2",
+        "mechanical_properties": {
+          "yield_strength_mpa": 471.25,
+          "tensile_strength_mpa": 754.0,
+          "elongation_percentage": 35.0
+        },
+        "validation": {
+          "is_compliant": null,
+          "deviations": [
+            "Grade '90 ELBOW LR' is explicitly stated but not mapped in the internal catalog - manual review required."
+          ],
+          "outcome": "EXPLICIT_UNMAPPED_GRADE",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.grade_registry",
+              "decision": "explicit_unmapped_grade",
+              "reason": "grade not in registry",
+              "candidate_spec_family": []
+            }
+          ]
+        },
+        "row_confidence": 0.85,
+        "needs_review": true,
+        "grade_resolution": {
+          "raw": "90 ELBOW LR",
+          "normalized": "90 ELBOW LR",
+          "status": "unknown",
+          "canonical": null,
+          "candidates": [],
+          "family_group": null,
+          "dual_designation": false,
+          "reason": "no alias matches the registry",
+          "confidence": 0.0,
+          "spec": {
+            "status": "unknown_grade",
+            "canonical": null,
+            "candidates": [],
+            "reason": "grade not in registry",
+            "spec": null
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "14303291",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "26",
+          "pipe_id": "26",
+          "certificate_number": "BGSAG141027002900",
+          "order_number": "RK1322",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "14303291"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "27",
+        "pipe_id": "27",
+        "heat_number": "14303895",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "BGSAG141203001300",
+        "order_number": null,
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "14303895",
+        "grade": "90 ELBOW LR",
+        "weight_or_length": "3",
+        "mechanical_properties": {
+          "yield_strength_mpa": 508.95,
+          "tensile_strength_mpa": 825.05,
+          "elongation_percentage": 35.0
+        },
+        "validation": {
+          "is_compliant": null,
+          "deviations": [
+            "Grade '90 ELBOW LR' is explicitly stated but not mapped in the internal catalog - manual review required."
+          ],
+          "outcome": "EXPLICIT_UNMAPPED_GRADE",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.grade_registry",
+              "decision": "explicit_unmapped_grade",
+              "reason": "grade not in registry",
+              "candidate_spec_family": []
+            }
+          ]
+        },
+        "row_confidence": 0.85,
+        "needs_review": true,
+        "grade_resolution": {
+          "raw": "90 ELBOW LR",
+          "normalized": "90 ELBOW LR",
+          "status": "unknown",
+          "canonical": null,
+          "candidates": [],
+          "family_group": null,
+          "dual_designation": false,
+          "reason": "no alias matches the registry",
+          "confidence": 0.0,
+          "spec": {
+            "status": "unknown_grade",
+            "canonical": null,
+            "candidates": [],
+            "reason": "grade not in registry",
+            "spec": null
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "14303895",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "27",
+          "pipe_id": "27",
+          "certificate_number": "BGSAG141203001300",
+          "order_number": "RK1322",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "14303895"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "1",
+        "pipe_id": "1",
+        "heat_number": "15305792",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "BGSAG150326004500",
+        "order_number": null,
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "15305792",
+        "grade": "90 ELBOW LR",
+        "weight_or_length": "4",
+        "mechanical_properties": {
+          "yield_strength_mpa": 524.9,
+          "tensile_strength_mpa": 816.35,
+          "elongation_percentage": 35.0
+        },
+        "validation": {
+          "is_compliant": null,
+          "deviations": [
+            "Grade '90 ELBOW LR' is explicitly stated but not mapped in the internal catalog - manual review required."
+          ],
+          "outcome": "EXPLICIT_UNMAPPED_GRADE",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.grade_registry",
+              "decision": "explicit_unmapped_grade",
+              "reason": "grade not in registry",
+              "candidate_spec_family": []
+            }
+          ]
+        },
+        "row_confidence": 0.85,
+        "needs_review": true,
+        "grade_resolution": {
+          "raw": "90 ELBOW LR",
+          "normalized": "90 ELBOW LR",
+          "status": "unknown",
+          "canonical": null,
+          "candidates": [],
+          "family_group": null,
+          "dual_designation": false,
+          "reason": "no alias matches the registry",
+          "confidence": 0.0,
+          "spec": {
+            "status": "unknown_grade",
+            "canonical": null,
+            "candidates": [],
+            "reason": "grade not in registry",
+            "spec": null
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "15305792",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "1",
+          "pipe_id": "1",
+          "certificate_number": "BGSAG150326004500",
+          "order_number": "RK1322",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "15305792"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "28",
+        "pipe_id": "28",
+        "heat_number": "1436824V",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "C201504927-1",
+        "order_number": null,
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "1436824V",
+        "grade": "90 ELBOW LR",
+        "weight_or_length": "6",
+        "mechanical_properties": {
+          "yield_strength_mpa": 395.85,
+          "tensile_strength_mpa": 635.1,
+          "elongation_percentage": 36.0
+        },
+        "validation": {
+          "is_compliant": null,
+          "deviations": [
+            "Grade '90 ELBOW LR' is explicitly stated but not mapped in the internal catalog - manual review required."
+          ],
+          "outcome": "EXPLICIT_UNMAPPED_GRADE",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.grade_registry",
+              "decision": "explicit_unmapped_grade",
+              "reason": "grade not in registry",
+              "candidate_spec_family": []
+            }
+          ]
+        },
+        "row_confidence": 0.85,
+        "needs_review": true,
+        "grade_resolution": {
+          "raw": "90 ELBOW LR",
+          "normalized": "90 ELBOW LR",
+          "status": "unknown",
+          "canonical": null,
+          "candidates": [],
+          "family_group": null,
+          "dual_designation": false,
+          "reason": "no alias matches the registry",
+          "confidence": 0.0,
+          "spec": {
+            "status": "unknown_grade",
+            "canonical": null,
+            "candidates": [],
+            "reason": "grade not in registry",
+            "spec": null
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "1436824V",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "28",
+          "pipe_id": "28",
+          "certificate_number": "C201504927-1",
+          "order_number": "RK1322",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "1436824V"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "2",
+        "pipe_id": "2",
+        "heat_number": "14303292",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "BGSAG141027002500",
+        "order_number": null,
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "14303292",
+        "grade": "90 ELBOW SR",
+        "weight_or_length": "2",
+        "mechanical_properties": {
+          "yield_strength_mpa": 469.8,
+          "tensile_strength_mpa": 740.95,
+          "elongation_percentage": 39.0
+        },
+        "validation": {
+          "is_compliant": null,
+          "deviations": [
+            "Grade '90 ELBOW SR' is explicitly stated but not mapped in the internal catalog - manual review required."
+          ],
+          "outcome": "EXPLICIT_UNMAPPED_GRADE",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.grade_registry",
+              "decision": "explicit_unmapped_grade",
+              "reason": "grade not in registry",
+              "candidate_spec_family": []
+            }
+          ]
+        },
+        "row_confidence": 0.85,
+        "needs_review": true,
+        "grade_resolution": {
+          "raw": "90 ELBOW SR",
+          "normalized": "90 ELBOW SR",
+          "status": "unknown",
+          "canonical": null,
+          "candidates": [],
+          "family_group": null,
+          "dual_designation": false,
+          "reason": "no alias matches the registry",
+          "confidence": 0.0,
+          "spec": {
+            "status": "unknown_grade",
+            "canonical": null,
+            "candidates": [],
+            "reason": "grade not in registry",
+            "spec": null
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "14303292",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "2",
+          "pipe_id": "2",
+          "certificate_number": "BGSAG141027002500",
+          "order_number": "RK1322",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "14303292"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "3",
+        "pipe_id": "3",
+        "heat_number": "14302857",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "BGSAG140901001900",
+        "order_number": null,
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "14302857",
+        "grade": "90 ELBOW SR",
+        "weight_or_length": "3",
+        "mechanical_properties": {
+          "yield_strength_mpa": 485.75,
+          "tensile_strength_mpa": 735.15,
+          "elongation_percentage": 38.0
+        },
+        "validation": {
+          "is_compliant": null,
+          "deviations": [
+            "Grade '90 ELBOW SR' is explicitly stated but not mapped in the internal catalog - manual review required."
+          ],
+          "outcome": "EXPLICIT_UNMAPPED_GRADE",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.grade_registry",
+              "decision": "explicit_unmapped_grade",
+              "reason": "grade not in registry",
+              "candidate_spec_family": []
+            }
+          ]
+        },
+        "row_confidence": 0.85,
+        "needs_review": true,
+        "grade_resolution": {
+          "raw": "90 ELBOW SR",
+          "normalized": "90 ELBOW SR",
+          "status": "unknown",
+          "canonical": null,
+          "candidates": [],
+          "family_group": null,
+          "dual_designation": false,
+          "reason": "no alias matches the registry",
+          "confidence": 0.0,
+          "spec": {
+            "status": "unknown_grade",
+            "canonical": null,
+            "candidates": [],
+            "reason": "grade not in registry",
+            "spec": null
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "14302857",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "3",
+          "pipe_id": "3",
+          "certificate_number": "BGSAG140901001900",
+          "order_number": "RK1322",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "14302857"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "4",
+        "pipe_id": "4",
+        "heat_number": "15305793",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "BGSAG150326004900",
+        "order_number": null,
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "15305793",
+        "grade": "90 ELBOW SR",
+        "weight_or_length": "4",
+        "mechanical_properties": {
+          "yield_strength_mpa": 436.45,
+          "tensile_strength_mpa": 698.9,
+          "elongation_percentage": 37.0
+        },
+        "validation": {
+          "is_compliant": null,
+          "deviations": [
+            "Grade '90 ELBOW SR' is explicitly stated but not mapped in the internal catalog - manual review required."
+          ],
+          "outcome": "EXPLICIT_UNMAPPED_GRADE",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.grade_registry",
+              "decision": "explicit_unmapped_grade",
+              "reason": "grade not in registry",
+              "candidate_spec_family": []
+            }
+          ]
+        },
+        "row_confidence": 0.85,
+        "needs_review": true,
+        "grade_resolution": {
+          "raw": "90 ELBOW SR",
+          "normalized": "90 ELBOW SR",
+          "status": "unknown",
+          "canonical": null,
+          "candidates": [],
+          "family_group": null,
+          "dual_designation": false,
+          "reason": "no alias matches the registry",
+          "confidence": 0.0,
+          "spec": {
+            "status": "unknown_grade",
+            "canonical": null,
+            "candidates": [],
+            "reason": "grade not in registry",
+            "spec": null
+          }
+        },
+        "grade_provenance": "labeled_field",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.95,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "15305793",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "4",
+          "pipe_id": "4",
+          "certificate_number": "BGSAG150326004900",
+          "order_number": "RK1322",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "15305793"
+        },
+        "raw_identifier_candidates": {}
+      }
+    ],
+    "confidence_score": 0.87,
+    "raw_model_confidence": 0.95,
+    "ai_analysis_remarks": "No field explicitly labeled as heat number was visible. Primary traceability identifier HEAT NO ['14304118', '15305792', '14303291', '14303895', '1436824V', '14303292', '14302857', '15305793'] was selected and mapped to the canonical heat/batch field.",
+    "stage_b_extraction_audit": "Columns visible: PO. Item No. (col 1), Product & Size(Inch) (col 2), Heat Code (col 3), Quantity (col 4), Heat No. (col 5), Certificate No. (col 6). No separate Item ID column is present - only PO. Item No. which serves as the position/item reference.",
+    "is_compliant": null,
+    "outcome": "NEEDS_REVIEW",
+    "status": "NEEDS_REVIEW",
+    "needs_review": true,
+    "review_reasons": [
+      "explicit_unmapped_grade",
+      "unresolved grade or spec",
+      "visual ambiguity detected in row"
+    ],
+    "confidence_breakdown": {
+      "extraction_confidence": 0.95,
+      "normalization_confidence": 1.0,
+      "spec_resolution_confidence": 0.05,
+      "validation_confidence": 1.0,
+      "overall_decision_confidence": 0.87
+    },
+    "explanation": {
+      "document_profile": {
+        "document_id": "doc019",
+        "filename": "doc019.pdf",
+        "page_count": 7,
+        "has_text_layer": false,
+        "text_density": 0.0,
+        "blur_score": 284.95,
+        "noise_score": 4.85,
+        "table_presence_hint": true,
+        "quality_class": "scan_clean",
+        "reasons": [
+          "no_text_layer"
+        ],
+        "profile_confidence": 0.82,
+        "metrics_summary": {
+          "has_extractable_text": false,
+          "text_density": 0.0,
+          "blur_score": 284.95,
+          "noise_score": 4.85,
+          "table_presence_hint": true,
+          "is_noisy_ocr": false,
+          "has_embedded_images": true,
+          "has_full_page_raster_image": true,
+          "has_images": true,
+          "ocr_likelihood": "medium"
+        }
+      },
+      "route_decision": null,
+      "validation_outcome": {
+        "document_outcome": "NEEDS_REVIEW",
+        "review_required": true,
+        "review_reasons": [
+          "explicit_unmapped_grade",
+          "unresolved grade or spec",
+          "visual ambiguity detected in row"
+        ]
+      },
+      "traceability": {
+        "status": "VERIFIED",
+        "confidence": 0.95,
+        "accepted_identifier_values": {
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "certificate_number": [
+            "BGSAG141203001100",
+            "BGSAG150326004500",
+            "BGSAG141027002900",
+            "BGSAG141203001300",
+            "C201504927-1",
+            "BGSAG141027002500",
+            "BGSAG140901001900",
+            "BGSAG150326004900"
+          ],
+          "order_number": "RK1322",
+          "heat_number": [
+            "14304118",
+            "15305792",
+            "14303291",
+            "14303895",
+            "1436824V",
+            "14303292",
+            "14302857",
+            "15305793"
+          ],
+          "item_id": [
+            "5",
+            "6",
+            "26",
+            "27",
+            "1",
+            "28",
+            "2",
+            "3",
+            "4"
+          ],
+          "pipe_id": [
+            "5",
+            "6",
+            "26",
+            "27",
+            "1",
+            "28",
+            "2",
+            "3",
+            "4"
+          ],
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "['14304118', '15305792', '14303291', '14303895', '1436824V', '14303292', '14302857', '15305793']"
+        },
+        "raw_identifier_candidates": {
+          "batch_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:5",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:6",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:7",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:8",
+              "accepted": false
+            }
+          ],
+          "lot_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:5",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:6",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:7",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:8",
+              "accepted": false
+            }
+          ],
+          "colata_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:5",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:6",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:7",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:8",
+              "accepted": false
+            }
+          ],
+          "cast_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:5",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:6",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:7",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:8",
+              "accepted": false
+            }
+          ],
+          "charge_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:5",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:6",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:7",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:8",
+              "accepted": false
+            }
+          ],
+          "coil_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:5",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:6",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:7",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:8",
+              "accepted": false
+            }
+          ]
+        }
+      },
+      "review_policy": {
+        "decision": "review_required",
+        "review_required": true,
+        "needs_review": true,
+        "structured_reasons": [
+          "explicit_unmapped_grade"
+        ],
+        "review_reasons": [
+          "explicit_unmapped_grade"
+        ],
+        "blocking_errors": [],
+        "confidence_summary": {
+          "min_critical_field_confidence": 0.87,
+          "avg_field_confidence": 0.79
+        },
+        "blocking_reasons": [],
+        "evidence_gaps": [],
+        "recommended_reviewer_focus": [],
+        "all_reasons": [
+          "explicit_unmapped_grade",
+          "unresolved grade or spec",
+          "visual ambiguity detected in row"
+        ]
+      },
+      "evidence_propagation_notes": [],
+      "unresolved_or_ambiguous": [
+        "unresolved grade or spec"
+      ],
+      "confidence_breakdown": {
+        "extraction_confidence": 0.95,
+        "normalization_confidence": 1.0,
+        "spec_resolution_confidence": 0.05,
+        "validation_confidence": 1.0,
+        "overall_decision_confidence": 0.87
+      },
+      "identifier_guard": null
+    },
+    "traceability_status": "VERIFIED",
+    "traceability_confidence": 0.95,
+    "identifier_visibility_verified": true,
+    "accepted_identifier_values": {
+      "batch_number": null,
+      "lot_number": null,
+      "colata_number": null,
+      "cast_number": null,
+      "charge_number": null,
+      "coil_number": null,
+      "certificate_number": [
+        "BGSAG141203001100",
+        "BGSAG150326004500",
+        "BGSAG141027002900",
+        "BGSAG141203001300",
+        "C201504927-1",
+        "BGSAG141027002500",
+        "BGSAG140901001900",
+        "BGSAG150326004900"
+      ],
+      "order_number": "RK1322",
+      "heat_number": [
+        "14304118",
+        "15305792",
+        "14303291",
+        "14303895",
+        "1436824V",
+        "14303292",
+        "14302857",
+        "15305793"
+      ],
+      "item_id": [
+        "5",
+        "6",
+        "26",
+        "27",
+        "1",
+        "28",
+        "2",
+        "3",
+        "4"
+      ],
+      "pipe_id": [
+        "5",
+        "6",
+        "26",
+        "27",
+        "1",
+        "28",
+        "2",
+        "3",
+        "4"
+      ],
+      "traceability_identifier_type": "heat_number",
+      "traceability_identifier_label": "HEAT NO",
+      "traceability_identifier_value": "['14304118', '15305792', '14303291', '14303895', '1436824V', '14303292', '14302857', '15305793']"
+    },
+    "raw_identifier_candidates": {
+      "batch_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:5",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:6",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:7",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:8",
+          "accepted": false
+        }
+      ],
+      "lot_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:5",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:6",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:7",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:8",
+          "accepted": false
+        }
+      ],
+      "colata_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:5",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:6",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:7",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:8",
+          "accepted": false
+        }
+      ],
+      "cast_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:5",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:6",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:7",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:8",
+          "accepted": false
+        }
+      ],
+      "charge_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:5",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:6",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:7",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:8",
+          "accepted": false
+        }
+      ],
+      "coil_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:5",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:6",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:7",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:8",
+          "accepted": false
+        }
+      ]
+    },
+    "analysis_id": null
+  },
+  "review_policy": {
+    "decision": "review_required",
+    "review_required": true,
+    "needs_review": true,
+    "structured_reasons": [
+      "explicit_unmapped_grade"
+    ],
+    "review_reasons": [
+      "explicit_unmapped_grade"
+    ],
+    "blocking_errors": [],
+    "confidence_summary": {
+      "min_critical_field_confidence": 0.87,
+      "avg_field_confidence": 0.79
+    },
+    "blocking_reasons": [],
+    "evidence_gaps": [],
+    "recommended_reviewer_focus": [],
+    "all_reasons": [
+      "explicit_unmapped_grade",
+      "unresolved grade or spec",
+      "visual ambiguity detected in row"
+    ]
+  },
+  "llm_usage": {
+    "stage_a_input_tokens": 5867,
+    "stage_a_output_tokens": 593,
+    "stage_b_input_tokens": 17680,
+    "stage_b_output_tokens": 2609,
+    "total_input_tokens": 23547,
+    "total_output_tokens": 3202,
+    "pages_sent": 2
+  },
+  "page_selection": {
+    "total_pages": 2,
+    "selected_count": 2,
+    "selected_indices": [
+      0,
+      1
+    ],
+    "pages_skipped": 0,
+    "reason": "all_2_pages_within_cap"
+  },
+  "preprocessing_summary": {
+    "page_count": 2,
+    "route_used": "rendered_multimodal",
+    "adaptive_preprocessing_summary": {
+      "condition_counts": {
+        "clean": 2,
+        "noisy": 0,
+        "blurry": 0,
+        "noisy_and_blurry": 0
+      },
+      "dominant_condition": "clean",
+      "strategy_version": "v1"
+    },
+    "confidence_assessment": {
+      "raw_model_confidence": 0.95,
+      "final_confidence": 0.87,
+      "table_found": true,
+      "avg_blur_score": 362.48126520770535,
+      "avg_noise_estimate": 4.452785563944287,
+      "noise_severity": "low",
+      "items_array_length": 9,
+      "raw_reported_total_items": 9,
+      "missing_critical_fields_rate": 0.0,
+      "suspicious_numeric_count": 0,
+      "row_count_inconsistent": false,
+      "document_understood": true,
+      "low_critical_identifier_confidence": false,
+      "ambiguous_null_critical_identifier": false,
+      "confidence_breakdown": {
+        "extraction_confidence": 0.95,
+        "normalization_confidence": 1.0,
+        "spec_resolution_confidence": 0.05,
+        "validation_confidence": 1.0,
+        "overall_decision_confidence": 0.87
+      }
+    }
+  }
+}

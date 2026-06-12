@@ -1,0 +1,1255 @@
+{
+  "document_id": "doc008",
+  "filename": "doc008.pdf",
+  "mode": "D",
+  "route_used": "preprocessed_multimodal",
+  "profile": {
+    "document_id": "doc008",
+    "filename": "doc008.pdf",
+    "page_count": 1,
+    "has_text_layer": true,
+    "text_density": 0.57,
+    "blur_score": 579.46,
+    "noise_score": 3.82,
+    "table_presence_hint": true,
+    "quality_class": "noisy_scan",
+    "reasons": [
+      "ocr_text_layer_corrupted",
+      "full_page_raster_image",
+      "low_identifier_legibility"
+    ],
+    "profile_confidence": 0.68,
+    "metrics_summary": {
+      "has_extractable_text": true,
+      "text_density": 0.57,
+      "blur_score": 579.46,
+      "noise_score": 3.82,
+      "table_presence_hint": true,
+      "is_noisy_ocr": false,
+      "has_embedded_images": true,
+      "has_full_page_raster_image": true,
+      "has_images": true,
+      "ocr_likelihood": "high"
+    }
+  },
+  "route_decision": {
+    "selected_route": "path_c_noisy_scan",
+    "runtime_route": "preprocessed_multimodal",
+    "route": "preprocessed_multimodal",
+    "quality_class": "noisy_scan",
+    "reason_codes": [
+      "quality_class:noisy_scan",
+      "text_layer_present",
+      "ocr_text_layer_corrupted",
+      "full_page_raster_image",
+      "low_identifier_legibility"
+    ],
+    "reasons": [
+      "quality_class:noisy_scan",
+      "text_layer_present",
+      "ocr_text_layer_corrupted",
+      "full_page_raster_image",
+      "low_identifier_legibility"
+    ],
+    "triggering_features": {
+      "has_text_layer": true,
+      "text_density": 0.57,
+      "blur_score": 579.46,
+      "noise_score": 3.82,
+      "page_count": 1,
+      "table_presence_hint": true
+    },
+    "expected_strategy": "denoise + adaptive binary + sharpen stack",
+    "review_first_bias": false
+  },
+  "latency_ms": 57095.5,
+  "extraction": {
+    "supplier_name": "NOKSEL",
+    "document_type": "Mill Test Certificate",
+    "product_category": "PIPE",
+    "certificate_date": "27/04/2011",
+    "batch_number": null,
+    "lot_number": null,
+    "colata_number": null,
+    "cast_number": null,
+    "charge_number": null,
+    "coil_number": null,
+    "certificate_number": "E 11 - 3736",
+    "order_number": "ST 3432 / FG3-5400049189",
+    "traceability_identifier_type": "heat_number",
+    "traceability_identifier_label": "HEAT NO",
+    "traceability_identifier_value": "['10110084', '10110101', '10270278', '10270521', '10270765']",
+    "total_items_detected": 5,
+    "items": [
+      {
+        "item_id": "1",
+        "pipe_id": "1",
+        "heat_number": "10110084",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "E 11 - 3736",
+        "order_number": "ST 3432 / FG3-5400049189",
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "10110084",
+        "grade": "Longitudinally welded water and gas pipes according to EN 10255 in grade S195 equivalent suitable for galvanizing",
+        "weight_or_length": null,
+        "mechanical_properties": {
+          "yield_strength_mpa": 264.0,
+          "tensile_strength_mpa": 418.0,
+          "elongation_percentage": 34.0
+        },
+        "validation": {
+          "is_compliant": true,
+          "deviations": [],
+          "outcome": "COMPLIANT",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.family",
+              "decision": "resolved",
+              "matched_spec_family": "S195",
+              "candidate_spec_family": [
+                "S195"
+              ],
+              "evidence": {
+                "yield_strength_mpa": 264.0,
+                "tensile_strength_mpa": 418.0,
+                "elongation_percentage": 34.0
+              }
+            },
+            {
+              "rule": "deterministic_validator.threshold_check",
+              "decision": "pass"
+            }
+          ]
+        },
+        "row_confidence": 0.9,
+        "needs_review": false,
+        "grade_resolution": {
+          "raw": "Longitudinally welded water and gas pipes according to EN 10255 in grade S195 equivalent suitable for galvanizing",
+          "normalized": "LONGITUDINALLY WELDED WATER AND GAS PIPES ACCORDING TO EN 10255 IN GRADE S195 EQUIVALENT SUITABLE FOR GALVANIZING",
+          "status": "resolved",
+          "canonical": "S195",
+          "candidates": [
+            "S195"
+          ],
+          "family_group": "pipe",
+          "dual_designation": false,
+          "reason": "contained supplier aliases recognised",
+          "confidence": 0.9,
+          "spec": {
+            "status": "resolved",
+            "canonical": "S195",
+            "candidates": [
+              "S195"
+            ],
+            "reason": "carbon-steel spec resolved",
+            "spec": {
+              "canonical": "S195",
+              "min_yield_mpa": 195.0,
+              "min_tensile_mpa": 350.0,
+              "max_tensile_mpa": 620.0,
+              "min_elongation_pct": 20.0
+            }
+          }
+        },
+        "grade_provenance": "enriched",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.9,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "10110084",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "1",
+          "pipe_id": "1",
+          "certificate_number": "E 11 - 3736",
+          "order_number": "ST 3432 / FG3-5400049189",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "10110084"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "2",
+        "pipe_id": "2",
+        "heat_number": "10110101",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "E 11 - 3736",
+        "order_number": "ST 3432 / FG3-5400049189",
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "10110101",
+        "grade": "Longitudinally welded water and gas pipes according to EN 10255 in grade S195 equivalent suitable for galvanizing",
+        "weight_or_length": null,
+        "mechanical_properties": {
+          "yield_strength_mpa": 252.0,
+          "tensile_strength_mpa": 422.0,
+          "elongation_percentage": 32.0
+        },
+        "validation": {
+          "is_compliant": true,
+          "deviations": [],
+          "outcome": "COMPLIANT",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.family",
+              "decision": "resolved",
+              "matched_spec_family": "S195",
+              "candidate_spec_family": [
+                "S195"
+              ],
+              "evidence": {
+                "yield_strength_mpa": 252.0,
+                "tensile_strength_mpa": 422.0,
+                "elongation_percentage": 32.0
+              }
+            },
+            {
+              "rule": "deterministic_validator.threshold_check",
+              "decision": "pass"
+            }
+          ]
+        },
+        "row_confidence": 0.9,
+        "needs_review": false,
+        "grade_resolution": {
+          "raw": "Longitudinally welded water and gas pipes according to EN 10255 in grade S195 equivalent suitable for galvanizing",
+          "normalized": "LONGITUDINALLY WELDED WATER AND GAS PIPES ACCORDING TO EN 10255 IN GRADE S195 EQUIVALENT SUITABLE FOR GALVANIZING",
+          "status": "resolved",
+          "canonical": "S195",
+          "candidates": [
+            "S195"
+          ],
+          "family_group": "pipe",
+          "dual_designation": false,
+          "reason": "contained supplier aliases recognised",
+          "confidence": 0.9,
+          "spec": {
+            "status": "resolved",
+            "canonical": "S195",
+            "candidates": [
+              "S195"
+            ],
+            "reason": "carbon-steel spec resolved",
+            "spec": {
+              "canonical": "S195",
+              "min_yield_mpa": 195.0,
+              "min_tensile_mpa": 350.0,
+              "max_tensile_mpa": 620.0,
+              "min_elongation_pct": 20.0
+            }
+          }
+        },
+        "grade_provenance": "enriched",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.9,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "10110101",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "2",
+          "pipe_id": "2",
+          "certificate_number": "E 11 - 3736",
+          "order_number": "ST 3432 / FG3-5400049189",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "10110101"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "3",
+        "pipe_id": "3",
+        "heat_number": "10270278",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "E 11 - 3736",
+        "order_number": "ST 3432 / FG3-5400049189",
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "10270278",
+        "grade": "Longitudinally welded water and gas pipes according to EN 10255 in grade S195 equivalent suitable for galvanizing",
+        "weight_or_length": null,
+        "mechanical_properties": {
+          "yield_strength_mpa": 258.0,
+          "tensile_strength_mpa": 421.0,
+          "elongation_percentage": 29.0
+        },
+        "validation": {
+          "is_compliant": true,
+          "deviations": [],
+          "outcome": "COMPLIANT",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.family",
+              "decision": "resolved",
+              "matched_spec_family": "S195",
+              "candidate_spec_family": [
+                "S195"
+              ],
+              "evidence": {
+                "yield_strength_mpa": 258.0,
+                "tensile_strength_mpa": 421.0,
+                "elongation_percentage": 29.0
+              }
+            },
+            {
+              "rule": "deterministic_validator.threshold_check",
+              "decision": "pass"
+            }
+          ]
+        },
+        "row_confidence": 0.9,
+        "needs_review": false,
+        "grade_resolution": {
+          "raw": "Longitudinally welded water and gas pipes according to EN 10255 in grade S195 equivalent suitable for galvanizing",
+          "normalized": "LONGITUDINALLY WELDED WATER AND GAS PIPES ACCORDING TO EN 10255 IN GRADE S195 EQUIVALENT SUITABLE FOR GALVANIZING",
+          "status": "resolved",
+          "canonical": "S195",
+          "candidates": [
+            "S195"
+          ],
+          "family_group": "pipe",
+          "dual_designation": false,
+          "reason": "contained supplier aliases recognised",
+          "confidence": 0.9,
+          "spec": {
+            "status": "resolved",
+            "canonical": "S195",
+            "candidates": [
+              "S195"
+            ],
+            "reason": "carbon-steel spec resolved",
+            "spec": {
+              "canonical": "S195",
+              "min_yield_mpa": 195.0,
+              "min_tensile_mpa": 350.0,
+              "max_tensile_mpa": 620.0,
+              "min_elongation_pct": 20.0
+            }
+          }
+        },
+        "grade_provenance": "enriched",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.9,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "10270278",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "3",
+          "pipe_id": "3",
+          "certificate_number": "E 11 - 3736",
+          "order_number": "ST 3432 / FG3-5400049189",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "10270278"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "4",
+        "pipe_id": "4",
+        "heat_number": "10270521",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "E 11 - 3736",
+        "order_number": "ST 3432 / FG3-5400049189",
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "10270521",
+        "grade": "Longitudinally welded water and gas pipes according to EN 10255 in grade S195 equivalent suitable for galvanizing",
+        "weight_or_length": null,
+        "mechanical_properties": {
+          "yield_strength_mpa": 257.0,
+          "tensile_strength_mpa": 424.0,
+          "elongation_percentage": 27.0
+        },
+        "validation": {
+          "is_compliant": true,
+          "deviations": [],
+          "outcome": "COMPLIANT",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.family",
+              "decision": "resolved",
+              "matched_spec_family": "S195",
+              "candidate_spec_family": [
+                "S195"
+              ],
+              "evidence": {
+                "yield_strength_mpa": 257.0,
+                "tensile_strength_mpa": 424.0,
+                "elongation_percentage": 27.0
+              }
+            },
+            {
+              "rule": "deterministic_validator.threshold_check",
+              "decision": "pass"
+            }
+          ]
+        },
+        "row_confidence": 0.9,
+        "needs_review": false,
+        "grade_resolution": {
+          "raw": "Longitudinally welded water and gas pipes according to EN 10255 in grade S195 equivalent suitable for galvanizing",
+          "normalized": "LONGITUDINALLY WELDED WATER AND GAS PIPES ACCORDING TO EN 10255 IN GRADE S195 EQUIVALENT SUITABLE FOR GALVANIZING",
+          "status": "resolved",
+          "canonical": "S195",
+          "candidates": [
+            "S195"
+          ],
+          "family_group": "pipe",
+          "dual_designation": false,
+          "reason": "contained supplier aliases recognised",
+          "confidence": 0.9,
+          "spec": {
+            "status": "resolved",
+            "canonical": "S195",
+            "candidates": [
+              "S195"
+            ],
+            "reason": "carbon-steel spec resolved",
+            "spec": {
+              "canonical": "S195",
+              "min_yield_mpa": 195.0,
+              "min_tensile_mpa": 350.0,
+              "max_tensile_mpa": 620.0,
+              "min_elongation_pct": 20.0
+            }
+          }
+        },
+        "grade_provenance": "enriched",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.9,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "10270521",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "4",
+          "pipe_id": "4",
+          "certificate_number": "E 11 - 3736",
+          "order_number": "ST 3432 / FG3-5400049189",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "10270521"
+        },
+        "raw_identifier_candidates": {}
+      },
+      {
+        "item_id": "5",
+        "pipe_id": "5",
+        "heat_number": "10270765",
+        "batch_number": null,
+        "lot_number": null,
+        "colata_number": null,
+        "cast_number": null,
+        "charge_number": null,
+        "coil_number": null,
+        "certificate_number": "E 11 - 3736",
+        "order_number": "ST 3432 / FG3-5400049189",
+        "traceability_identifier_type": "heat_number",
+        "traceability_identifier_label": "HEAT NO",
+        "traceability_identifier_value": "10270765",
+        "grade": "Longitudinally welded water and gas pipes according to EN 10255 in grade S195 equivalent suitable for galvanizing",
+        "weight_or_length": null,
+        "mechanical_properties": {
+          "yield_strength_mpa": 263.0,
+          "tensile_strength_mpa": 423.0,
+          "elongation_percentage": 33.0
+        },
+        "validation": {
+          "is_compliant": true,
+          "deviations": [],
+          "outcome": "COMPLIANT",
+          "rule_evidence": [
+            {
+              "rule": "spec_resolution.family",
+              "decision": "resolved",
+              "matched_spec_family": "S195",
+              "candidate_spec_family": [
+                "S195"
+              ],
+              "evidence": {
+                "yield_strength_mpa": 263.0,
+                "tensile_strength_mpa": 423.0,
+                "elongation_percentage": 33.0
+              }
+            },
+            {
+              "rule": "deterministic_validator.threshold_check",
+              "decision": "pass"
+            }
+          ]
+        },
+        "row_confidence": 0.9,
+        "needs_review": false,
+        "grade_resolution": {
+          "raw": "Longitudinally welded water and gas pipes according to EN 10255 in grade S195 equivalent suitable for galvanizing",
+          "normalized": "LONGITUDINALLY WELDED WATER AND GAS PIPES ACCORDING TO EN 10255 IN GRADE S195 EQUIVALENT SUITABLE FOR GALVANIZING",
+          "status": "resolved",
+          "canonical": "S195",
+          "candidates": [
+            "S195"
+          ],
+          "family_group": "pipe",
+          "dual_designation": false,
+          "reason": "contained supplier aliases recognised",
+          "confidence": 0.9,
+          "spec": {
+            "status": "resolved",
+            "canonical": "S195",
+            "candidates": [
+              "S195"
+            ],
+            "reason": "carbon-steel spec resolved",
+            "spec": {
+              "canonical": "S195",
+              "min_yield_mpa": 195.0,
+              "min_tensile_mpa": 350.0,
+              "max_tensile_mpa": 620.0,
+              "min_elongation_pct": 20.0
+            }
+          }
+        },
+        "grade_provenance": "enriched",
+        "grade_field_label": "grade",
+        "traceability_status": "VERIFIED",
+        "traceability_confidence": 0.9,
+        "identifier_visibility_verified": true,
+        "accepted_identifier_values": {
+          "heat_number": "10270765",
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "item_id": "5",
+          "pipe_id": "5",
+          "certificate_number": "E 11 - 3736",
+          "order_number": "ST 3432 / FG3-5400049189",
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "10270765"
+        },
+        "raw_identifier_candidates": {}
+      }
+    ],
+    "confidence_score": 0.95,
+    "raw_model_confidence": 0.95,
+    "ai_analysis_remarks": "No field explicitly labeled as heat number was visible. Primary traceability identifier HEAT NO ['10110084', '10110101', '10270278', '10270521', '10270765'] was selected and mapped to the canonical heat/batch field.",
+    "stage_b_extraction_audit": "Columns visible: HEAT NO (col 1), Rt (N/mm²) (col 2), Rm (N/mm²) (col 3), A (%) (col 4), C (col 5), P (col 6), S (col 7), Mn (col 8), Si (col 9). No Item ID, Article No, Position, or similar item reference column is present in this document.",
+    "is_compliant": true,
+    "outcome": "COMPLIANT",
+    "status": "COMPLETED",
+    "needs_review": false,
+    "review_reasons": [],
+    "confidence_breakdown": {
+      "extraction_confidence": 0.95,
+      "normalization_confidence": 1.0,
+      "spec_resolution_confidence": 1.0,
+      "validation_confidence": 1.0,
+      "overall_decision_confidence": 0.95
+    },
+    "explanation": {
+      "document_profile": {
+        "document_id": "doc008",
+        "filename": "doc008.pdf",
+        "page_count": 1,
+        "has_text_layer": true,
+        "text_density": 0.57,
+        "blur_score": 579.46,
+        "noise_score": 3.82,
+        "table_presence_hint": true,
+        "quality_class": "noisy_scan",
+        "reasons": [
+          "ocr_text_layer_corrupted",
+          "full_page_raster_image",
+          "low_identifier_legibility"
+        ],
+        "profile_confidence": 0.68,
+        "metrics_summary": {
+          "has_extractable_text": true,
+          "text_density": 0.57,
+          "blur_score": 579.46,
+          "noise_score": 3.82,
+          "table_presence_hint": true,
+          "is_noisy_ocr": false,
+          "has_embedded_images": true,
+          "has_full_page_raster_image": true,
+          "has_images": true,
+          "ocr_likelihood": "high"
+        }
+      },
+      "route_decision": null,
+      "validation_outcome": {
+        "document_outcome": "COMPLIANT",
+        "review_required": false,
+        "review_reasons": []
+      },
+      "traceability": {
+        "status": "VERIFIED",
+        "confidence": 0.9,
+        "accepted_identifier_values": {
+          "batch_number": null,
+          "lot_number": null,
+          "colata_number": null,
+          "cast_number": null,
+          "charge_number": null,
+          "coil_number": null,
+          "certificate_number": "E 11 - 3736",
+          "order_number": "ST 3432 / FG3-5400049189",
+          "heat_number": [
+            "10110084",
+            "10110101",
+            "10270278",
+            "10270521",
+            "10270765"
+          ],
+          "item_id": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
+          "pipe_id": [
+            "1",
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
+          "traceability_identifier_type": "heat_number",
+          "traceability_identifier_label": "HEAT NO",
+          "traceability_identifier_value": "['10110084', '10110101', '10270278', '10270521', '10270765']"
+        },
+        "raw_identifier_candidates": {
+          "batch_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            }
+          ],
+          "lot_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            }
+          ],
+          "colata_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            }
+          ],
+          "cast_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            }
+          ],
+          "charge_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            }
+          ],
+          "coil_number": [
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:0",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:1",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:2",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:3",
+              "accepted": false
+            },
+            {
+              "value": null,
+              "reason": "missing_row_identifier",
+              "confidence": 0.0,
+              "source": "row:4",
+              "accepted": false
+            }
+          ]
+        }
+      },
+      "review_policy": {
+        "decision": "auto_accept",
+        "review_required": false,
+        "needs_review": false,
+        "structured_reasons": [],
+        "review_reasons": [],
+        "blocking_errors": [],
+        "confidence_summary": {
+          "min_critical_field_confidence": 0.95,
+          "avg_field_confidence": 0.975
+        },
+        "blocking_reasons": [],
+        "evidence_gaps": [],
+        "recommended_reviewer_focus": [],
+        "all_reasons": []
+      },
+      "evidence_propagation_notes": [],
+      "unresolved_or_ambiguous": [],
+      "confidence_breakdown": {
+        "extraction_confidence": 0.95,
+        "normalization_confidence": 1.0,
+        "spec_resolution_confidence": 1.0,
+        "validation_confidence": 1.0,
+        "overall_decision_confidence": 0.95
+      },
+      "identifier_guard": null
+    },
+    "traceability_status": "VERIFIED",
+    "traceability_confidence": 0.9,
+    "identifier_visibility_verified": true,
+    "accepted_identifier_values": {
+      "batch_number": null,
+      "lot_number": null,
+      "colata_number": null,
+      "cast_number": null,
+      "charge_number": null,
+      "coil_number": null,
+      "certificate_number": "E 11 - 3736",
+      "order_number": "ST 3432 / FG3-5400049189",
+      "heat_number": [
+        "10110084",
+        "10110101",
+        "10270278",
+        "10270521",
+        "10270765"
+      ],
+      "item_id": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "pipe_id": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "traceability_identifier_type": "heat_number",
+      "traceability_identifier_label": "HEAT NO",
+      "traceability_identifier_value": "['10110084', '10110101', '10270278', '10270521', '10270765']"
+    },
+    "raw_identifier_candidates": {
+      "batch_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        }
+      ],
+      "lot_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        }
+      ],
+      "colata_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        }
+      ],
+      "cast_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        }
+      ],
+      "charge_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        }
+      ],
+      "coil_number": [
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:0",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:1",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:2",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:3",
+          "accepted": false
+        },
+        {
+          "value": null,
+          "reason": "missing_row_identifier",
+          "confidence": 0.0,
+          "source": "row:4",
+          "accepted": false
+        }
+      ]
+    },
+    "analysis_id": null
+  },
+  "review_policy": {
+    "decision": "auto_accept",
+    "review_required": false,
+    "needs_review": false,
+    "structured_reasons": [],
+    "review_reasons": [],
+    "blocking_errors": [],
+    "confidence_summary": {
+      "min_critical_field_confidence": 0.95,
+      "avg_field_confidence": 0.975
+    },
+    "blocking_reasons": [],
+    "evidence_gaps": [],
+    "recommended_reviewer_focus": [],
+    "all_reasons": []
+  },
+  "llm_usage": {
+    "stage_a_input_tokens": 4346,
+    "stage_a_output_tokens": 535,
+    "stage_b_input_tokens": 11522,
+    "stage_b_output_tokens": 1591,
+    "total_input_tokens": 15868,
+    "total_output_tokens": 2126,
+    "pages_sent": 1
+  },
+  "page_selection": {
+    "total_pages": 1,
+    "selected_count": 1,
+    "selected_indices": [
+      0
+    ],
+    "pages_skipped": 0,
+    "reason": "all_1_pages_within_cap"
+  },
+  "preprocessing_summary": {
+    "page_count": 1,
+    "route_used": "preprocessed_multimodal",
+    "adaptive_preprocessing_summary": {
+      "condition_counts": {
+        "clean": 1,
+        "noisy": 0,
+        "blurry": 0,
+        "noisy_and_blurry": 0
+      },
+      "dominant_condition": "clean",
+      "strategy_version": "v1"
+    },
+    "confidence_assessment": {
+      "raw_model_confidence": 0.95,
+      "final_confidence": 0.95,
+      "table_found": true,
+      "avg_blur_score": 579.4584255854141,
+      "avg_noise_estimate": 3.8189401254451485,
+      "noise_severity": "low",
+      "items_array_length": 5,
+      "raw_reported_total_items": 5,
+      "missing_critical_fields_rate": 0.2,
+      "suspicious_numeric_count": 0,
+      "row_count_inconsistent": false,
+      "document_understood": true,
+      "low_critical_identifier_confidence": false,
+      "ambiguous_null_critical_identifier": false,
+      "confidence_breakdown": {
+        "extraction_confidence": 0.95,
+        "normalization_confidence": 1.0,
+        "spec_resolution_confidence": 1.0,
+        "validation_confidence": 1.0,
+        "overall_decision_confidence": 0.95
+      }
+    }
+  }
+}
