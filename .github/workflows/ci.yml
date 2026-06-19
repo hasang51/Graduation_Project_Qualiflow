@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  safety-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run decision-layer safety tests
+        run: |
+          python -m pytest \
+            tests/test_review_policy.py \
+            tests/test_extraction_finalizer.py \
+            tests/test_conservative_decision_confidence.py \
+            tests/test_auto_accept_safety_regression.py \
+            -q

@@ -88,6 +88,45 @@ SOFT_AUDIT_REVIEW_REASONS = frozenset(
         "low-confidence rows detected",
     }
 )
+SEVERE_SCAN_QUALITY_TOKEN = "quality_blocker:severe_scan"
+CONFIDENCE_ONLY_REASONS = frozenset(
+    {
+        "confidence falls below threshold",
+        "confidence_below_threshold",
+        "low_confidence",
+        "overall_decision_confidence_below_threshold",
+    }
+)
+AUTO_ACCEPT_BLOCKING_EXACT = frozenset(
+    {
+        SEVERE_SCAN_QUALITY_TOKEN,
+        "unresolved_grade",
+        "ambiguous_grade",
+        "explicit_unmapped_grade",
+        "unsupported_spec_family",
+        "unresolved_spec",
+        "mechanical_table_alignment_uncertain",
+        "traceability_identifier_ocr_uncertain",
+        "traceability_identifier_conflict",
+        "traceability_unverified",
+        "critical_identifier_unverified",
+        "missing_critical_identifier_group",
+        "validation_conflict:row_non_compliant",
+        "no_items_extracted",
+        "extraction structure is incomplete",
+        "suspicious_duplication:heat_and_item_id",
+        "validation_conflict:confusable_heat_numbers",
+        "row_count_inconsistent",
+        "unsupported_document_type",
+        "validation_blocking_error",
+    }
+)
+AUTO_ACCEPT_BLOCKING_PREFIXES = (
+    "missing_critical_field:",
+    "validation_conflict:",
+    "critical_identifier_unverified",
+    "header_row_conflict:",
+)
 TRACEABILITY_IDENTIFIER_GROUP_FIELDS = (
     "heat_number",
     "batch_number",
@@ -107,15 +146,18 @@ class ReviewDecision:
     review_required: bool
     structured_reasons: list[str] = field(default_factory=list)
     blocking_reasons: list[str] = field(default_factory=list)
+    confidence_only_reasons: list[str] = field(default_factory=list)
+    soft_reasons: list[str] = field(default_factory=list)
     evidence_gaps: list[str] = field(default_factory=list)
     reviewer_focus: list[str] = field(default_factory=list)
     all_reasons: list[str] = field(default_factory=list)
     decision: str | None = None
     confidence_summary: dict[str, float] = field(default_factory=dict)
+    auto_accept_evidence: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         decision = self.decision or ("review_required" if self.review_required else "auto_accept")
-        return {
+        payload: dict[str, Any] = {
             "decision": decision,
             "review_required": self.review_required,
             "needs_review": self.review_required,
@@ -124,10 +166,15 @@ class ReviewDecision:
             "blocking_errors": list(self.blocking_reasons),
             "confidence_summary": dict(self.confidence_summary),
             "blocking_reasons": list(self.blocking_reasons),
+            "confidence_only_reasons": list(self.confidence_only_reasons),
+            "soft_reasons": list(self.soft_reasons),
             "evidence_gaps": list(self.evidence_gaps),
             "recommended_reviewer_focus": list(self.reviewer_focus),
             "all_reasons": list(self.all_reasons),
         }
+        if decision == "auto_accept" and self.auto_accept_evidence is not None:
+            payload["auto_accept_evidence"] = dict(self.auto_accept_evidence)
+        return payload
 
 
 def _normalise_token(value: Any) -> str:
@@ -188,6 +235,127 @@ def _profile_value(document_profile: Any, *keys: str) -> Any:
 
 def _quality_bucket(document_profile: Any) -> str:
     return _normalise_token(_profile_value(document_profile, "quality_bucket", "quality_class"))
+
+
+def is_severe_scan_profile(document_profile: Any) -> bool:
+    return _quality_bucket(document_profile) == "severe_scan"
+
+
+def is_confidence_only_reason(reason: str) -> bool:
+    normalized = _normalise_token(reason)
+    if normalized in CONFIDENCE_ONLY_REASONS:
+        return True
+    return normalized.startswith("low_confidence:")
+
+
+def is_auto_accept_blocking_reason(reason: str) -> bool:
+    if is_confidence_only_reason(reason):
+        return False
+    if _is_soft_audit_review_reason(reason):
+        return False
+    if reason in AUTO_ACCEPT_BLOCKING_EXACT:
+        return True
+    return any(reason.startswith(prefix) for prefix in AUTO_ACCEPT_BLOCKING_PREFIXES)
+
+
+def _iter_payload_review_reasons(payload: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    for key in ("review_reasons", "structured_reasons", "blocking_reasons", "blocking_errors"):
+        values = payload.get(key)
+        if isinstance(values, list):
+            reasons.extend(str(value) for value in values)
+    explanation = payload.get("explanation")
+    if isinstance(explanation, dict):
+        review_policy = explanation.get("review_policy")
+        if isinstance(review_policy, dict):
+            for key in ("review_reasons", "structured_reasons", "blocking_reasons", "all_reasons"):
+                values = review_policy.get(key)
+                if isinstance(values, list):
+                    reasons.extend(str(value) for value in values)
+    return reasons
+
+
+def collect_auto_accept_blockers_from_payload(payload: dict[str, Any]) -> list[str]:
+    blockers: list[str] = []
+    explanation = payload.get("explanation")
+    document_profile = payload.get("document_profile")
+    if isinstance(explanation, dict):
+        profile = explanation.get("document_profile")
+        if profile is not None:
+            document_profile = profile
+    if is_severe_scan_profile(document_profile):
+        blockers.append(SEVERE_SCAN_QUALITY_TOKEN)
+    for reason in _iter_payload_review_reasons(payload):
+        if is_auto_accept_blocking_reason(reason):
+            blockers.append(reason)
+    return _dedupe_preserving_order(blockers)
+
+
+def _collect_auto_accept_blockers(
+    *,
+    extracted_json: dict[str, Any],
+    document_profile: Any,
+    review_reasons: Iterable[str],
+    structured: Iterable[str],
+) -> list[str]:
+    blockers: list[str] = []
+    if is_severe_scan_profile(document_profile):
+        blockers.append(SEVERE_SCAN_QUALITY_TOKEN)
+    for reason in [*structured, *review_reasons, *extracted_json.get("review_reasons", [])]:
+        if is_auto_accept_blocking_reason(str(reason)):
+            blockers.append(str(reason))
+    return _dedupe_preserving_order(blockers)
+
+
+def _classify_review_reasons(reasons: Iterable[str]) -> tuple[list[str], list[str], list[str]]:
+    blocking: list[str] = []
+    confidence_only: list[str] = []
+    soft: list[str] = []
+    for reason in reasons:
+        text = str(reason)
+        if is_confidence_only_reason(text):
+            confidence_only.append(text)
+        elif _is_soft_audit_review_reason(text):
+            soft.append(text)
+        elif is_auto_accept_blocking_reason(text):
+            blocking.append(text)
+    return (
+        _dedupe_preserving_order(blocking),
+        _dedupe_preserving_order(confidence_only),
+        _dedupe_preserving_order(soft),
+    )
+
+
+def _build_auto_accept_evidence(
+    *,
+    extraction: UniversalDocumentExtraction,
+    profile: DocumentProfile | None,
+    confidence_summary: dict[str, float],
+    blocking_reasons_checked: list[str],
+) -> dict[str, Any]:
+    from app.services.traceability import TRACEABILITY_VERIFIED
+
+    verified_traceability = extraction.traceability_status == TRACEABILITY_VERIFIED or all(
+        getattr(item, "traceability_status", None) == TRACEABILITY_VERIFIED for item in extraction.items
+    )
+    gates_passed = [
+        "supported_document_type",
+        "critical_fields_present",
+        "validation_compliant",
+        "traceability_verified" if verified_traceability else "traceability_present",
+        "no_auto_accept_blockers",
+        "confidence_exempt_or_above_threshold",
+    ]
+    if profile is not None:
+        gates_passed.append("document_quality_not_severe_scan")
+    return {
+        "verified_traceability": verified_traceability,
+        "grade_status": "resolved",
+        "document_quality": profile.quality_class if profile is not None else None,
+        "confidence_summary": dict(confidence_summary),
+        "gates_passed": gates_passed,
+        "blocking_reasons_checked": list(blocking_reasons_checked),
+    }
 
 
 def _extract_items_from_json(extracted_json: dict[str, Any]) -> list[dict[str, Any]]:
@@ -379,21 +547,47 @@ def evaluate_review_policy(
     if not _document_type_supported(extracted_json.get("document_type")):
         review_reasons.append("unsupported_document_type")
 
+    if is_severe_scan_profile(document_profile):
+        review_reasons.append(SEVERE_SCAN_QUALITY_TOKEN)
+
+    for reason in extracted_json.get("review_reasons", []) or []:
+        if is_auto_accept_blocking_reason(str(reason)):
+            review_reasons.append(str(reason))
+
+    review_reasons = _dedupe_preserving_order(review_reasons)
+    auto_accept_blockers = _collect_auto_accept_blockers(
+        extracted_json=extracted_json,
+        document_profile=document_profile,
+        review_reasons=review_reasons,
+        structured=review_reasons,
+    )
+
     validation_passes = not validation_errors
     all_critical_exist = not missing_fields
     confidence_passes = summary["min_critical_field_confidence"] >= confidence_threshold or confidence_exempt
     supported_document = _document_type_supported(extracted_json.get("document_type"))
 
-    if all_critical_exist and validation_passes and confidence_passes and supported_document and not review_reasons:
+    if (
+        all_critical_exist
+        and validation_passes
+        and confidence_passes
+        and supported_document
+        and not auto_accept_blockers
+    ):
         decision = "auto_accept"
     else:
         decision = "review_required"
 
+    blocking_reasons, confidence_only_reasons, soft_reasons = _classify_review_reasons(review_reasons)
+
     return {
         "decision": decision,
-        "review_reasons": _dedupe_preserving_order(review_reasons),
+        "review_reasons": review_reasons,
         "blocking_errors": blocking_errors,
         "confidence_summary": summary,
+        "blocking_reasons": blocking_reasons,
+        "confidence_only_reasons": confidence_only_reasons,
+        "soft_reasons": soft_reasons,
     }
 
 
@@ -574,10 +768,14 @@ def _numeric_parser_tokens(extraction: UniversalDocumentExtraction) -> list[str]
         elif reason.startswith("unresolved_spec:"):
             tokens.append("unresolved_spec")
         elif reason.startswith("header_row_conflict:"):
-            tokens.append("header_row_conflict:grade")
-        elif reason == "mechanical_table_alignment_uncertain":
-            tokens.append("mechanical_table_alignment_uncertain")
+            tokens.append(reason)
         elif reason in {
+            "unresolved_grade",
+            "ambiguous_grade",
+            "explicit_unmapped_grade",
+            "unsupported_spec_family",
+            "unresolved_spec",
+            "mechanical_table_alignment_uncertain",
             "traceability_identifier_ocr_uncertain",
             "traceability_identifier_conflict",
         }:
@@ -670,27 +868,7 @@ def _is_soft_audit_review_reason(reason: str) -> bool:
 
 
 def _is_blocking_review_reason(reason: str) -> bool:
-    if _is_soft_audit_review_reason(reason):
-        return False
-    return (
-        reason
-        in {
-            "unresolved_spec",
-            "unsupported_spec_family",
-            "validation_conflict:row_non_compliant",
-            "no_items_extracted",
-            "extraction structure is incomplete",
-            # Hallucination-audit gates: a document with fabricated cross-field
-            # copies or OCR-confusable heat numbers must never auto-accept.
-            "suspicious_duplication:heat_and_item_id",
-            "validation_conflict:confusable_heat_numbers",
-            "row_count_inconsistent",
-        }
-        or reason.startswith("missing_critical_field:")
-        or reason == "missing_critical_identifier_group"
-        or reason.startswith("critical_identifier_unverified")
-        or reason == "traceability_unverified"
-    )
+    return is_auto_accept_blocking_reason(reason)
 
 def apply_review_policy(
     extraction: UniversalDocumentExtraction,
@@ -738,6 +916,10 @@ def apply_review_policy(
     if not _document_type_supported(extraction.document_type):
         structured.append("unsupported_document_type")
 
+    # 1c. Severe scan quality is a hard blocker, never auto-accepted.
+    if is_severe_scan_profile(profile):
+        structured.append(SEVERE_SCAN_QUALITY_TOKEN)
+
     # 2. Document quality is diagnostic metadata only. Concrete evidence such
     # as missing fields, low confidence, or row extraction failure gates review.
 
@@ -783,11 +965,14 @@ def apply_review_policy(
             reason for reason in structured if reason != "confidence_below_threshold"
         ]
 
-    blocking_reasons = [
-        reason
-        for reason in [*structured, *extraction.review_reasons]
-        if _is_blocking_review_reason(reason)
-    ]
+    extracted_json = extraction.model_dump(mode="python")
+    auto_accept_blockers = _collect_auto_accept_blockers(
+        extracted_json=extracted_json,
+        document_profile=profile.to_dict() if profile is not None else None,
+        review_reasons=extraction.review_reasons,
+        structured=structured,
+    )
+    blocking_reasons = list(auto_accept_blockers)
 
     all_compliant = bool(extraction.items) and all(
         item.validation is not None and item.validation.is_compliant is True
@@ -800,17 +985,11 @@ def apply_review_policy(
         and extraction.items
         and final_confidence >= extraction_confidence_floor
         and bool(all_compliant)
-        and bool(not blocking_reasons)
+        and not auto_accept_blockers
         and not any(item.needs_review for item in extraction.items)
     )
 
     combined = _dedupe_preserving_order([*extraction.review_reasons, *structured])
-    if confidence_exempt:
-        combined = [
-            reason
-            for reason in combined
-            if reason not in {"confidence_below_threshold", "confidence falls below threshold"}
-        ]
     needs_review = bool(structured) or bool(extraction.needs_review) or bool(combined)
 
     # High-confidence + clean structured policy gate: preprocessing noise /
@@ -818,29 +997,35 @@ def apply_review_policy(
     if bypass_structured_review:
         needs_review = False
         extraction.needs_review = False
-        combined = []
-        blocking_reasons = []
-    elif confidence_exempt and not structured and not blocking_reasons and all_compliant:
+        combined = [
+            reason for reason in combined if not is_confidence_only_reason(str(reason))
+        ]
+    elif auto_accept_blockers:
+        needs_review = True
+        extraction.needs_review = True
+    elif confidence_exempt and not structured and not auto_accept_blockers and all_compliant:
         needs_review = False
         extraction.needs_review = False
-        combined = [
-            reason
-            for reason in combined
-            if reason not in {"confidence_below_threshold", "confidence falls below threshold"}
-        ]
     else:
         hard_structured = [reason for reason in structured if not _is_soft_audit_review_reason(reason)]
         soft_audit_only = combined and all(_is_soft_audit_review_reason(reason) for reason in combined)
         if (
             soft_audit_only
             and all_compliant
-            and not blocking_reasons
+            and not auto_accept_blockers
             and not hard_structured
             and not any(item.needs_review for item in extraction.items)
             and final_confidence >= review_confidence_threshold
         ):
             needs_review = False
             extraction.needs_review = False
+
+    combined_blocking, combined_confidence_only, combined_soft = _classify_review_reasons(combined)
+    blocking_reasons = _dedupe_preserving_order([*blocking_reasons, *combined_blocking])
+    if auto_accept_blockers:
+        blocking_reasons = _dedupe_preserving_order([*blocking_reasons, *auto_accept_blockers])
+        needs_review = True
+        extraction.needs_review = True
 
     evidence_gaps = [
         reason
@@ -885,9 +1070,10 @@ def apply_review_policy(
         )
 
     # Mutate in place so downstream callers see the enriched reasons.
+    final_review_required = needs_review or bool(auto_accept_blockers)
     extraction.review_reasons = combined
-    extraction.needs_review = needs_review
-    if needs_review:
+    extraction.needs_review = final_review_required
+    if final_review_required:
         extraction.status = "NEEDS_REVIEW"
     else:
         extraction.status = "COMPLETED"
@@ -902,15 +1088,30 @@ def apply_review_policy(
         document_profile=profile.to_dict() if profile is not None else None,
         confidence_threshold=review_confidence_threshold,
     )
-    decision = deterministic["decision"] if not needs_review else "review_required"
+    if needs_review or auto_accept_blockers:
+        decision = "review_required"
+    else:
+        decision = deterministic["decision"]
+
+    auto_accept_evidence: dict[str, Any] | None = None
+    if decision == "auto_accept":
+        auto_accept_evidence = _build_auto_accept_evidence(
+            extraction=extraction,
+            profile=profile,
+            confidence_summary=deterministic["confidence_summary"],
+            blocking_reasons_checked=sorted(AUTO_ACCEPT_BLOCKING_EXACT),
+        )
 
     return ReviewDecision(
-        review_required=needs_review,
+        review_required=final_review_required,
         structured_reasons=structured,
         blocking_reasons=_dedupe_preserving_order(blocking_reasons),
+        confidence_only_reasons=combined_confidence_only,
+        soft_reasons=combined_soft,
         evidence_gaps=_dedupe_preserving_order(evidence_gaps),
         reviewer_focus=_dedupe_preserving_order(reviewer_focus),
         all_reasons=combined,
         decision=decision,
         confidence_summary=deterministic["confidence_summary"],
+        auto_accept_evidence=auto_accept_evidence,
     )

@@ -193,6 +193,8 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         self.assertIn("auto_accept:confidence_exempt", tokens)
         self.assertFalse(extraction.needs_review)
         self.assertNotIn("confidence falls below threshold", extraction.review_reasons)
+        self.assertIsInstance(extraction.auto_accept_evidence, dict)
+        self.assertIn("gates_passed", extraction.auto_accept_evidence)
 
     def test_auto_accept_at_070_after_review_policy(self):
         extraction = _verified_compliant_extraction(confidence_score=0.70)
@@ -272,6 +274,7 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         self.assertEqual(payload["processing_decision"], "auto_accept")
         self.assertEqual(payload["compliance_status"], "COMPLIANT")
         self.assertNotIn("confidence_below_threshold", payload["review_reasons"])
+        self.assertIsInstance(payload.get("auto_accept_evidence"), dict)
 
     def test_api_boundary_applies_canonical_finalization(self):
         extraction = _verified_compliant_extraction(confidence_score=0.70, item_id=None)
@@ -283,6 +286,7 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         self.assertEqual(payload["processing_decision"], "auto_accept")
         self.assertEqual(payload["status"], "AUTO_ACCEPT")
         self.assertNotIn("confidence_below_threshold", payload["review_reasons"])
+        self.assertIsInstance(payload.get("auto_accept_evidence"), dict)
 
     def test_reconcile_batch_traceability_auto_accept_with_heat_alias(self):
         payload = {
@@ -340,6 +344,7 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         self.assertEqual(payload["status"], "AUTO_ACCEPT")
         self.assertEqual(payload["processing_decision"], "auto_accept")
         self.assertNotIn("confidence_below_threshold", payload["review_reasons"])
+        self.assertIsInstance(payload.get("auto_accept_evidence"), dict)
         self.assertNotIn(
             "confidence_below_threshold",
             payload["explanation"]["review_policy"]["structured_reasons"],
