@@ -8,7 +8,7 @@ from jose import JWTError, jwt
 
 from app.config import settings
 
-ALGORITHM = "HS256"
+ALGORITHM = settings.jwt_algorithm
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:

@@ -17,6 +17,7 @@ from app.services.extraction_finalizer import (
 )
 from app.services.review_policy import (
     AUTO_ACCEPT_BLOCKING_EXACT,
+    AUTO_ACCEPT_POLICY_VERSION,
     SEVERE_SCAN_QUALITY_TOKEN,
     apply_review_policy,
     collect_auto_accept_blockers_from_payload,
@@ -24,7 +25,7 @@ from app.services.review_policy import (
     is_auto_accept_blocking_reason,
     is_severe_scan_profile,
 )
-from app.services.traceability import TRACEABILITY_VERIFIED
+from app.services.traceability import TRACEABILITY_UNVERIFIED, TRACEABILITY_VERIFIED
 
 
 def _severe_profile() -> DocumentProfile:
@@ -186,6 +187,59 @@ class AutoAcceptBlockingContractTests(unittest.TestCase):
         self.assertTrue(required.issubset(AUTO_ACCEPT_BLOCKING_EXACT))
 
 
+def _assert_auto_accept_evidence_contract(testcase: unittest.TestCase, evidence: dict) -> None:
+    testcase.assertEqual(evidence.get("policy_version"), AUTO_ACCEPT_POLICY_VERSION)
+    testcase.assertEqual(evidence.get("decision"), "auto_accept")
+    testcase.assertIn("document_quality", evidence)
+    testcase.assertIsInstance(evidence.get("critical_fields_present"), dict)
+    testcase.assertTrue(all(evidence["critical_fields_present"].values()))
+    testcase.assertIs(evidence.get("traceability_verified"), True)
+    testcase.assertIs(evidence.get("row_alignment_verified"), True)
+    testcase.assertIs(evidence.get("validation_passed"), True)
+    testcase.assertIsInstance(evidence.get("confidence_summary"), dict)
+    testcase.assertEqual(evidence.get("blocking_reasons"), [])
+    testcase.assertIsInstance(evidence.get("confidence_only_reasons"), list)
+    testcase.assertIsInstance(evidence.get("satisfied_criteria"), list)
+    testcase.assertTrue(evidence["satisfied_criteria"])
+
+
+class AutoAcceptEvidenceContractTests(unittest.TestCase):
+    def test_review_decision_to_dict_includes_evidence_on_auto_accept(self):
+        extraction = _make_extraction(
+            items=[_compliant_item()],
+            confidence_score=0.70,
+            needs_review=True,
+            review_reasons=["confidence_below_threshold"],
+        )
+        decision = apply_review_policy(extraction, profile=_clean_profile())
+        review_dict = decision.to_dict()
+        self.assertEqual(review_dict["decision"], "auto_accept")
+        evidence = review_dict.get("auto_accept_evidence")
+        self.assertIsInstance(evidence, dict)
+        _assert_auto_accept_evidence_contract(self, evidence)
+
+    def test_review_decision_to_dict_omits_evidence_when_not_auto_accept(self):
+        extraction = _make_extraction(items=[_compliant_item()])
+        decision = apply_review_policy(extraction, profile=_severe_profile())
+        review_dict = decision.to_dict()
+        self.assertNotEqual(review_dict["decision"], "auto_accept")
+        self.assertNotIn("auto_accept_evidence", review_dict)
+
+    def test_unverifiable_traceability_prevents_auto_accept_evidence(self):
+        item = _compliant_item()
+        item.traceability_status = TRACEABILITY_UNVERIFIED
+        extraction = _make_extraction(
+            items=[item],
+            confidence_score=0.95,
+            needs_review=False,
+            review_reasons=[],
+        )
+        decision = apply_review_policy(extraction, profile=_clean_profile())
+        review_dict = decision.to_dict()
+        self.assertNotEqual(review_dict.get("decision"), "auto_accept")
+        self.assertNotIn("auto_accept_evidence", review_dict)
+
+
 class AutoAcceptSafetyRegressionTests(unittest.TestCase):
     def test_severe_scan_never_auto_accepts_via_apply_review_policy(self):
         extraction = _make_extraction(items=[_compliant_item()])
@@ -316,10 +370,8 @@ class AutoAcceptSafetyRegressionTests(unittest.TestCase):
         self.assertEqual(result.get("processing_decision"), "auto_accept")
         evidence = result.get("auto_accept_evidence")
         self.assertIsInstance(evidence, dict)
-        self.assertIn("gates_passed", evidence)
-        self.assertIn("verified_traceability", evidence)
-        self.assertIn("confidence_summary", evidence)
-        self.assertTrue(evidence["verified_traceability"])
+        _assert_auto_accept_evidence_contract(self, evidence)
+        self.assertIn("confidence_below_threshold", evidence["confidence_only_reasons"])
 
     def test_clean_document_still_auto_accepts_at_070(self):
         extraction = _make_extraction(
@@ -331,6 +383,59 @@ class AutoAcceptSafetyRegressionTests(unittest.TestCase):
         result = _run_decision_pipeline(extraction, profile=_clean_profile())
         self.assertEqual(result.get("processing_decision"), "auto_accept")
         self.assertIsInstance(result.get("auto_accept_evidence"), dict)
+
+    def test_nested_hard_blocker_never_auto_accepts_after_finalizer(self):
+        extraction = _make_extraction(
+            items=[_compliant_item()],
+            confidence_score=0.70,
+            needs_review=True,
+            review_reasons=["confidence_below_threshold"],
+        )
+        payload = extraction.model_dump(mode="python")
+        payload["explanation"] = {
+            "review_policy": {
+                "structured_reasons": ["mechanical_table_alignment_uncertain"],
+                "review_reasons": ["confidence_below_threshold"],
+            }
+        }
+        self.assertFalse(eligible_for_confidence_exempt_reconcile(payload))
+        _apply_confidence_exempt_decision(payload)
+        result = reconcile_final_document_decision(payload)
+        self.assertNotEqual(result.get("processing_decision"), "auto_accept")
+        self.assertNotIn("confidence_below_threshold", result.get("review_reasons") or [])
+        self.assertIn(
+            "mechanical_table_alignment_uncertain",
+            result["explanation"]["review_policy"]["structured_reasons"],
+        )
+
+    def test_severe_scan_profile_never_auto_accepts_after_finalizer(self):
+        extraction = _make_extraction(
+            items=[_compliant_item()],
+            confidence_score=0.95,
+            needs_review=True,
+            review_reasons=["confidence_below_threshold"],
+        )
+        payload = extraction.model_dump(mode="python")
+        payload["explanation"] = {"document_profile": {"quality_class": "severe_scan"}}
+        self.assertFalse(eligible_for_confidence_exempt_reconcile(payload))
+        result = reconcile_final_document_decision(payload)
+        _assert_not_silently_accepted(self, result)
+
+    def test_prefix_hard_blocker_survives_confidence_clean(self):
+        extraction = _make_extraction(
+            items=[_compliant_item()],
+            confidence_score=0.70,
+            needs_review=True,
+            review_reasons=[
+                "missing_critical_field:grade",
+                "confidence_below_threshold",
+            ],
+        )
+        payload = extraction.model_dump(mode="python")
+        _apply_confidence_exempt_decision(payload)
+        self.assertNotEqual(payload.get("processing_decision"), "auto_accept")
+        self.assertIn("missing_critical_field:grade", payload["review_reasons"])
+        self.assertNotIn("confidence_below_threshold", payload["review_reasons"])
 
 
 if __name__ == "__main__":

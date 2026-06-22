@@ -299,9 +299,9 @@ def _build_diagnostic_summary(
 
 
 def _anthropic_client() -> anthropic.Anthropic:
-    if not settings.anthropic_api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY is required.")
-    return anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    from app.services.anthropic_client import get_anthropic_client
+
+    return get_anthropic_client()
 
 
 def _image_block(image: EncodedVariant) -> dict[str, Any]:

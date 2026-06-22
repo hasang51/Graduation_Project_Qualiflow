@@ -100,7 +100,7 @@ class ReviewPolicyTests(unittest.TestCase):
         self.assertEqual(decision["review_reasons"], [])
         self.assertEqual(decision["blocking_errors"], [])
 
-    def test_severe_scan_forces_review_required(self):
+    def test_deterministic_policy_blocks_severe_scan_even_with_complete_fields(self):
         decision = evaluate_review_policy(
             extracted_json={
                 "document_type": "Certificate of Analysis",
@@ -116,6 +116,8 @@ class ReviewPolicyTests(unittest.TestCase):
         )
         self.assertEqual(decision["decision"], "review_required")
         self.assertIn("quality_blocker:severe_scan", decision["review_reasons"])
+        blockers = [*decision["blocking_errors"], *decision["blocking_reasons"]]
+        self.assertIn("quality_blocker:severe_scan", blockers)
 
     def test_deterministic_policy_never_accepts_missing_critical_fields(self):
         decision = evaluate_review_policy(

@@ -17,6 +17,10 @@ from pathlib import Path
 from statistics import mean
 from typing import Any, Iterable
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 NUMERIC_TOLERANCE = 1.0
 
 CRITICAL_FIELDS = (
@@ -717,7 +721,17 @@ def _write_eval_report(
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def run_academic_evaluation(*, metadata_path: Path, predictions_dir: Path, out_dir: Path) -> dict[str, Any]:
+def run_academic_evaluation(
+    *,
+    metadata_path: Path,
+    predictions_dir: Path,
+    out_dir: Path,
+    metric: str = "both",
+    field_policy_path: Path | None = None,
+    output_json: Path | None = None,
+    output_csv: Path | None = None,
+    output_md: Path | None = None,
+) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     doc_rows: list[dict[str, Any]] = []
     field_rows: list[dict[str, Any]] = []
@@ -814,6 +828,71 @@ def run_academic_evaluation(*, metadata_path: Path, predictions_dir: Path, out_d
         json.dumps(metrics_payload, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+
+    if metric in {"raw_exact", "business_normalized", "both"}:
+        from evaluation.metrics import aggregate_field_results, run_field_evaluation
+        from evaluation.policy import load_evaluation_policy
+        from evaluation.reporting import field_results_to_rows, write_evaluation_outputs
+
+        policy = load_evaluation_policy(policy_path=field_policy_path)
+        enhanced_results = []
+        enhanced_rows: list[dict[str, Any]] = []
+        with metadata_path.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            for metadata_row in reader:
+                doc_id = metadata_row.get("doc_id", "").strip()
+                if not doc_id:
+                    continue
+                gt_path_value = metadata_row.get("ground_truth_path", "").strip()
+                gt_path = _resolve_ground_truth_path(metadata_path, gt_path_value) if gt_path_value else Path("")
+                pred_path = predictions_dir / f"{doc_id}.json"
+                gold_payload = _read_json(gt_path) if gt_path_value and gt_path.exists() else None
+                prediction_payload = _read_json(pred_path) if pred_path.exists() else None
+                gold_fields = _flatten_academic_fields(gold_payload or {})
+                pred_fields = _flatten_academic_fields(prediction_payload or {})
+                per_doc_results = run_field_evaluation(
+                    field_names=ACADEMIC_TARGET_FIELDS,
+                    gold_fields=gold_fields,
+                    pred_fields=pred_fields,
+                    policy=policy,
+                    prediction_missing=prediction_payload is None,
+                )
+                enhanced_results.extend(per_doc_results)
+                enhanced_rows.extend(
+                    field_results_to_rows(
+                        per_doc_results,
+                        doc_id=doc_id,
+                        quality_bucket=metadata_row.get("quality_bucket", ""),
+                    )
+                )
+        aggregate = aggregate_field_results(enhanced_results)
+        enhanced_summary = {
+            "raw_exact_accuracy": aggregate.raw_exact_accuracy,
+            "business_normalized_accuracy": aggregate.business_normalized_accuracy,
+            "accuracy_delta": aggregate.accuracy_delta,
+            "harmless_normalization_accepts": aggregate.harmless_normalization_accepts,
+            "true_mismatches": aggregate.true_mismatches,
+            "review_needed": aggregate.review_needed,
+            "critical_identifier_mismatches": aggregate.critical_identifier_mismatches,
+        }
+        if metric == "raw_exact":
+            summary = {**summary, **{k: v for k, v in enhanced_summary.items() if k.startswith("raw_exact") or k == "harmless_normalization_accepts"}}
+        elif metric == "business_normalized":
+            summary = {**summary, **enhanced_summary}
+        else:
+            summary = {**summary, **enhanced_summary}
+        write_evaluation_outputs(
+            out_dir=out_dir,
+            aggregate=aggregate,
+            field_rows=enhanced_rows,
+            legacy_summary=summary,
+            metadata_path=metadata_path,
+            predictions_dir=predictions_dir,
+            output_json=output_json,
+            output_csv=output_csv,
+            output_md=output_md,
+        )
+
     return summary
 
 
@@ -822,6 +901,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--metadata", default="data/gold/metadata_20.csv", help="Gold metadata CSV.")
     parser.add_argument("--predictions", default="outputs/predictions/", help="Directory containing <doc_id>.json predictions.")
     parser.add_argument("--out", default=None, help="Output directory. Defaults to outputs/eval_runs/<timestamp>/.")
+    parser.add_argument(
+        "--metric",
+        choices=["raw_exact", "business_normalized", "both"],
+        default="both",
+        help="Evaluation metric mode. Default runs both raw and business-normalized layers.",
+    )
+    parser.add_argument(
+        "--field-policy",
+        default=None,
+        help="Path to evaluation field policy YAML. Defaults to config/evaluation_field_policy.yaml.",
+    )
+    parser.add_argument("--output-json", default=None, help="Override enhanced metrics JSON output path.")
+    parser.add_argument("--output-csv", default=None, help="Override per-field comparison CSV output path.")
+    parser.add_argument("--output-md", default=None, help="Override enhanced Markdown report output path.")
     args = parser.parse_args(argv)
 
     metadata_path = Path(args.metadata)
@@ -840,6 +933,11 @@ def main(argv: list[str] | None = None) -> int:
             metadata_path=metadata_path,
             predictions_dir=predictions_dir,
             out_dir=out_dir,
+            metric=args.metric,
+            field_policy_path=Path(args.field_policy) if args.field_policy else None,
+            output_json=Path(args.output_json) if args.output_json else None,
+            output_csv=Path(args.output_csv) if args.output_csv else None,
+            output_md=Path(args.output_md) if args.output_md else None,
         )
     except Exception as exc:
         print(f"[error] evaluation failed: {exc}", file=sys.stderr)

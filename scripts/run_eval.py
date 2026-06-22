@@ -148,6 +148,9 @@ def _print_summary(summary: dict[str, Any], out_dir: Path, predictions_dir: Path
     wanted = [
         "n_documents",
         "field_accuracy",
+        "raw_exact_accuracy",
+        "business_normalized_accuracy",
+        "accuracy_delta",
         "critical_field_accuracy",
         "document_type_accuracy",
         "processing_decision_accuracy",
@@ -173,6 +176,11 @@ def run(
     out_dir: Path,
     adapter: ExtractionAdapter,
     reuse_predictions: bool,
+    metric: str = "both",
+    field_policy_path: Path | None = None,
+    output_json: Path | None = None,
+    output_csv: Path | None = None,
+    output_md: Path | None = None,
 ) -> dict[str, Any]:
     rows = _read_metadata(metadata_path)
     predictions_dir.mkdir(parents=True, exist_ok=True)
@@ -215,6 +223,11 @@ def run(
         metadata_path=metadata_path,
         predictions_dir=predictions_dir,
         out_dir=out_dir,
+        metric=metric,
+        field_policy_path=field_policy_path,
+        output_json=output_json,
+        output_csv=output_csv,
+        output_md=output_md,
     )
     return summary
 
@@ -240,6 +253,16 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Regenerate predictions even when outputs/predictions/<doc_id>.json already exists.",
     )
+    parser.add_argument(
+        "--metric",
+        choices=["raw_exact", "business_normalized", "both"],
+        default="both",
+        help="Evaluation metric mode.",
+    )
+    parser.add_argument("--field-policy", default=None, help="Path to evaluation field policy YAML.")
+    parser.add_argument("--output-json", default=None, help="Override enhanced metrics JSON output path.")
+    parser.add_argument("--output-csv", default=None, help="Override per-field comparison CSV output path.")
+    parser.add_argument("--output-md", default=None, help="Override enhanced Markdown report output path.")
     args = parser.parse_args(argv)
 
     metadata_path = Path(args.metadata)
@@ -260,6 +283,11 @@ def main(argv: list[str] | None = None) -> int:
             out_dir=out_dir,
             adapter=adapter,
             reuse_predictions=not args.no_reuse_predictions,
+            metric=args.metric,
+            field_policy_path=Path(args.field_policy) if args.field_policy else None,
+            output_json=Path(args.output_json) if args.output_json else None,
+            output_csv=Path(args.output_csv) if args.output_csv else None,
+            output_md=Path(args.output_md) if args.output_md else None,
         )
     except Exception as exc:
         print(f"[error] run_eval failed: {exc}", file=sys.stderr)

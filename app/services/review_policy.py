@@ -89,6 +89,19 @@ SOFT_AUDIT_REVIEW_REASONS = frozenset(
     }
 )
 SEVERE_SCAN_QUALITY_TOKEN = "quality_blocker:severe_scan"
+AUTO_ACCEPT_POLICY_VERSION = "auto_accept_safety_v1"
+_AUTO_ACCEPT_REQUIRED_SATISFIED_CRITERIA = frozenset(
+    {
+        "critical_fields_present",
+        "traceability_verified",
+        "row_alignment_verified",
+        "validation_passed",
+        "document_quality_acceptable",
+        "no_blocking_reasons",
+        "confidence_acceptable",
+        "supported_document_type",
+    }
+)
 CONFIDENCE_ONLY_REASONS = frozenset(
     {
         "confidence falls below threshold",
@@ -326,35 +339,130 @@ def _classify_review_reasons(reasons: Iterable[str]) -> tuple[list[str], list[st
     )
 
 
+def _auto_accept_critical_fields_present(extraction: UniversalDocumentExtraction) -> dict[str, bool]:
+    from app.services.extraction_finalizer import AUTO_ACCEPT_CRITICAL_FIELDS
+
+    extracted_json = extraction.model_dump(mode="python")
+    items = _extract_items_from_json(extracted_json)
+    present: dict[str, bool] = {}
+    mechanical_fields = {
+        "yield_strength_mpa",
+        "tensile_strength_mpa",
+        "elongation_percentage",
+    }
+    for field_name in AUTO_ACCEPT_CRITICAL_FIELDS:
+        if field_name in mechanical_fields:
+            present[field_name] = any(
+                isinstance(item, dict)
+                and isinstance(item.get("mechanical_properties"), dict)
+                and not _is_missing(item["mechanical_properties"].get(field_name))
+                for item in items
+            )
+        else:
+            present[field_name] = _critical_value_present(extracted_json, field_name)
+    return present
+
+
+def _assess_traceability_verified(extraction: UniversalDocumentExtraction) -> bool:
+    from app.services.traceability import TRACEABILITY_VERIFIED
+
+    if not extraction.items:
+        return False
+    if extraction.traceability_status != TRACEABILITY_VERIFIED:
+        return False
+    return all(item.traceability_status == TRACEABILITY_VERIFIED for item in extraction.items)
+
+
+def _assess_row_alignment_verified(
+    extraction: UniversalDocumentExtraction,
+    reasons: Iterable[str],
+) -> bool:
+    for reason in reasons:
+        text = str(reason)
+        if text == "mechanical_table_alignment_uncertain":
+            return False
+        if text.startswith("header_row_conflict:"):
+            return False
+    for item in extraction.items:
+        mechanical = item.mechanical_properties
+        if mechanical is None:
+            continue
+        if any(
+            getattr(mechanical, field_name, None) is not None
+            for field_name in ("yield_strength_mpa", "tensile_strength_mpa", "elongation_percentage")
+        ):
+            return True
+    return False
+
+
+def _assess_validation_passed(extraction: UniversalDocumentExtraction) -> bool:
+    if not extraction.items:
+        return False
+    return all(
+        item.validation is not None and item.validation.is_compliant is True
+        for item in extraction.items
+    )
+
+
 def _build_auto_accept_evidence(
     *,
     extraction: UniversalDocumentExtraction,
     profile: DocumentProfile | None,
     confidence_summary: dict[str, float],
-    blocking_reasons_checked: list[str],
-) -> dict[str, Any]:
-    from app.services.traceability import TRACEABILITY_VERIFIED
+    blocking_reasons: list[str],
+    confidence_only_reasons: list[str],
+    all_reasons: Iterable[str],
+    confidence_exempt: bool,
+    confidence_threshold: float,
+    final_confidence: float,
+) -> dict[str, Any] | None:
+    """Build auditable auto-accept evidence or return None when criteria are unverifiable."""
 
-    verified_traceability = extraction.traceability_status == TRACEABILITY_VERIFIED or all(
-        getattr(item, "traceability_status", None) == TRACEABILITY_VERIFIED for item in extraction.items
+    document_quality = profile.quality_class if profile is not None else None
+    critical_fields_present = _auto_accept_critical_fields_present(extraction)
+    traceability_verified = _assess_traceability_verified(extraction)
+    row_alignment_verified = _assess_row_alignment_verified(extraction, all_reasons)
+    validation_passed = _assess_validation_passed(extraction)
+    supported_document_type = _document_type_supported(extraction.document_type)
+    confidence_acceptable = (
+        final_confidence >= confidence_threshold or confidence_exempt
     )
-    gates_passed = [
-        "supported_document_type",
-        "critical_fields_present",
-        "validation_compliant",
-        "traceability_verified" if verified_traceability else "traceability_present",
-        "no_auto_accept_blockers",
-        "confidence_exempt_or_above_threshold",
-    ]
-    if profile is not None:
-        gates_passed.append("document_quality_not_severe_scan")
+    document_quality_acceptable = bool(document_quality) and not is_severe_scan_profile(profile)
+    no_blocking_reasons = not blocking_reasons
+
+    satisfied_criteria: list[str] = []
+    if all(critical_fields_present.values()):
+        satisfied_criteria.append("critical_fields_present")
+    if traceability_verified:
+        satisfied_criteria.append("traceability_verified")
+    if row_alignment_verified:
+        satisfied_criteria.append("row_alignment_verified")
+    if validation_passed:
+        satisfied_criteria.append("validation_passed")
+    if document_quality_acceptable:
+        satisfied_criteria.append("document_quality_acceptable")
+    if no_blocking_reasons:
+        satisfied_criteria.append("no_blocking_reasons")
+    if confidence_acceptable:
+        satisfied_criteria.append("confidence_acceptable")
+    if supported_document_type:
+        satisfied_criteria.append("supported_document_type")
+
+    if not _AUTO_ACCEPT_REQUIRED_SATISFIED_CRITERIA.issubset(set(satisfied_criteria)):
+        return None
+
     return {
-        "verified_traceability": verified_traceability,
-        "grade_status": "resolved",
-        "document_quality": profile.quality_class if profile is not None else None,
+        "policy_version": AUTO_ACCEPT_POLICY_VERSION,
+        "decision": "auto_accept",
+        "document_quality": document_quality,
+        "critical_fields_present": critical_fields_present,
+        "traceability_verified": traceability_verified,
+        "row_alignment_verified": row_alignment_verified,
+        "validation_passed": validation_passed,
         "confidence_summary": dict(confidence_summary),
-        "gates_passed": gates_passed,
-        "blocking_reasons_checked": list(blocking_reasons_checked),
+        "blocking_reasons": [],
+        "confidence_only_reasons": list(confidence_only_reasons),
+        "satisfied_criteria": satisfied_criteria,
     }
 
 
@@ -1099,8 +1207,18 @@ def apply_review_policy(
             extraction=extraction,
             profile=profile,
             confidence_summary=deterministic["confidence_summary"],
-            blocking_reasons_checked=sorted(AUTO_ACCEPT_BLOCKING_EXACT),
+            blocking_reasons=blocking_reasons,
+            confidence_only_reasons=combined_confidence_only,
+            all_reasons=combined,
+            confidence_exempt=confidence_exempt,
+            confidence_threshold=review_confidence_threshold,
+            final_confidence=final_confidence,
         )
+        if auto_accept_evidence is None:
+            decision = "review_required"
+            final_review_required = True
+            extraction.needs_review = True
+            extraction.status = "NEEDS_REVIEW"
 
     return ReviewDecision(
         review_required=final_review_required,

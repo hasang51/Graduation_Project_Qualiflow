@@ -97,3 +97,4 @@ class UniversalDocumentExtraction(BaseModel):
     accepted_identifier_values: Dict[str, Any] = Field(default_factory=dict)
     raw_identifier_candidates: Dict[str, Any] = Field(default_factory=dict)
     analysis_id: Optional[int] = Field(default=None)
+    auto_accept_evidence: Optional[Dict[str, Any]] = Field(default=None)

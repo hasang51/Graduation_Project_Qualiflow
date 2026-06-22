@@ -299,6 +299,64 @@ On Unix/macOS shells, replace `^` with `\`.
 
 ---
 
+## Production Async Backend (v7)
+
+QualiFlow now supports an asynchronous document-processing API with Redis/RQ workers, object storage abstraction, PostgreSQL (Alembic migrations), structured logging, and Prometheus-style metrics.
+
+### Local setup (without Docker)
+
+```bash
+cp .env.example .env
+python -m pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+python -m app.workers.run_worker
+```
+
+### Docker Compose
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+Services: API (`8000`), worker, PostgreSQL (`5432`), Redis (`6379`), MinIO (`9000`).
+
+### Async upload flow
+
+```bash
+curl -F "file=@sample.pdf" http://localhost:8000/api/v1/uploads
+curl http://localhost:8000/api/v1/jobs/<job_id>
+curl http://localhost:8000/api/v1/jobs/<job_id>/result
+```
+
+Legacy synchronous extraction remains at `POST /api/v1/extract`.
+
+### Migrations
+
+```bash
+alembic upgrade head
+alembic revision --autogenerate -m "describe change"
+alembic upgrade head
+```
+
+### Deterministic test subset
+
+```bash
+python -m pytest tests/test_review_policy.py tests/test_validator.py tests/test_extraction_finalizer.py tests/test_traceability.py tests/test_field_mapping_registry.py -q
+```
+
+### Production checklist
+
+- Set `APP_ENV=production`
+- Use PostgreSQL `DATABASE_URL` (SQLite rejected at startup)
+- Set `JWT_SECRET_KEY` to a random string >= 32 characters
+- Set explicit `CORS_ALLOW_ORIGINS` (no `*`)
+- Configure Redis, worker, and S3/MinIO credentials
+- Set `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` for LLM extraction
+
+---
+
 ## Tests
 
 Run the full test suite:
