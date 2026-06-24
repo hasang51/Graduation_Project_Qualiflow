@@ -1,0 +1,239 @@
+# Evaluation field policy — explicit per-field matcher configuration.
+# Deterministic only; no LLM or network calls.
+
+defaults:
+  field_type: text
+  criticality: standard
+  matcher_chain:
+    - normalized_exact_match
+  empty_both_match: true
+  numeric_abs_tolerance: 1.0
+  numeric_rel_tolerance: 0.01
+  supplier_fuzzy_threshold_accept: 95
+  supplier_fuzzy_threshold_review: 90
+  dimension_order_insensitive: false
+  allow_incomplete_dates: false
+  canonical_units: []
+
+fields:
+  heat_number:
+    field_type: critical_identifier
+    criticality: critical
+    matcher_chain: [critical_identifier_strict_match]
+    empty_both_match: false
+  heat_no:
+    field_type: critical_identifier
+    criticality: critical
+    matcher_chain: [critical_identifier_strict_match]
+    empty_both_match: false
+  heat_numbers:
+    field_type: critical_identifier
+    criticality: critical
+    matcher_chain: [critical_identifier_strict_match]
+    empty_both_match: false
+  lot_number:
+    field_type: critical_identifier
+    criticality: critical
+    matcher_chain: [critical_identifier_strict_match]
+    empty_both_match: false
+  batch_number:
+    field_type: critical_identifier
+    criticality: critical
+    matcher_chain: [critical_identifier_strict_match]
+    empty_both_match: false
+  certificate_number:
+    field_type: critical_identifier
+    criticality: critical
+    matcher_chain: [critical_identifier_strict_match]
+    empty_both_match: false
+  cast_number:
+    field_type: critical_identifier
+    criticality: critical
+    matcher_chain: [critical_identifier_strict_match]
+    empty_both_match: false
+  coil_number:
+    field_type: critical_identifier
+    criticality: critical
+    matcher_chain: [critical_identifier_strict_match]
+    empty_both_match: false
+  traceability_id:
+    field_type: critical_identifier
+    criticality: critical
+    matcher_chain: [critical_identifier_strict_match]
+    empty_both_match: false
+  item_id:
+    field_type: critical_identifier
+    criticality: critical
+    matcher_chain: [critical_identifier_strict_match]
+    empty_both_match: false
+
+  invoice_date:
+    field_type: date
+    matcher_chain: [date_normalized_match]
+  production_date:
+    field_type: date
+    matcher_chain: [date_normalized_match]
+  expiry_date:
+    field_type: date
+    matcher_chain: [date_normalized_match]
+  shipment_date:
+    field_type: date
+    matcher_chain: [date_normalized_match]
+  delivery_date:
+    field_type: date
+    matcher_chain: [date_normalized_match]
+  issue_date:
+    field_type: date
+    matcher_chain: [date_normalized_match]
+  certificate_date:
+    field_type: date
+    matcher_chain: [date_normalized_match]
+
+  net_weight:
+    field_type: numeric_with_unit
+    matcher_chain: [unit_normalized_match, numeric_tolerance_match]
+    canonical_units: [kg, t, g]
+    numeric_abs_tolerance: 0.5
+    numeric_rel_tolerance: 0.001
+  gross_weight:
+    field_type: numeric_with_unit
+    matcher_chain: [unit_normalized_match, numeric_tolerance_match]
+    canonical_units: [kg, t, g]
+    numeric_abs_tolerance: 0.5
+    numeric_rel_tolerance: 0.001
+  quantity:
+    field_type: numeric_with_unit
+    matcher_chain: [unit_normalized_match, numeric_tolerance_match]
+    canonical_units: [kg, t, g]
+  weight:
+    field_type: numeric_with_unit
+    matcher_chain: [unit_normalized_match, numeric_tolerance_match]
+    canonical_units: [kg, t, g]
+  mass:
+    field_type: numeric_with_unit
+    matcher_chain: [unit_normalized_match, numeric_tolerance_match]
+    canonical_units: [kg, t, g]
+  weight_or_length:
+    field_type: numeric_with_unit
+    matcher_chain: [unit_normalized_match, numeric_tolerance_match]
+    canonical_units: [kg, t, g, mm, m]
+
+  length:
+    field_type: numeric_with_unit
+    matcher_chain: [unit_normalized_match, numeric_tolerance_match]
+    canonical_units: [mm, m, cm]
+  width:
+    field_type: numeric_with_unit
+    matcher_chain: [unit_normalized_match, numeric_tolerance_match]
+    canonical_units: [mm, m, cm]
+  thickness:
+    field_type: numeric_with_unit
+    matcher_chain: [unit_normalized_match, numeric_tolerance_match]
+    canonical_units: [mm, m, cm]
+
+  dimensions:
+    field_type: dimension
+    matcher_chain: [dimension_pattern_match]
+  size:
+    field_type: dimension
+    matcher_chain: [dimension_pattern_match]
+  dimension:
+    field_type: dimension
+    matcher_chain: [dimension_pattern_match]
+  thickness_width_length:
+    field_type: dimension
+    matcher_chain: [dimension_pattern_match]
+  width_x_length:
+    field_type: dimension
+    matcher_chain: [dimension_pattern_match]
+
+  supplier_name:
+    field_type: supplier
+    matcher_chain: [supplier_name_fuzzy_match, normalized_exact_match]
+    supplier_fuzzy_threshold_accept: 95
+    supplier_fuzzy_threshold_review: 90
+  manufacturer_name:
+    field_type: supplier
+    matcher_chain: [supplier_name_fuzzy_match, normalized_exact_match]
+  producer_name:
+    field_type: supplier
+    matcher_chain: [supplier_name_fuzzy_match, normalized_exact_match]
+  consignee_name:
+    field_type: supplier
+    matcher_chain: [supplier_name_fuzzy_match, normalized_exact_match]
+  shipper_name:
+    field_type: supplier
+    matcher_chain: [supplier_name_fuzzy_match, normalized_exact_match]
+
+  grade:
+    field_type: grade
+    criticality: critical
+    matcher_chain: [grade_alias_match, normalized_exact_match]
+  material_grade:
+    field_type: grade
+    criticality: critical
+    matcher_chain: [grade_alias_match, normalized_exact_match]
+  steel_grade:
+    field_type: grade
+    criticality: critical
+    matcher_chain: [grade_alias_match, normalized_exact_match]
+  polymer_grade:
+    field_type: grade
+    criticality: critical
+    matcher_chain: [grade_alias_match, normalized_exact_match]
+  resin_grade:
+    field_type: grade
+    criticality: critical
+    matcher_chain: [grade_alias_match, normalized_exact_match]
+  grades:
+    field_type: grade
+    criticality: critical
+    matcher_chain: [grade_alias_match, normalized_exact_match]
+
+  incoterm:
+    field_type: vocabulary
+    matcher_chain: [semantic_equivalent_match, normalized_exact_match]
+  country:
+    field_type: vocabulary
+    matcher_chain: [semantic_equivalent_match, normalized_exact_match]
+  status:
+    field_type: vocabulary
+    matcher_chain: [semantic_equivalent_match, normalized_exact_match]
+  compliance_outcome:
+    field_type: vocabulary
+    matcher_chain: [semantic_equivalent_match, normalized_exact_match]
+  review_required:
+    field_type: vocabulary
+    matcher_chain: [semantic_equivalent_match, normalized_exact_match]
+  document_type:
+    field_type: vocabulary
+    matcher_chain: [semantic_equivalent_match, normalized_exact_match]
+
+  yield_strength_mpa:
+    field_type: numeric
+    criticality: critical
+    matcher_chain: [numeric_tolerance_match, normalized_exact_match]
+    numeric_abs_tolerance: 1.0
+    numeric_rel_tolerance: 0.01
+  tensile_strength_mpa:
+    field_type: numeric
+    criticality: critical
+    matcher_chain: [numeric_tolerance_match, normalized_exact_match]
+    numeric_abs_tolerance: 1.0
+    numeric_rel_tolerance: 0.01
+  elongation_percentage:
+    field_type: numeric
+    criticality: critical
+    matcher_chain: [numeric_tolerance_match, normalized_exact_match]
+    numeric_abs_tolerance: 1.0
+    numeric_rel_tolerance: 0.01
+
+  processing_decision:
+    field_type: decision
+    criticality: critical
+    matcher_chain: [auto_accept_safety_match, semantic_equivalent_match, normalized_exact_match]
+
+  review_reasons:
+    field_type: text
+    matcher_chain: [normalized_exact_match]
+    empty_both_match: true

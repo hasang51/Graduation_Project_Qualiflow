@@ -1,5 +1,4 @@
 # QualiFlow — CoA Extraction Engine
-# ==================================
 # Python 3.11+
 
 # --- Core Framework ---
@@ -9,6 +8,7 @@ python-multipart==0.0.20
 
 # --- Data Validation ---
 pydantic==2.11.3
+pydantic-settings==2.8.1
 email-validator==2.2.0
 
 # --- Database / Auth ---
@@ -16,6 +16,17 @@ sqlalchemy==2.0.40
 alembic==1.15.2
 python-jose[cryptography]==3.3.0
 bcrypt==5.0.0
+psycopg2-binary==2.9.10
+
+# --- Queue / Cache ---
+redis==5.2.1
+rq==2.1.0
+
+# --- Rate limiting ---
+slowapi==0.1.9
+
+# --- Object storage ---
+boto3==1.37.6
 
 # --- PDF Processing ---
 pdf2image==1.17.0
@@ -24,11 +35,15 @@ opencv-python==4.11.0.86
 numpy==2.2.4
 requests==2.32.3
 
-# --- Optional (only for scripts/check_ocr_backend.py; not used by app runtime) ---
-# pytesseract==0.3.13
-
-# --- Anthropic Claude SDK (replaces openai) ---
+# --- Anthropic Claude SDK ---
 anthropic>=0.30.0
 
 # --- Environment ---
 python-dotenv==1.1.0
+
+# --- Evaluation ---
+pyyaml>=6.0.2
+
+# --- Dev / test ---
+pytest==8.4.2
+httpx==0.28.1

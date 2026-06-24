@@ -111,17 +111,29 @@ _CONFIDENCE_ONLY_REASONS: frozenset[str] = frozenset(
     }
 )
 
-_BLOCKING_REVIEW_PREFIXES: tuple[str, ...] = (
-    "missing_critical_field:",
-    "validation_conflict:",
-    "critical_identifier_unverified",
+_HARD_AUTO_ACCEPT_BLOCKER_EXACT: frozenset[str] = frozenset(
+    {
+        "quality_blocker:severe_scan",
+        "unresolved_grade",
+        "ambiguous_grade",
+        "explicit_unmapped_grade",
+        "unresolved_spec",
+        "unsupported_spec_family",
+        "mechanical_table_alignment_uncertain",
+        "traceability_identifier_ocr_uncertain",
+        "traceability_identifier_conflict",
+        "traceability_unverified",
+        "missing_critical_identifier_group",
+        "row_count_inconsistent",
+        "no_items_extracted",
+    }
 )
 
-_BLOCKING_REVIEW_EXACT: frozenset[str] = frozenset(
-    {
-        "unresolved_spec",
-        "traceability_unverified",
-    }
+_HARD_AUTO_ACCEPT_BLOCKER_PREFIXES: tuple[str, ...] = (
+    "missing_critical_field:",
+    "critical_identifier_unverified",
+    "header_row_conflict:",
+    "validation_conflict:",
 )
 
 
@@ -512,13 +524,67 @@ def _row_has_blocking_deviations_from_dict(item: dict[str, Any]) -> bool:
     return False
 
 
-def _has_blocking_review_reasons(review_reasons: list[str]) -> bool:
-    for reason in review_reasons:
-        if reason in _BLOCKING_REVIEW_EXACT:
-            return True
-        if any(reason.startswith(prefix) for prefix in _BLOCKING_REVIEW_PREFIXES):
-            return True
+def _is_hard_auto_accept_blocker(reason: str) -> bool:
+    text = _text(reason)
+    if not text:
+        return False
+    if text in _HARD_AUTO_ACCEPT_BLOCKER_EXACT:
+        return True
+    return any(text.startswith(prefix) for prefix in _HARD_AUTO_ACCEPT_BLOCKER_PREFIXES)
+
+
+def _severe_scan_in_payload(result: dict[str, Any]) -> bool:
+    for profile in (result.get("document_profile"),):
+        if isinstance(profile, dict):
+            bucket = _text(profile.get("quality_bucket") or profile.get("quality_class")).lower()
+            if bucket == "severe_scan":
+                return True
+    explanation = result.get("explanation")
+    if isinstance(explanation, dict):
+        profile = explanation.get("document_profile")
+        if isinstance(profile, dict):
+            bucket = _text(profile.get("quality_bucket") or profile.get("quality_class")).lower()
+            if bucket == "severe_scan":
+                return True
     return False
+
+
+def _iter_payload_reason_strings(payload: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    for key in ("review_reasons", "structured_reasons", "blocking_reasons", "blocking_errors"):
+        values = payload.get(key)
+        if isinstance(values, list):
+            reasons.extend(str(value) for value in values)
+    explanation = payload.get("explanation")
+    if isinstance(explanation, dict):
+        review_policy = explanation.get("review_policy")
+        if isinstance(review_policy, dict):
+            for key in (
+                "review_reasons",
+                "structured_reasons",
+                "blocking_reasons",
+                "all_reasons",
+                "evidence_gaps",
+            ):
+                values = review_policy.get(key)
+                if isinstance(values, list):
+                    reasons.extend(str(value) for value in values)
+        validation_outcome = explanation.get("validation_outcome")
+        if isinstance(validation_outcome, dict):
+            values = validation_outcome.get("review_reasons")
+            if isinstance(values, list):
+                reasons.extend(str(value) for value in values)
+    return reasons
+
+
+def _payload_has_hard_auto_accept_blockers(result: dict[str, Any]) -> bool:
+    if _severe_scan_in_payload(result):
+        return True
+    return any(_is_hard_auto_accept_blocker(reason) for reason in _iter_payload_reason_strings(result))
+
+
+def _has_blocking_review_reasons(review_reasons: list[str]) -> bool:
+    return any(_is_hard_auto_accept_blocker(reason) for reason in review_reasons)
 
 
 def _is_confidence_only_reason(reason: str) -> bool:
@@ -696,6 +762,8 @@ def eligible_for_confidence_exempt_material(result: dict[str, Any]) -> bool:
 
 
 def eligible_for_confidence_exempt_reconcile(result: dict[str, Any]) -> bool:
+    if _payload_has_hard_auto_accept_blockers(result):
+        return False
     if not eligible_for_confidence_exempt_material(result):
         return False
     if not _document_review_reasons_are_confidence_only(result):
@@ -709,6 +777,8 @@ def eligible_for_confidence_exempt_reconcile(result: dict[str, Any]) -> bool:
 def _ensure_review_policy_matches_auto_accept(result: dict[str, Any]) -> None:
     """Align nested explanation.review_policy when review flags are cleared."""
 
+    if _payload_has_hard_auto_accept_blockers(result):
+        return
     if result.get("needs_review") is not False and result.get("review_required") is not False:
         return
 
@@ -742,6 +812,60 @@ def _update_explanation_for_auto_accept(explanation: dict[str, Any]) -> None:
     _ensure_review_policy_matches_auto_accept({"explanation": explanation, "needs_review": False})
 
 
+def _default_finalize_profile() -> Any:
+    from app.services.document_profiler import DocumentProfile
+
+    return DocumentProfile(
+        document_id="finalize",
+        filename="document.pdf",
+        page_count=1,
+        has_text_layer=True,
+        text_density=0.5,
+        blur_score=300.0,
+        noise_score=5.0,
+        table_presence_hint=True,
+        quality_class="digital_clean",
+    )
+
+
+def _attach_auto_accept_evidence(payload: dict[str, Any]) -> None:
+    if payload.get("processing_decision") != "auto_accept" and payload.get("status") != "AUTO_ACCEPT":
+        return
+    if isinstance(payload.get("auto_accept_evidence"), dict):
+        return
+    from app.config import settings
+    from app.services.review_policy import _build_auto_accept_evidence
+
+    enriched = dict(payload)
+    enriched.setdefault("supplier_name", "Unknown")
+    enriched.setdefault("total_items_detected", len(enriched.get("items") or []))
+    enriched.setdefault("items", [])
+
+    try:
+        extraction = UniversalDocumentExtraction.model_validate(enriched)
+    except Exception:
+        return
+
+    review_reasons = list(payload.get("review_reasons") or [])
+    confidence_only = [r for r in review_reasons if r in _CONFIDENCE_ONLY_REASONS]
+    final_confidence = float(payload.get("confidence_score") or 0.0)
+    evidence = _build_auto_accept_evidence(
+        extraction=extraction,
+        profile=_default_finalize_profile(),
+        confidence_summary=dict(payload.get("confidence_breakdown") or {"_overall": final_confidence}),
+        blocking_reasons=[],
+        confidence_only_reasons=confidence_only,
+        all_reasons=review_reasons,
+        confidence_exempt=True,
+        confidence_threshold=settings.review_confidence_threshold,
+        final_confidence=final_confidence,
+    )
+    if evidence is None:
+        return
+    evidence["gates_passed"] = list(evidence.get("satisfied_criteria") or [])
+    payload["auto_accept_evidence"] = evidence
+
+
 def _apply_auto_accept_document_state(result: dict[str, Any]) -> None:
     result["review_reasons"] = _clean_confidence_reasons(result.get("review_reasons"))
     result["needs_review"] = False
@@ -755,6 +879,7 @@ def _apply_auto_accept_document_state(result: dict[str, Any]) -> None:
     explanation = result.get("explanation")
     if isinstance(explanation, dict):
         _update_explanation_for_auto_accept(explanation)
+    _attach_auto_accept_evidence(result)
 
 
 def reconcile_final_document_decision(result: dict[str, Any]) -> dict[str, Any]:
@@ -765,7 +890,10 @@ def reconcile_final_document_decision(result: dict[str, Any]) -> dict[str, Any]:
 
     alias_infos = _apply_heat_number_aliases(result)
     reconciled = False
-    if eligible_for_confidence_exempt_reconcile(result):
+    if (
+        not _payload_has_hard_auto_accept_blockers(result)
+        and eligible_for_confidence_exempt_reconcile(result)
+    ):
         _apply_auto_accept_document_state(result)
         reconciled = True
 
@@ -839,6 +967,13 @@ def qualifies_for_confidence_exempt_auto_accept(
 
 def _apply_confidence_exempt_decision(payload: dict[str, Any]) -> list[str]:
     tokens: list[str] = []
+    if _payload_has_hard_auto_accept_blockers(payload):
+        review_reasons = list(payload.get("review_reasons") or [])
+        remaining = _clean_confidence_reasons(review_reasons)
+        if remaining != review_reasons:
+            payload["review_reasons"] = remaining
+        return tokens
+
     if not eligible_for_confidence_exempt_reconcile(payload):
         return tokens
 
@@ -859,6 +994,7 @@ def _apply_confidence_exempt_decision(payload: dict[str, Any]) -> list[str]:
             payload["status"] = "AUTO_ACCEPT"
         tokens.append("auto_accept:decision_calibrated")
         _ensure_review_policy_matches_auto_accept(payload)
+        _attach_auto_accept_evidence(payload)
 
     return tokens
 
@@ -872,6 +1008,8 @@ def _hydrate_extraction_review_from_payload(
     extraction.outcome = payload.get("outcome", extraction.outcome)
     if "review_reasons" in payload:
         extraction.review_reasons = list(payload["review_reasons"])
+    if payload.get("auto_accept_evidence") is not None:
+        extraction.auto_accept_evidence = dict(payload["auto_accept_evidence"])
 
 
 def apply_canonical_finalization_to_extraction(
@@ -899,6 +1037,7 @@ def finalize_decision_on_result(result: dict[str, Any]) -> list[str]:
         return []
     tokens = _apply_confidence_exempt_decision(result)
     reconcile_final_document_decision(result)
+    _attach_auto_accept_evidence(result)
     return tokens
 
 

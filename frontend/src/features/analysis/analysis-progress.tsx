@@ -4,10 +4,12 @@ import { Card } from '../../components/ui/card'
 interface AnalysisProgressProps {
   currentStepIndex: number
   active: boolean
+  steps?: string[]
 }
 
-const steps = [
+const defaultSteps = [
   'Uploading PDF',
+  'Queued for processing',
   'Processing pages',
   'Extracting structured data',
   'Validating compliance',
@@ -20,7 +22,7 @@ function stepStatus(index: number, currentStepIndex: number, active: boolean): '
   return 'pending'
 }
 
-export function AnalysisProgress({ currentStepIndex, active }: AnalysisProgressProps) {
+export function AnalysisProgress({ currentStepIndex, active, steps = defaultSteps }: AnalysisProgressProps) {
   const currentStep = steps[currentStepIndex] ?? steps[0]
 
   return (

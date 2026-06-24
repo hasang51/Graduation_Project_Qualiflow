@@ -11,6 +11,8 @@ from app.schemas.extraction import (
 from app.services.confidence import normalize_confidence
 from app.services.document_profiler import DocumentProfile
 from app.services.extraction_finalizer import (
+    _apply_confidence_exempt_decision,
+    eligible_for_confidence_exempt_reconcile,
     finalize_canonical_response,
     finalize_decision,
     finalize_decision_on_result,
@@ -169,6 +171,21 @@ class ExtractionFinalizerFieldTests(unittest.TestCase):
         self.assertEqual(result.missing_critical_fields_rate, 0.0)
 
 
+def _confidence_exempt_compliant_payload(
+    *,
+    review_reasons: list[str] | None = None,
+    explanation: dict | None = None,
+) -> dict:
+    payload = _canonical_regression_payload()
+    payload["review_required"] = True
+    payload["status"] = "NEEDS_REVIEW"
+    if review_reasons is not None:
+        payload["review_reasons"] = review_reasons
+    if explanation is not None:
+        payload["explanation"] = explanation
+    return payload
+
+
 class ExtractionFinalizerDecisionTests(unittest.TestCase):
     def test_qualifies_for_confidence_exempt_auto_accept(self):
         extraction = _verified_compliant_extraction()
@@ -193,6 +210,8 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         self.assertIn("auto_accept:confidence_exempt", tokens)
         self.assertFalse(extraction.needs_review)
         self.assertNotIn("confidence falls below threshold", extraction.review_reasons)
+        self.assertIsInstance(extraction.auto_accept_evidence, dict)
+        self.assertIn("gates_passed", extraction.auto_accept_evidence)
 
     def test_auto_accept_at_070_after_review_policy(self):
         extraction = _verified_compliant_extraction(confidence_score=0.70)
@@ -272,6 +291,7 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         self.assertEqual(payload["processing_decision"], "auto_accept")
         self.assertEqual(payload["compliance_status"], "COMPLIANT")
         self.assertNotIn("confidence_below_threshold", payload["review_reasons"])
+        self.assertIsInstance(payload.get("auto_accept_evidence"), dict)
 
     def test_api_boundary_applies_canonical_finalization(self):
         extraction = _verified_compliant_extraction(confidence_score=0.70, item_id=None)
@@ -283,6 +303,7 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         self.assertEqual(payload["processing_decision"], "auto_accept")
         self.assertEqual(payload["status"], "AUTO_ACCEPT")
         self.assertNotIn("confidence_below_threshold", payload["review_reasons"])
+        self.assertIsInstance(payload.get("auto_accept_evidence"), dict)
 
     def test_reconcile_batch_traceability_auto_accept_with_heat_alias(self):
         payload = {
@@ -340,6 +361,7 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         self.assertEqual(payload["status"], "AUTO_ACCEPT")
         self.assertEqual(payload["processing_decision"], "auto_accept")
         self.assertNotIn("confidence_below_threshold", payload["review_reasons"])
+        self.assertIsInstance(payload.get("auto_accept_evidence"), dict)
         self.assertNotIn(
             "confidence_below_threshold",
             payload["explanation"]["review_policy"]["structured_reasons"],
@@ -434,6 +456,43 @@ class ExtractionFinalizerDecisionTests(unittest.TestCase):
         self.assertIn(payload["status"], {"COMPLETED", "AUTO_ACCEPT"})
         self.assertEqual(payload["explanation"]["review_policy"]["decision"], "auto_accept")
         self.assertFalse(payload["explanation"]["review_policy"]["review_required"])
+
+    def test_hard_blocker_strips_confidence_but_never_auto_accepts(self):
+        payload = _confidence_exempt_compliant_payload(
+            review_reasons=["traceability_unverified", "confidence_below_threshold"],
+        )
+        _apply_confidence_exempt_decision(payload)
+        self.assertNotEqual(payload.get("processing_decision"), "auto_accept")
+        self.assertNotIn("confidence_below_threshold", payload["review_reasons"])
+        self.assertIn("traceability_unverified", payload["review_reasons"])
+
+    def test_nested_hard_blocker_blocks_confidence_exempt_reconcile(self):
+        payload = _confidence_exempt_compliant_payload(
+            review_reasons=["confidence_below_threshold"],
+            explanation={
+                "review_policy": {
+                    "structured_reasons": ["traceability_unverified"],
+                    "review_reasons": ["confidence_below_threshold"],
+                }
+            },
+        )
+        self.assertFalse(eligible_for_confidence_exempt_reconcile(payload))
+        finalize_decision_on_result(payload)
+        self.assertNotEqual(payload.get("processing_decision"), "auto_accept")
+        self.assertNotIn("confidence_below_threshold", payload["review_reasons"])
+        self.assertIn(
+            "traceability_unverified",
+            payload["explanation"]["review_policy"]["structured_reasons"],
+        )
+
+    def test_severe_scan_profile_blocks_confidence_exempt_reconcile(self):
+        payload = _confidence_exempt_compliant_payload(
+            review_reasons=["confidence_below_threshold"],
+            explanation={"document_profile": {"quality_class": "severe_scan"}},
+        )
+        self.assertFalse(eligible_for_confidence_exempt_reconcile(payload))
+        finalize_decision_on_result(payload)
+        self.assertNotEqual(payload.get("processing_decision"), "auto_accept")
 
 
 if __name__ == "__main__":

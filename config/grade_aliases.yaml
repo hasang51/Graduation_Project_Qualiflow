@@ -1,0 +1,27 @@
+# Grade alias registry for evaluation matching only.
+# Aliases must be explicit — no invented mappings at runtime.
+# Canonical forms are compared after normalization.
+
+aliases:
+  S355J2:
+    - S355 J2
+    - S355J2H
+  S355JR:
+    - S355 JR
+  S235JR:
+    - S235 JR
+    - S235
+  S275JR:
+    - S275 JR
+  SG2:
+    - NOVOFIL SG2
+    - NOVOBRONZE SG2
+  "304L":
+    - 1.4307
+    - AISI 304L
+  "316L":
+    - 1.4404
+    - AISI 316L
+  B500B:
+    - B 500 B
+    - B500 B

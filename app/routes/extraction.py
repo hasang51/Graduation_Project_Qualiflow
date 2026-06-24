@@ -16,10 +16,9 @@ from app.services.document_profiler import profile_document
 from app.services.extraction_pipeline import run_multi_stage_extraction
 from app.services.extraction_router import choose_route
 from app.services.persistence import (
-    create_processing_run,
+    begin_analysis_for_user,
     update_run_completed,
     update_run_failed,
-    upsert_document,
 )
 from app.services.preprocessing import preprocess_pdf
 from app.services.storage import artifact_dir_for_hash, persist_pdf, sha256_bytes
@@ -98,19 +97,14 @@ async def extract_document(
     run = None
     try:
         if current_user:
-            document = upsert_document(
+            run = begin_analysis_for_user(
                 db,
                 user=current_user,
                 original_filename=file.filename or "document.pdf",
                 stored_pdf_path=str(Path(stored_pdf).resolve()),
                 file_sha256=file_hash,
-                page_count=0,
-            )
-            run = create_processing_run(
-                db,
-                user_id=current_user.id,
-                document_id=document.id,
                 preprocessing_meta=preprocessing_meta,
+                page_count=0,
             )
             db.commit()
             db.refresh(run)

@@ -1,2 +1,0 @@
-n_documents,field_accuracy,critical_field_accuracy,document_type_accuracy,processing_decision_accuracy,review_rate,unsafe_auto_accept_rate,missing_required_field_rate,average_latency_ms
-20,0.1476,0.1696,0.2,0.0,1.0,0.0,0.75,37662.7

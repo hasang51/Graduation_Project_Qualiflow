@@ -100,7 +100,7 @@ class ReviewPolicyTests(unittest.TestCase):
         self.assertEqual(decision["review_reasons"], [])
         self.assertEqual(decision["blocking_errors"], [])
 
-    def test_deterministic_policy_does_not_review_for_severe_scan_alone(self):
+    def test_deterministic_policy_blocks_severe_scan_even_with_complete_fields(self):
         decision = evaluate_review_policy(
             extracted_json={
                 "document_type": "Certificate of Analysis",
@@ -114,8 +114,10 @@ class ReviewPolicyTests(unittest.TestCase):
             validation_errors=[],
             document_profile={"quality_bucket": "severe_scan"},
         )
-        self.assertEqual(decision["decision"], "auto_accept")
-        self.assertNotIn("document_quality:severe_scan", decision["review_reasons"])
+        self.assertEqual(decision["decision"], "review_required")
+        self.assertIn("quality_blocker:severe_scan", decision["review_reasons"])
+        blockers = [*decision["blocking_errors"], *decision["blocking_reasons"]]
+        self.assertIn("quality_blocker:severe_scan", blockers)
 
     def test_deterministic_policy_never_accepts_missing_critical_fields(self):
         decision = evaluate_review_policy(
@@ -400,6 +402,7 @@ class ReviewPolicyTests(unittest.TestCase):
         self.assertNotIn("unresolved_grade", decision.structured_reasons)
         self.assertIn("explicit_unmapped_grade", decision.structured_reasons)
         self.assertNotIn("unsupported_spec_family", decision.structured_reasons)
+        self.assertTrue(decision.review_required)
 
     def test_unresolved_stainless_spec_emits_unresolved_spec_token(self):
         item = ExtractedItem(
