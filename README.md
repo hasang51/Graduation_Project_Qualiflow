@@ -1,409 +1,254 @@
 # QualiFlow
 
-**A quality-aware hybrid framework for automated extraction and review of industrial CoA/MTC documents**
+**Human-in-the-loop AI verification for industrial CoA / MTC certificates**
 
-QualiFlow is an academic research prototype developed as a graduation project. It extracts, normalizes, validates, and reviews structured information from industrial **Certificates of Analysis (CoA)**, **Mill Test Certificates (MTC)**, and related inspection-certificate PDFs.
-
-The system combines multimodal AI extraction with deterministic validation and human-in-the-loop review routing. It is designed to support quality-document verification workflows, not to replace final human approval.
+QualiFlow extracts structured fields from manufacturing PDFs, validates them deterministically, and routes uncertain cases to human review rather than silent approval.
 
 ---
 
-## Overview
-
-Industrial quality certificates are often semi-structured, supplier-specific, scanned, noisy, multilingual, or inconsistent across layouts. Critical fields such as heat numbers, batch numbers, material grades, and mechanical properties are frequently embedded in complex tables or degraded PDF scans.
-
-QualiFlow addresses this problem through a hybrid architecture:
-
-* multimodal extraction for document understanding,
-* deterministic normalization for critical engineering fields,
-* grade/spec validation for supported material families,
-* traceability checks for heat, batch, cast, lot, and charge identifiers,
-* confidence normalization,
-* and structured review-policy decisions.
-
-The project follows a safety-oriented design principle: uncertain cases should be escalated to human review rather than silently approved.
-
----
-
-## Core Capabilities
-
-QualiFlow extracts and analyzes:
-
-* supplier name,
-* document type,
-* certificate date,
-* item identifiers,
-* heat / batch / lot / cast / charge identifiers,
-* material grade,
-* weight, length, and size descriptors,
-* yield strength,
-* tensile strength,
-* elongation,
-* rule-based validation signals,
-* traceability status,
-* review reasons,
-* reviewer focus notes.
-
-The extracted results are returned through a FastAPI backend and displayed in a React frontend.
-
----
-
-## System Architecture
+## Architecture
 
 ```text
-PDF upload
-   │
-   ▼
-document profiler
-   │
-   ▼
-extraction router
-   │
-   ▼
-preprocessing
-   │
-   ▼
-Claude Stage A: metadata extraction
-   │
-   ▼
-Claude Stage B: line-item extraction
-   │
-   ▼
-normalization and finalization
-   │
-   ▼
-grade/spec validation
-   │
-   ▼
-traceability validation
-   │
-   ▼
-confidence normalization
-   │
-   ▼
-deterministic review policy
-   │
-   ▼
-database persistence + frontend response
+Browser (React, :5173)
+        │
+        ▼
+API (FastAPI, :8000)
+        │  POST /api/v1/uploads
+        ▼
+Redis queue ──► Worker (RQ)
+        │              │
+        │              ├── Claude multimodal extraction
+        │              ├── validation + review policy
+        │              └── persist analysis
+        ▼
+PostgreSQL (:5432)     MinIO S3 (:9000)
+  users                  uploads/*.pdf
+  analysis_runs          results/*.json
+  documents
+  jobs
 ```
 
-The runtime pipeline uses a single routed extraction path per document. The public API contract is preserved through the `UniversalDocumentExtraction` response schema, while internal profiling, routing, validation, and review metadata remain available for auditability.
+### Stack
+
+| Layer | Technology |
+| --- | --- |
+| API | FastAPI, Uvicorn |
+| Worker | Redis + RQ |
+| Database | PostgreSQL 16 (Alembic migrations) |
+| Object storage | MinIO (S3-compatible) |
+| Frontend | React, TypeScript, Vite, Tailwind |
+| Extraction | Anthropic Claude API |
 
 ---
 
-## Key Modules
+## Quick start (Docker — recommended)
 
-| Area                  | Path                                         | Responsibility                                                |
-| --------------------- | -------------------------------------------- | ------------------------------------------------------------- |
-| API application       | `app/main.py`                                | FastAPI application entry point                               |
-| Extraction route      | `app/routes/extraction.py`                   | PDF upload, profiling, preprocessing, extraction, persistence |
-| Document profiler     | `app/services/document_profiler.py`          | PDF quality classification                                    |
-| Extraction router     | `app/services/extraction_router.py`          | Route selection based on document profile                     |
-| Preprocessing         | `app/services/preprocessing.py`              | Rasterization and image-variant generation                    |
-| Extraction pipeline   | `app/services/extraction_pipeline.py`        | Multimodal Stage A/B extraction                               |
-| Finalization          | `app/services/extraction_finalizer.py`       | Canonical field cleanup and decision calibration              |
-| Identifier extraction | `app/domain/labeled_identifier_extractor.py` | Conservative parsing of labeled traceability identifiers      |
-| Grade registry        | `app/domain/grade_registry.py`               | Grade aliasing and canonical grade resolution                 |
-| Spec registry         | `app/domain/spec_registry.py`                | Supported deterministic material/spec families                |
-| Validator             | `app/services/validator.py`                  | Compliance checks and validation evidence                     |
-| Traceability          | `app/services/traceability.py`               | Identifier verification and unsafe-candidate suppression      |
-| Review policy         | `app/services/review_policy.py`              | Structured human-review routing                               |
-| Frontend              | `frontend/src/`                              | Upload, dashboard, history, and result detail UI              |
-| Evaluation            | `scripts/run_eval.py`                        | Live extraction and evaluation workflow                       |
-| Metrics               | `scripts/evaluate_outputs.py`                | Re-scoring prediction JSON against gold annotations           |
+### Prerequisites
 
----
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed
+- Node.js 20+ (frontend only)
+- Anthropic API key
 
-## Technology Stack
+### 1. Environment
 
-### Backend
-
-* Python
-* FastAPI
-* Pydantic
-* SQLAlchemy
-* SQLite for local prototype persistence
-* Anthropic Claude API for multimodal extraction
-* PDF and image preprocessing utilities
-
-### Frontend
-
-* React
-* TypeScript
-* Vite
-* Tailwind CSS
-
-### Evaluation
-
-* Gold-set metadata and ground-truth JSON annotations
-* Field-level metrics
-* Critical-field metrics
-* Quality-bucket metrics
-* Failure-case reports
-
-Tesseract is not part of the live runtime pipeline. A legacy offline OCR probe remains in the repository only for reproducibility of earlier cell-level experiments.
-
----
-
-## Evaluation Results
-
-**Primary evaluation run:** `outputs/eval_runs/live_eval_20260612_1632/`
-
-This run evaluates the current pipeline on a 20-document gold set.
-
-| Metric                       |    Value |
-| ---------------------------- | -------: |
-| Documents processed          |  20 / 20 |
-| Failed PDFs                  |        0 |
-| Field Accuracy               |    61.9% |
-| Critical Field Accuracy      |    68.8% |
-| Document Type Accuracy       |    55.0% |
-| Processing Decision Accuracy |    10.0% |
-| Review Rate                  |    85.0% |
-| Unsafe Auto Accept Rate      |    50.0% |
-| Missing Required Field Rate  |     4.5% |
-| Average Latency              | 38.8 sec |
-
-### Interpretation
-
-The latest evaluation shows substantial improvement in field extraction and critical-field completeness compared with the earlier baseline. Missing required fields were reduced significantly, and all 20 evaluation documents were processed successfully.
-
-At the same time, the current auto-accept calibration is not production-safe. The unsafe auto-accept rate indicates that some documents requiring review were classified too permissively. Therefore, QualiFlow should be interpreted as a **human-in-the-loop verification assistant**, not as a fully autonomous approval system.
-
----
-
-## Historical Baseline
-
-The earlier `final20` run is retained as a historical baseline for academic traceability.
-
-| Metric                      | Historical Baseline |
-| --------------------------- | ------------------: |
-| Field Accuracy              |              14.76% |
-| Critical Field Accuracy     |              16.96% |
-| Review Rate                 |              100.0% |
-| Unsafe Auto Accept Rate     |                0.0% |
-| Missing Required Field Rate |               75.0% |
-
-The historical baseline was more conservative but had lower extraction completeness. The latest run improves extraction quality while revealing the need for stricter auto-accept calibration.
-
----
-
-## Dataset
-
-| Path                                         | Description                     |
-| -------------------------------------------- | ------------------------------- |
-| `data/eval_docs/`                            | 20 evaluation PDF documents     |
-| `data/gold/metadata_20.csv`                  | Metadata index for the gold set |
-| `data/gold/ground_truth/`                    | Ground-truth JSON annotations   |
-| `outputs/eval_runs/live_eval_20260612_1632/` | Latest evaluation outputs       |
-| `outputs/eval_runs/final20/`                 | Historical baseline outputs     |
-
-The evaluation uses exact-match comparison for string fields and tolerance-based comparison for numeric fields. Some formatting-only differences may still be counted as mismatches, such as date separators, Unicode variants, punctuation, supplier-name variants, and spacing differences.
-
----
-
-## Setup
-
-### Backend
-
-```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-Create a repo-root `.env` file based on `.env.example`.
-
-To validate Anthropic authentication without printing the key:
-
-```bash
-python -m scripts.check_anthropic_auth
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm install
+```powershell
 copy .env.example .env
+```
+
+Edit `.env` and set:
+
+```env
+ANTHROPIC_API_KEY=your-key-here
+ANTHROPIC_MODEL=claude-sonnet-4-6
+```
+
+### 2. Start backend services
+
+```powershell
+docker compose up --build -d
+```
+
+This starts: **api**, **worker**, **postgres**, **redis**, **minio** (+ one-shot `minio-init` bucket setup).
+
+Migrations run automatically on API/worker startup.
+
+### 3. Start frontend
+
+```powershell
+cd frontend
+copy .env.example .env
+npm install
 npm run dev
 ```
 
-Open:
+Open **http://localhost:5173**
 
-```text
-http://127.0.0.1:5173
-```
+Or use the helper script from the repo root:
 
-Set the frontend API base URL in `frontend/.env`:
-
-```env
-VITE_API_BASE_URL=http://127.0.0.1:8000
+```powershell
+.\scripts\start.ps1
 ```
 
 ---
 
-## Demo Flow
+## Auto-start on boot
 
-1. Start the backend.
-2. Start the frontend.
-3. Register or log in.
-4. Upload a PDF certificate.
-5. Review the extracted document summary.
-6. Inspect line-item fields and mechanical properties.
-7. Check traceability identifiers.
-8. Review validation status and review reasons.
-9. Open the analysis history page.
-10. Inspect the analysis detail page.
+Services use `restart: unless-stopped` in `docker-compose.yml`. After the first `docker compose up -d`:
+
+1. Open **Docker Desktop**
+2. Enable **Settings → General → Start Docker Desktop when you sign in**
+3. Containers restart automatically when Docker Desktop starts
+
+You only need to run `npm run dev` in `frontend/` for the UI.
 
 ---
 
-## API Endpoints
+## Service URLs
 
-| Method | Endpoint                                   | Description              |
-| ------ | ------------------------------------------ | ------------------------ |
-| `POST` | `/api/v1/auth/register`                    | Register user            |
-| `POST` | `/api/v1/auth/login`                       | Login                    |
-| `GET`  | `/api/v1/auth/me`                          | Current user             |
-| `POST` | `/api/v1/extract`                          | Upload and analyze a PDF |
-| `GET`  | `/api/v1/analyses`                         | List previous analyses   |
-| `GET`  | `/api/v1/analyses/{analysis_id}`           | Get analysis detail      |
-| `GET`  | `/api/v1/documents/{document_id}/download` | Download source PDF      |
-| `GET`  | `/health`                                  | Health check             |
+| Service | URL | Credentials |
+| --- | --- | --- |
+| API | http://localhost:8000 | — |
+| API health | http://localhost:8000/healthz | — |
+| Frontend | http://localhost:5173 | — |
+| MinIO console | http://localhost:9001 | `minioadmin` / `minioadmin` |
+| PostgreSQL | `localhost:5432` | `qualiflow` / `qualiflow` / db `qualiflow` |
 
 ---
 
-## Evaluation Commands
+## Daily workflow
 
-Run live extraction and evaluation:
+```powershell
+# 1. Ensure Docker Desktop is running (whale icon green)
+# 2. Backend (skip if containers already up)
+docker compose up -d
 
-```bash
-python -m scripts.run_eval ^
-  --metadata data/gold/metadata_20.csv ^
-  --documents-root data/eval_docs ^
-  --predictions outputs/eval_runs/live_eval_20260612_1632 ^
-  --out outputs/eval_runs/live_eval_20260612_1632
+# 3. Frontend
+cd frontend
+npm run dev
 ```
-
-Re-score existing predictions without re-running extraction:
-
-```bash
-python -m scripts.evaluate_outputs ^
-  --metadata data/gold/metadata_20.csv ^
-  --predictions outputs/eval_runs/live_eval_20260612_1632 ^
-  --out outputs/eval_runs/live_eval_20260612_1632
-```
-
-On Unix/macOS shells, replace `^` with `\`.
 
 ---
 
-## Production Async Backend (v7)
+## API endpoints
 
-QualiFlow now supports an asynchronous document-processing API with Redis/RQ workers, object storage abstraction, PostgreSQL (Alembic migrations), structured logging, and Prometheus-style metrics.
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/v1/auth/register` | Register user |
+| `POST` | `/api/v1/auth/login` | Login |
+| `GET` | `/api/v1/auth/me` | Current user |
+| `POST` | `/api/v1/uploads` | Upload PDF → async job (primary flow) |
+| `GET` | `/api/v1/jobs/{job_id}` | Poll job status |
+| `GET` | `/api/v1/jobs/{job_id}/result` | Get extraction result |
+| `GET` | `/api/v1/analyses` | List saved analyses |
+| `GET` | `/api/v1/analyses/{id}` | Analysis detail |
+| `GET` | `/api/v1/documents/{id}/download` | Download source PDF |
+| `GET` | `/healthz` | Liveness check |
+| `GET` | `/readyz` | Readiness (DB + Redis) |
 
-### Local setup (without Docker)
+`POST /api/v1/extract` remains for synchronous/debug use; the UI uses the async upload pipeline.
 
-```bash
-cp .env.example .env
-python -m pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
-python -m app.workers.run_worker
-```
+### Example async flow
 
-### Docker Compose
-
-```bash
-cp .env.example .env
-docker compose up --build
-```
-
-Services: API (`8000`), worker, PostgreSQL (`5432`), Redis (`6379`), MinIO (`9000`).
-
-### Async upload flow
-
-```bash
+```powershell
 curl -F "file=@sample.pdf" http://localhost:8000/api/v1/uploads
 curl http://localhost:8000/api/v1/jobs/<job_id>
 curl http://localhost:8000/api/v1/jobs/<job_id>/result
 ```
 
-Legacy synchronous extraction remains at `POST /api/v1/extract`.
+---
 
-### Migrations
+## Viewing the database
 
-```bash
-alembic upgrade head
-alembic revision --autogenerate -m "describe change"
-alembic upgrade head
+**Terminal:**
+
+```powershell
+docker compose exec postgres psql -U qualiflow -d qualiflow
 ```
 
-### Deterministic test subset
-
-```bash
-python -m pytest tests/test_review_policy.py tests/test_validator.py tests/test_extraction_finalizer.py tests/test_traceability.py tests/test_field_mapping_registry.py -q
+```sql
+\dt
+SELECT id, supplier_name, status, created_at FROM analysis_runs;
+SELECT id, status, original_filename FROM jobs;
 ```
 
-### Production checklist
+**GUI:** Connect DBeaver or pgAdmin to `localhost:5432` with user `qualiflow`, password `qualiflow`, database `qualiflow`.
 
-- Set `APP_ENV=production`
-- Use PostgreSQL `DATABASE_URL` (SQLite rejected at startup)
-- Set `JWT_SECRET_KEY` to a random string >= 32 characters
-- Set explicit `CORS_ALLOW_ORIGINS` (no `*`)
-- Configure Redis, worker, and S3/MinIO credentials
-- Set `ANTHROPIC_API_KEY` and `ANTHROPIC_MODEL` for LLM extraction
+**PDF / JSON files:** MinIO console at http://localhost:9001 → bucket `qualiflow`.
+
+---
+
+## Docker commands
+
+```powershell
+docker compose ps                  # status
+docker compose logs -f api worker  # live logs
+docker compose down                # stop (data volumes kept)
+docker compose down -v             # stop + delete DB/MinIO volumes (full reset)
+docker compose up --build -d       # rebuild after code changes
+```
+
+---
+
+## Local development (without Docker)
+
+Requires PostgreSQL, Redis, and MinIO running locally (or via Docker for infra only):
+
+```powershell
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
+python -m app.workers.run_worker
+```
+
+Use `.env` with `localhost` URLs as in `.env.example`.
 
 ---
 
 ## Tests
 
-Run the full test suite:
-
-```bash
+```powershell
 python -m pytest tests/ -q
 ```
 
-Run targeted traceability and field-mapping tests:
+Safety-critical subset (see `AGENTS.md`):
 
-```bash
-python -m pytest tests/test_field_mapping_registry.py tests/test_traceability.py -v
+```powershell
+python -m pytest tests/test_review_policy.py tests/test_extraction_finalizer.py tests/test_conservative_decision_confidence.py tests/test_auto_accept_safety_regression.py -q
 ```
 
 ---
 
-## Known Limitations
+## Project layout
 
-* The project is an academic research prototype, not a production SaaS.
-* Auto-accept calibration requires further hardening before deployment.
-* Severe or degraded scans may still require stricter review gates.
-* Deterministic validation is limited to supported grade/spec families.
-* Unsupported material families are routed to human review.
-* Exact-match evaluation may penalize harmless formatting differences.
-* Final certification approval remains a human responsibility.
-
----
-
-## Documentation
-
-| Document                               | Description                                      |
-| -------------------------------------- | ------------------------------------------------ |
-| `docs/runtime_architecture.md`         | Runtime architecture and review-token catalogue  |
-| `docs/jury_architecture_summary.md`    | Concise architecture summary for academic review |
-| `docs/dataset_workflow.md`             | Dataset and evaluation workflow                  |
-| `docs/evaluation_protocol.md`          | Evaluation procedure and metric definitions      |
-| `docs/review_taxonomy.md`              | Structured review reason taxonomy                |
-| `docs/domain_schema.md`                | Domain model and canonical fields                |
-| `docs/preprocessing_strategy.md`       | Image preprocessing strategy                     |
-| `docs/table_parsing.md`                | Table parsing notes                              |
-| `docs/semantic_normalization.md`       | Semantic normalization details                   |
-| `docs/QualiFlow_Mimari_Genel_Bakis.md` | Turkish architecture overview                    |
+```text
+app/                  FastAPI app, services, workers
+db/                   SQLAlchemy models
+alembic/              Database migrations
+frontend/             React UI
+config/               Settings
+tests/                Unit and regression tests
+scripts/              Utilities (start.ps1, eval scripts)
+docker-compose.yml    Full local stack
+```
 
 ---
 
-## Academic Positioning
+## Safety model
 
-QualiFlow demonstrates a safety-aware hybrid approach for industrial quality-document extraction and review. The project shows that multimodal AI can improve field recovery when combined with deterministic validation, traceability checks, and structured human-review routing.
+QualiFlow follows a conservative review policy:
 
-The current prototype is most appropriately positioned as a **quality-document verification assistant**. Its main research value is not only extraction automation, but also the explicit handling of uncertainty, validation limits, and review-required cases.
+- Never auto-accept `severe_scan` documents
+- Never auto-accept missing/unverified traceability identifiers
+- Never auto-accept uncertain table alignment
+- `auto_accept` requires structured `auto_accept_evidence`
+
+See `AGENTS.md` for agent/developer safety rules.
+
+---
+
+## Known limitations
+
+- Academic research prototype, not production SaaS
+- Deterministic validation limited to supported grade/spec families
+- Degraded scans may require human review
+- Final certification approval remains a human responsibility

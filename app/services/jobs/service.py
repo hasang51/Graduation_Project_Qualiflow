@@ -55,6 +55,7 @@ def job_status_response(job: Job) -> JobStatusResponse:
         finished_at=job.finished_at,
         error_message=job.error_message,
         trace_id=job.trace_id,
+        analysis_id=job.analysis_run_id,
     )
 
 
@@ -73,9 +74,16 @@ def mark_job_processing(db: Session, job: Job) -> Job:
     return job
 
 
-def mark_job_succeeded(db: Session, job: Job, result_object_key: str) -> Job:
+def mark_job_succeeded(
+    db: Session,
+    job: Job,
+    result_object_key: str,
+    *,
+    analysis_run_id: int | None = None,
+) -> Job:
     job.status = "succeeded"
     job.result_object_key = result_object_key
+    job.analysis_run_id = analysis_run_id
     job.finished_at = utcnow()
     job.updated_at = utcnow()
     job.error_message = None
@@ -96,13 +104,29 @@ def mark_job_failed(db: Session, job: Job, error_message: str) -> Job:
 
 def load_job_result(job: Job) -> JobResultResponse:
     if job.status == "failed":
-        return JobResultResponse(job_id=job.id, status="failed", error_message=job.error_message)
+        return JobResultResponse(
+            job_id=job.id,
+            status="failed",
+            error_message=job.error_message,
+            analysis_id=job.analysis_run_id,
+        )
     if job.status != "succeeded" or not job.result_object_key:
-        return JobResultResponse(job_id=job.id, status=job.status)  # type: ignore[arg-type]
+        return JobResultResponse(
+            job_id=job.id,
+            status=job.status,  # type: ignore[arg-type]
+            analysis_id=job.analysis_run_id,
+        )
     storage = get_storage_backend()
     raw = storage.get_bytes(job.result_object_key)
     result = json.loads(raw.decode("utf-8"))
-    return JobResultResponse(job_id=job.id, status="succeeded", result=result)
+    if job.analysis_run_id is not None and isinstance(result, dict):
+        result.setdefault("analysis_id", job.analysis_run_id)
+    return JobResultResponse(
+        job_id=job.id,
+        status="succeeded",
+        result=result,
+        analysis_id=job.analysis_run_id,
+    )
 
 
 def store_job_result(job_id: str, payload: dict) -> str:

@@ -10,6 +10,8 @@ from app.models_db import AnalysisItem, AnalysisRun, Document, User
 from app.schemas.extraction import UniversalDocumentExtraction
 from app.services.traceability import sanitize_result_for_api_boundary, sanitize_unverified_traceability_for_user
 
+_RESULT_META_KEYS = frozenset({"preprocessing_meta", "source_filename"})
+
 
 def upsert_document(
     db: Session,
@@ -102,4 +104,89 @@ def update_run_failed(db: Session, run: AnalysisRun, error_message: str, preproc
     run.error_message = error_message
     run.preprocessing_meta_json = json.dumps(preprocessing_meta, ensure_ascii=False)
     db.flush()
+    return run
+
+
+def begin_analysis_for_user(
+    db: Session,
+    *,
+    user: User,
+    original_filename: str,
+    stored_pdf_path: str,
+    file_sha256: str,
+    preprocessing_meta: dict[str, Any],
+    page_count: int = 0,
+) -> AnalysisRun:
+    """Create or reuse a document row and open an analysis run (sync upload path)."""
+    document = upsert_document(
+        db,
+        user=user,
+        original_filename=original_filename,
+        stored_pdf_path=stored_pdf_path,
+        file_sha256=file_sha256,
+        page_count=page_count,
+    )
+    return create_processing_run(
+        db,
+        user_id=user.id,
+        document_id=document.id,
+        preprocessing_meta=preprocessing_meta,
+    )
+
+
+def extraction_payload_from_result(result_payload: dict[str, Any]) -> tuple[UniversalDocumentExtraction, dict[str, Any]]:
+    preprocessing_meta = result_payload.get("preprocessing_meta")
+    if not isinstance(preprocessing_meta, dict):
+        preprocessing_meta = {}
+    extraction_data = {key: value for key, value in result_payload.items() if key not in _RESULT_META_KEYS}
+    extraction = UniversalDocumentExtraction.model_validate(extraction_data)
+    return extraction, preprocessing_meta
+
+
+def _page_count_from_preprocessing_meta(preprocessing_meta: dict[str, Any]) -> int:
+    page_count = preprocessing_meta.get("page_count")
+    if isinstance(page_count, int) and page_count >= 0:
+        return page_count
+    profile = preprocessing_meta.get("profile")
+    if isinstance(profile, dict):
+        raw = profile.get("page_count")
+        if isinstance(raw, int) and raw >= 0:
+            return raw
+    return 0
+
+
+def persist_analysis_from_extraction_result(
+    db: Session,
+    *,
+    user_id: int,
+    original_filename: str,
+    stored_pdf_path: str,
+    file_sha256: str,
+    result_payload: dict[str, Any],
+) -> AnalysisRun:
+    """Persist a completed extraction for async worker jobs (authenticated users only)."""
+    user = db.get(User, user_id)
+    if user is None:
+        raise ValueError(f"User {user_id} not found.")
+
+    extraction, preprocessing_meta = extraction_payload_from_result(result_payload)
+    page_count = _page_count_from_preprocessing_meta(preprocessing_meta)
+
+    document = upsert_document(
+        db,
+        user=user,
+        original_filename=original_filename,
+        stored_pdf_path=stored_pdf_path,
+        file_sha256=file_sha256,
+        page_count=page_count,
+    )
+    run = create_processing_run(
+        db,
+        user_id=user.id,
+        document_id=document.id,
+        preprocessing_meta=preprocessing_meta,
+    )
+    update_run_completed(db, run, extraction, preprocessing_meta)
+    db.commit()
+    db.refresh(run)
     return run

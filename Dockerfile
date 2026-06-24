@@ -21,6 +21,9 @@ RUN pip install --user -r requirements.txt
 
 COPY --chown=qualiflow:qualiflow . .
 
+RUN sed -i 's/\r$//' /app/scripts/docker-entrypoint.sh \
+    && chmod +x /app/scripts/docker-entrypoint.sh
+
 ENV PATH="/home/qualiflow/.local/bin:${PATH}"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
@@ -28,4 +31,5 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 EXPOSE 8000
 
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

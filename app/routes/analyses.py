@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
@@ -13,6 +13,7 @@ from app.deps import get_current_user
 from app.models_db import AnalysisRun, Document, User
 from app.schemas.analysis import AnalysisDetail, AnalysisListItem
 from app.schemas.extraction import UniversalDocumentExtraction
+from app.services.storage.factory import get_storage_backend
 from app.services.traceability import sanitize_result_for_api_boundary
 
 router = APIRouter(prefix="/api/v1", tags=["analyses"])
@@ -87,7 +88,16 @@ def download_document(
     doc = db.get(Document, document_id)
     if doc is None or doc.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Document not found.")
+
     file_path = Path(doc.stored_pdf_path)
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Stored PDF file not found.")
-    return FileResponse(path=file_path, filename=doc.original_filename, media_type="application/pdf")
+    if file_path.is_file():
+        return FileResponse(path=file_path, filename=doc.original_filename, media_type="application/pdf")
+
+    storage = get_storage_backend()
+    object_key = doc.stored_pdf_path.lstrip("/")
+    if storage.exists(object_key):
+        content = storage.get_bytes(object_key)
+        headers = {"Content-Disposition": f'attachment; filename="{doc.original_filename}"'}
+        return Response(content=content, media_type="application/pdf", headers=headers)
+
+    raise HTTPException(status_code=404, detail="Stored PDF file not found.")

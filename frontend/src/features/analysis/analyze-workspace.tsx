@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { AlertTriangle, RefreshCw, ShieldCheck, Upload } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../components/ui/button'
 import { Card } from '../../components/ui/card'
@@ -9,12 +9,33 @@ import { ExplanationPanel, ReviewerFocusStrip } from '../results/explanation-pan
 import { SecondaryPanels } from '../results/secondary-panels'
 import { SummaryCards } from '../results/summary-cards'
 import { UploadDropzone } from '../upload/upload-dropzone'
-import { extractDocument, getHealth } from '../../lib/api'
+import { extractDocumentAsync, getHealth, type JobProgressPhase } from '../../lib/api'
 import { buildItemsCsv } from '../../lib/csv'
 import type { ExtractionResponse } from '../../types/qualiflow'
 import { AnalysisProgress } from './analysis-progress'
 
-const loadingSteps = ['Uploading PDF', 'Processing pages', 'Extracting structured data', 'Validating compliance']
+const loadingSteps = [
+  'Uploading PDF',
+  'Queued for processing',
+  'Processing pages',
+  'Extracting structured data',
+  'Validating compliance',
+]
+
+function phaseToStepIndex(phase: JobProgressPhase): number {
+  switch (phase) {
+    case 'uploading':
+      return 0
+    case 'queued':
+      return 1
+    case 'processing':
+      return 2
+    case 'succeeded':
+      return loadingSteps.length - 1
+    default:
+      return 2
+  }
+}
 
 function downloadCsv(content: string) {
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
@@ -41,7 +62,10 @@ export function AnalyzeWorkspace() {
   })
 
   const mutation = useMutation({
-    mutationFn: (selectedFile: File) => extractDocument(selectedFile, true),
+    mutationFn: (selectedFile: File) =>
+      extractDocumentAsync(selectedFile, true, (phase) => {
+        setLoadingStepIndex(phaseToStepIndex(phase))
+      }),
     onSuccess: ({ extraction, analysisId }) => {
       if (analysisId !== null) {
         setOpeningReport(true)
@@ -52,14 +76,6 @@ export function AnalyzeWorkspace() {
       setResult(extraction)
     },
   })
-
-  useEffect(() => {
-    if (!mutation.isPending) return
-    const timer = window.setInterval(() => {
-      setLoadingStepIndex((prev) => Math.min(prev + 1, loadingSteps.length - 1))
-    }, 1800)
-    return () => window.clearInterval(timer)
-  }, [mutation.isPending])
 
   function onFileSelected(nextFile: File | null, error?: string) {
     setFile(nextFile)
@@ -100,7 +116,9 @@ export function AnalyzeWorkspace() {
             <div className="flex items-start gap-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 text-rose-300" />
               <p className="text-sm text-rose-100">
-                Backend is offline or misconfigured. Start FastAPI server and verify ANTHROPIC_API_KEY.
+                {healthQuery.error instanceof Error
+                  ? healthQuery.error.message
+                  : 'Cannot reach the backend API. Verify the server is running and VITE_API_BASE_URL is correct.'}
               </p>
             </div>
             <Button variant="danger" className="h-9" onClick={() => healthQuery.refetch()}>
@@ -144,7 +162,11 @@ export function AnalyzeWorkspace() {
               )}
             </div>
           </Card>
-          <AnalysisProgress currentStepIndex={mutation.isPending ? loadingStepIndex : 0} active={mutation.isPending} />
+          <AnalysisProgress
+            currentStepIndex={mutation.isPending ? loadingStepIndex : 0}
+            active={mutation.isPending}
+            steps={loadingSteps}
+          />
         </div>
       )}
 

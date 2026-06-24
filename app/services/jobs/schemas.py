@@ -23,6 +23,7 @@ class JobStatusResponse(BaseModel):
     finished_at: datetime | None = None
     error_message: str | None = None
     trace_id: str | None = None
+    analysis_id: int | None = None
 
 
 class JobResultResponse(BaseModel):
@@ -30,3 +31,4 @@ class JobResultResponse(BaseModel):
     status: JobStatus
     result: dict | None = None
     error_message: str | None = None
+    analysis_id: int | None = None

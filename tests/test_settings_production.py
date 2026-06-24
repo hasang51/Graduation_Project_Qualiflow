@@ -36,6 +36,11 @@ def test_production_rejects_sqlite():
         )
 
 
-def test_local_allows_sqlite_defaults():
-    settings = Settings(app_env="local")
-    assert settings.database_url.startswith("sqlite")
+def test_local_allows_postgres_defaults():
+    settings = Settings(
+        app_env="local",
+        database_url="postgresql+psycopg2://qualiflow:qualiflow@localhost:5432/qualiflow",
+        object_storage_backend="s3",
+    )
+    assert settings.database_url.startswith("postgresql")
+    assert settings.object_storage_backend == "s3"

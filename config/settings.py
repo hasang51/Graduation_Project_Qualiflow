@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     debug: bool = False
     api_v1_prefix: str = "/api/v1"
 
-    database_url: str = "sqlite:///./data/qualiflow.db"
+    database_url: str = "postgresql+psycopg2://qualiflow:qualiflow@localhost:5432/qualiflow"
     redis_url: str = "redis://localhost:6379/0"
 
     jwt_secret_key: str = "change-me"
@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     rate_limit_default: str = "60/minute"
     rate_limit_upload: str = "10/minute"
 
-    object_storage_backend: Literal["local", "s3"] = "local"
+    object_storage_backend: Literal["local", "s3"] = "s3"
     storage_dir: Path = Path("./data/storage")
     s3_endpoint_url: str | None = None
     s3_bucket_name: str = "qualiflow"
@@ -68,7 +68,7 @@ class Settings(BaseSettings):
     anthropic_model: str = Field(default="", description="Anthropic model id; must be set via env for LLM calls")
 
     pdf_dpi: int = 400
-    poppler_path: str = r"C:\poppler\Library\bin"
+    poppler_path: str = ""
     review_confidence_threshold: float = 0.75
     max_upload_mb: int = 20
     max_pages_for_llm: int = 8

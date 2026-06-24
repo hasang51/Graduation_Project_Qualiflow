@@ -126,6 +126,36 @@ export interface MeResponse {
   created_at: string
 }
 
+export type JobStatus = 'queued' | 'processing' | 'succeeded' | 'failed' | 'cancelled'
+
+export interface JobCreateResponse {
+  job_id: string
+  status: JobStatus
+  poll_url: string
+}
+
+export interface JobStatusResponse {
+  job_id: string
+  status: JobStatus
+  created_at: string
+  updated_at: string
+  started_at: string | null
+  finished_at: string | null
+  error_message: string | null
+  trace_id: string | null
+  analysis_id: number | null
+}
+
+export interface JobResultResponse {
+  job_id: string
+  status: JobStatus
+  result: Record<string, unknown> | null
+  error_message: string | null
+  analysis_id: number | null
+}
+
+export type JobProgressPhase = JobStatus | 'uploading'
+
 export interface AnalysisListItem {
   id: number
   document_id: number

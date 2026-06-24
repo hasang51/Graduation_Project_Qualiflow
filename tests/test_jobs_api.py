@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app.services.jobs.service import create_queued_job, mark_job_succeeded, store_job_result
+from app.services.jobs.service import create_queued_job, get_job, mark_job_succeeded, store_job_result
 from db.session import SessionLocal
 
 
@@ -20,6 +20,7 @@ def test_job_status_and_result_flow(client: TestClient, minimal_pdf_bytes: bytes
     status_resp = client.get(f"/api/v1/jobs/{job_id}")
     assert status_resp.status_code == 200
     assert status_resp.json()["status"] == "queued"
+    assert status_resp.json()["analysis_id"] is None
 
     result_resp = client.get(f"/api/v1/jobs/{job_id}/result")
     assert result_resp.status_code == 425
@@ -31,13 +32,14 @@ def test_job_status_and_result_flow(client: TestClient, minimal_pdf_bytes: bytes
         job = get_job(db, job_id)
         assert job is not None
         result_key = store_job_result(job_id, {"status": "needs_review", "items": []})
-        mark_job_succeeded(db, job, result_key)
+        mark_job_succeeded(db, job, result_key, analysis_run_id=42)
     finally:
         db.close()
 
     done = client.get(f"/api/v1/jobs/{job_id}/result")
     assert done.status_code == 200
     assert done.json()["status"] == "succeeded"
+    assert done.json()["analysis_id"] == 42
     assert done.json()["result"]["status"] == "needs_review"
 
 
