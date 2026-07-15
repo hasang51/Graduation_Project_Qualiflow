@@ -1,9 +1,21 @@
-# QualiFlow
+## Project Leadership
 
-**Human-in-the-loop AI verification for industrial CoA / MTC certificates**
+QualiFlow was developed as a two-person Computer Engineering graduation project.
 
-QualiFlow extracts structured fields from manufacturing PDFs, validates them deterministically, and routes uncertain cases to human review rather than silent approval.
+I initiated the project after researching industrial document-verification workflows and led the product definition, technical planning, and system architecture.
 
+My contributions included:
+
+- market and problem research
+- product scope and architecture
+- backend services and API workflows
+- PostgreSQL data design
+- asynchronous processing
+- AI extraction and deterministic validation
+- human-review policy
+- testing, documentation, and deployment setup
+
+The project was developed collaboratively with one teammate.
 ---
 
 ## Architecture
